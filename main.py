@@ -1,1 +1,0 @@
-print("Júpiter AI Workers")
