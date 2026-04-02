@@ -1,1 +1,6 @@
-# requirements for AI workers
+fastapi
+uvicorn
+mediapipe
+openai-whisper
+pika
+python-multipart
