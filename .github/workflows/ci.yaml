@@ -1,20 +1,8 @@
 name: CI
-on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.21'
-      - name: Default Go step
-        run: echo "Basic Go CI setup"
+      - uses: actions/checkout@v4
+      - run: echo "Basic CI Step"

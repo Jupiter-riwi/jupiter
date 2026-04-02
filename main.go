@@ -1,5 +1,7 @@
 package main
 
+import "fmt"
+
 func main() {
-    // Scaffold API Gateway
+    fmt.Println("Júpiter API Gateway")
 }
