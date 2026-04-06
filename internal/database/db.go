@@ -9,9 +9,12 @@ import (
 	"gorm.io/gorm"
 )
 
+// DB is a global variable that holds the database connection instance
 var DB *gorm.DB
 
+// ConnectDatabase initializes the PostgreSQL connection using GORM
 func ConnectDatabase() {
+	// Build Data Source Name (DSN) using environment variables
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
 		getEnv("DB_HOST", "localhost"),
@@ -22,15 +25,19 @@ func ConnectDatabase() {
 	)
 
 	var err error
-	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 
+	// Open connection to PostgreSQL database
+	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		log.Fatal("Error conectando a la base de datos:", err)
+		// Stop execution if connection fails
+		log.Fatal("Error connecting to the database:", err)
 	}
 
-	log.Println("Conectado a PostgreSQL correctamente")
+	// Log successful connection
+	log.Println("Successfully connected to PostgreSQL")
 }
 
+// getEnv retrieves environment variables or returns a default value if not set
 func getEnv(key, defaultValue string) string {
 	value := os.Getenv(key)
 	if value == "" {

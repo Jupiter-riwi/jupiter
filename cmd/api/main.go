@@ -7,9 +7,12 @@ import (
 )
 
 func main() {
+	// Load environment variables from .env file
 	godotenv.Load()
-	database.ConnectDatabase()
-	database.DB.AutoMigrate(&models.User{})
-	
-}
 
+	// Initialize database connection
+	database.ConnectDatabase()
+
+	// Run auto-migration to create/update the User table
+	database.DB.AutoMigrate(&models.User{})
+}
