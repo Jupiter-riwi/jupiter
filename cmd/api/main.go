@@ -1,21 +1,15 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	"net/http"
+	"github.com/Jeskaai/jupiter-api-gateway/internal/database"
+	"github.com/Jeskaai/jupiter-api-gateway/pkg/models"
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	fmt.Println("🚀 Iniciando Júpiter API Gateway en el puerto 8080...")
-
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status": "ok", "service": "jupiter-api-gateway"}`))
-	})
-
-	if err := http.ListenAndServe(":8080", nil); err != nil {
-		log.Fatalf("Error al arrancar el servidor: %v", err)
-	}
+	godotenv.Load()
+	database.ConnectDatabase()
+	database.DB.AutoMigrate(&models.User{})
+	
 }
+
