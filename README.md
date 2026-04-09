@@ -1,40 +1,94 @@
-# 🪐 Júpiter - AI Workers Core (Python)
+# FastAPI + RabbitMQ — Servicio de Telemetría
 
-Microservicio encargado del procesamiento multimodal (Voz, Rostro y Lenguaje) mediante FastAPI.
+Servidor base con **FastAPI**, **uvicorn** y **pika** que consume mensajes de la cola `telemetry_queue`.
 
-## Stack Técnico
+## Estructura
 
-- **Lenguaje:** Python 3.10+
-- **Framework:** FastAPI
-- **Visión Asistida:** MediaPipe
-- **Procesamiento de Audio:** Whisper
-- **Cola de Mensajes:** Pika (RabbitMQ)
+```
+fastapi-rabbitmq/
+├── app/
+│   ├── __init__.py
+│   ├── main.py          # Servidor FastAPI + lifespan
+│   ├── rabbitmq.py      # Conexión y canal pika
+│   └── consumer.py      # Consumer asíncrono (hilo daemon)
+├── .env.example
+├── docker-compose.yml
+├── Dockerfile
+└── requirements.txt
+```
 
-## Estructura del Proyecto
+## Inicio rápido (local)
 
-A continuación, la división del core para inteligencia artificial:
+```bash
+# 1. Clonar / ubicarse en el directorio
+cd fastapi-rabbitmq
 
-- `app/models/`: Encargado de empaquetar, almacenar y disponibilizar la capa lógica de Modelos de IA (MediaPipe, Whisper, LLMs).
-- `app/services/`: Capa transaccional. Lógica para procesar y consumir audio/video y comunicación constante de colas con RabbitMQ.
-- `app/api/`: Capa dedicada exclusivamente a exponer Endpoints seguros orientados tanto a la funcionalidad misma como a telemetría celular y salud del worker.
+# 2. Entorno virtual
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 
-## Guía de Instalación
+# 3. Dependencias
+pip install -r requirements.txt
 
-1. **Creación de entorno virtual:**
-   ```bash
-   python -m venv venv
-   ```
+# 4. Variables de entorno (opcional, los defaults apuntan a localhost)
+cp .env.example .env
 
-2. **Activación de entorno virtual:**
-   ```bash
-   source venv/bin/activate
-   ```
+# 5. RabbitMQ local con Docker
+docker run -d --name rabbitmq \
+  -p 5672:5672 -p 15672:15672 \
+  rabbitmq:3.13-management-alpine
 
-3. **Instalación de dependencias:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+# 6. Arrancar el servidor
+uvicorn app.main:app --reload
+```
 
-## Reglas de Contribución
+## Inicio con Docker Compose (todo en uno)
 
-Todo el equipo se acoge a las directrices delineadas en el archivo principal de `skill-git.md`. Puntualmente para el worker de AI, tener en consideración que todas las tareas en desarrollo, fix y chore de IA deben desarrollarse de manera aislada en ramas `feature/`.
+```bash
+docker compose up --build
+```
+
+## Endpoints
+
+| Método | Ruta      | Descripción                                      |
+|--------|-----------|--------------------------------------------------|
+| GET    | `/health` | Estado del servicio y conectividad con RabbitMQ  |
+| GET    | `/docs`   | Swagger UI interactivo                           |
+
+### Ejemplo de respuesta `/health`
+
+```json
+{
+  "status": "ok",
+  "service": "fastapi-rabbitmq",
+  "rabbitmq": "ok",
+  "queue": "telemetry_queue",
+  "messages_in_queue": 0
+}
+```
+
+## Publicar un mensaje de prueba
+
+```bash
+python - <<'EOF'
+import pika, json
+
+conn = pika.BlockingConnection(pika.ConnectionParameters("localhost"))
+ch = conn.channel()
+ch.queue_declare(queue="telemetry_queue", durable=True)
+ch.basic_publish(
+    exchange="",
+    routing_key="telemetry_queue",
+    body=json.dumps({"sensor": "temp-01", "value": 23.5}),
+    properties=pika.BasicProperties(delivery_mode=2),
+)
+print("Mensaje enviado ✓")
+conn.close()
+EOF
+```
+
+El consumer imprimirá en consola:
+
+```
+2024-05-01T12:00:00 | INFO     | app.consumer | [2024-05-01T12:00:00Z] 📨 Mensaje recibido | queue=telemetry_queue | delivery_tag=1 | payload={"sensor": "temp-01", "value": 23.5}
+```
