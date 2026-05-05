@@ -15,7 +15,7 @@ Los docs de arquitectura tienden a desincronizarse del código y de las decision
 
 ### 1. Detectar si es creación o actualización
 
-Buscá `ARCHITECTURE.md` en la raíz del proyecto (working directory). Si existe, **leelo entero antes de hacer cualquier cambio**. El doc existente puede tener decisiones cerradas que no hay que pisar (ver "Reglas de preservación" más abajo).
+Buscá `docs/ARCHITECTURE.md` en el proyecto (path estándar del repo). Si existe, **leelo entero antes de hacer cualquier cambio**. Fallback: si no existe la carpeta `docs/`, buscalo en la raíz. El doc existente puede tener decisiones cerradas que no hay que pisar (ver "Reglas de preservación" más abajo).
 
 ### 2. Reunir inputs
 

@@ -6,8 +6,8 @@ Plataforma web multi-tenant que evalúa habilidades de equipos de ventas analiza
 
 | Documento | Para qué sirve |
 |---|---|
-| [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Arquitectura completa del MVP: flujo, diagrama, modelo de datos, stack, fases, riesgos |
-| [`TEAM.md`](./TEAM.md) | División de trabajo entre los 4 desarrolladores, contratos compartidos, cadencia |
+| [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Arquitectura completa del MVP: flujo, diagrama, modelo de datos, stack, fases, riesgos |
+| [`docs/TEAM.md`](./docs/TEAM.md) | División de trabajo entre los 4 desarrolladores, contratos compartidos, cadencia |
 
 Esos dos documentos son la fuente de verdad. Si encontrás una contradicción entre código y doc, abrí un PR para alinearlos.
 
@@ -15,15 +15,17 @@ Esos dos documentos son la fuente de verdad. Si encontrás una contradicción en
 
 ```
 jupiter/
-├── ARCHITECTURE.md          ← arquitectura del sistema
-├── TEAM.md                  ← división de trabajo y contratos
-├── README.md                ← este archivo
+├── docs/
+│   ├── ARCHITECTURE.md      ← arquitectura del sistema
+│   └── TEAM.md              ← división de trabajo y contratos
+├── infra/                   ← docker-compose, k8s, scripts de infra
 ├── api-gateway/             ← FastAPI gateway (auth, multi-tenant, presigned URLs, WS)
 ├── ai-workers/              ← workers de IA (pose, whisper, prosody, scoring)
 ├── frontend/                ← React + Vite + Tailwind (grabación + dashboard)
+├── README.md                ← este archivo
 └── .claude/
     └── skills/
-        └── generate-arch/   ← skill personal para mantener ARCHITECTURE.md
+        └── generate-arch/   ← skill para mantener ARCHITECTURE.md actualizado
 ```
 
 ## Cómo arrancar (cuando Fase 0 esté lista)
@@ -85,4 +87,4 @@ Cualquier cambio en contratos compartidos (schema de DB, schema de jobs, contrat
 1. Branch siguiendo el patrón `<area>/feature/<descripción>` (ver branches existentes).
 2. PRs chicos (< 400 líneas idealmente).
 3. Review obligatorio de al menos 1 dev fuera del dominio.
-4. Si tu cambio toca un contrato compartido (ver `TEAM.md`), actualizá `ARCHITECTURE.md` en el mismo PR usando `/generate-arch`.
+4. Si tu cambio toca un contrato compartido (ver `docs/TEAM.md`), actualizá `docs/ARCHITECTURE.md` en el mismo PR usando `/generate-arch`.
