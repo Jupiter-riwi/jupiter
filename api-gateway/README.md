@@ -1,4 +1,4 @@
-# 🪐 Júpiter - API Gateway (Golang)
+# Apex Vision - API Gateway (Golang)
 
 Orquestador central de tráfico, autenticación y comunicación asíncrona con Workers.
 

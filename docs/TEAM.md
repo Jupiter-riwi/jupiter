@@ -1,4 +1,4 @@
-# División de trabajo — Jupiter Sales Evaluator
+# División de trabajo — Apex Vision Sales Evaluator
 
 Equipo de **4 desarrolladores** trabajando en paralelo. Cada uno tiene un dominio claro con entregables propios y dependencias mínimas, alineadas con las feature branches que ya existen en el repo.
 

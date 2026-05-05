@@ -1,4 +1,4 @@
-# Arquitectura MVP — Jupiter Sales Evaluator
+# Arquitectura MVP — Apex Vision Sales Evaluator
 
 > Plataforma web multi-tenant para evaluar habilidades de equipos de ventas mediante análisis multimodal (video + audio) con OpenAI.
 
@@ -88,9 +88,9 @@
 | Componente repo actual | Destino MVP | Acción |
 |---|---|---|
 | `Body-Detection/.../pose_detector.py` | Pose Worker | Refactor: convertir el loop de cámara en función `process_video(path) → features` |
-| `jupiter/ai-workers` (FastAPI + RabbitMQ consumer) | Template para los 3 workers | Clonar 3 veces, una por worker |
-| `jupiter/api-gateway` (Go) | ~~API Gateway~~ → reemplazar por FastAPI | Decidido: se migra a Python para unificar stack |
-| `jupiter/frontend` (React+Vite+Tailwind) | Frontend | Reciclar layout; agregar grabación + dashboard |
+| `apex-vision/ai-workers` (FastAPI + RabbitMQ consumer) | Template para los 3 workers | Clonar 3 veces, una por worker |
+| `apex-vision/api-gateway` (Go) | ~~API Gateway~~ → reemplazar por FastAPI | Decidido: se migra a Python para unificar stack |
+| `apex-vision/frontend` (React+Vite+Tailwind) | Frontend | Reciclar layout; agregar grabación + dashboard |
 
 ---
 

@@ -1,4 +1,4 @@
-# Historias de Usuario — Jupiter Sales Evaluator
+# Historias de Usuario — Apex Vision Sales Evaluator
 
 > Relación con `TEAM.md`: cada historia de usuario (HU) se asigna al Dev dueño del dominio correspondiente. Prioridades: **P0** (bootstrap, bloquea a otros), **P1** (MVP), **P2** (post-MVP).
 

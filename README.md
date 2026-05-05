@@ -1,4 +1,4 @@
-# Jupiter Sales Evaluator
+# Apex Vision — Sales Evaluator
 
 Plataforma web multi-tenant que evalúa habilidades de equipos de ventas analizando lenguaje corporal y audio. Un vendedor responde una pregunta grabándose desde el navegador; el sistema procesa el video con MediaPipe (pose), OpenAI Whisper (transcripción) y librosa (prosodia), agrega los features y los envía a OpenAI GPT-4o para producir un **score** y **recomendaciones** accionables que se muestran en el perfil del vendedor.
 
@@ -14,7 +14,7 @@ Esos dos documentos son la fuente de verdad. Si encontrás una contradicción en
 ## Estructura del repo
 
 ```
-jupiter/
+apex-vision/
 ├── docs/
 │   ├── ARCHITECTURE.md      ← arquitectura del sistema
 │   └── TEAM.md              ← división de trabajo y contratos

@@ -7,12 +7,12 @@ import (
 )
 
 func main() {
-	fmt.Println("🚀 Iniciando Júpiter API Gateway en el puerto 8080...")
+	fmt.Println("🚀 Iniciando Apex Vision API Gateway en el puerto 8080...")
 
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status": "ok", "service": "jupiter-api-gateway"}`))
+		w.Write([]byte(`{"status": "ok", "service": "apex-vision-api-gateway"}`))
 	})
 
 	if err := http.ListenAndServe(":8080", nil); err != nil {

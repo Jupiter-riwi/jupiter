@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-// Gateway de Go apuntando al puerto 8080
+// Apex Vision API Gateway
 export const api = axios.create({
   baseURL: 'http://localhost:8080/api',
   headers: {

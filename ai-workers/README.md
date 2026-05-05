@@ -1,4 +1,4 @@
-# FastAPI + RabbitMQ — Servicio de Telemetría
+# Apex Vision — AI Workers (FastAPI + RabbitMQ)
 
 Servidor base con **FastAPI**, **uvicorn** y **pika** que consume mensajes de la cola `telemetry_queue`.
 

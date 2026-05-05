@@ -1,0 +1,73 @@
+{
+  "evaluation_id": "fixture-eval-002",
+  "tenant_id": "fixture-tenant-demo",
+  "scenario": "Vendedor nervioso — muchas muletillas, postura cerrada, ritmo acelerado",
+  "expected_overall_range": [35, 55],
+
+  "pose": {
+    "segments": [
+      {
+        "start_seconds": 0,
+        "end_seconds": 10,
+        "posture_openness": 0.38,
+        "shoulder_alignment": 0.65,
+        "head_orientation": {"yaw": 18.2, "pitch": -12.5},
+        "hand_gesture_frequency": 4,
+        "hand_gesture_amplitude": 0.12,
+        "pose_variability": 0.15
+      },
+      {
+        "start_seconds": 10,
+        "end_seconds": 20,
+        "posture_openness": 0.35,
+        "shoulder_alignment": 0.60,
+        "head_orientation": {"yaw": -15.8, "pitch": -14.1},
+        "hand_gesture_frequency": 3,
+        "hand_gesture_amplitude": 0.10,
+        "pose_variability": 0.12
+      },
+      {
+        "start_seconds": 20,
+        "end_seconds": 30,
+        "posture_openness": 0.40,
+        "shoulder_alignment": 0.62,
+        "head_orientation": {"yaw": 22.3, "pitch": -10.2},
+        "hand_gesture_frequency": 5,
+        "hand_gesture_amplitude": 0.15,
+        "pose_variability": 0.18
+      }
+    ],
+    "summary": {
+      "avg_posture_openness": 0.38,
+      "avg_shoulder_alignment": 0.62,
+      "avg_hand_gesture_frequency": 4.0,
+      "avg_hand_gesture_amplitude": 0.12,
+      "eye_contact_ratio": 0.32,
+      "pose_variability_avg": 0.15
+    }
+  },
+
+  "transcript": {
+    "full_text": "Eh, bueno, este, hoy vengo a hablarles del, mmm, producto que, este, tenemos. Es un software, bueno, para empresas, y, este, ayuda con, mmm, las operaciones diarias. Digamos que, o sea, pueden reducir costos y eso. Realmente es bueno. ¿No sé si tienen preguntas o algo? Básicamente eso es todo, gracias.",
+    "segments": [
+      {"start": 0.0, "end": 8.5, "text": "Eh, bueno, este, hoy vengo a hablarles del, mmm, producto que, este, tenemos."},
+      {"start": 8.5, "end": 17.0, "text": "Es un software, bueno, para empresas, y, este, ayuda con, mmm, las operaciones diarias."},
+      {"start": 17.0, "end": 23.5, "text": "Digamos que, o sea, pueden reducir costos y eso. Realmente es bueno."},
+      {"start": 23.5, "end": 30.0, "text": "¿No sé si tienen preguntas o algo? Básicamente eso es todo, gracias."}
+    ],
+    "word_count": 68,
+    "language": "es",
+    "questions_asked": 1
+  },
+
+  "prosody": {
+    "pitch": {"median": 210.8, "variance": 3400.5},
+    "energy": {"median": 0.018, "peak": 0.062},
+    "words_per_minute": 195.0,
+    "pause_ratio": 0.02,
+    "filler_words": {"count": 12, "words": ["eh", "bueno", "este", "mmm", "digamos", "o sea", "realmente", "básicamente", "este", "bueno", "mmm", "este"]},
+    "duration_seconds": 30.0,
+    "transcript_word_count": 68,
+    "sample_rate": 22050
+  }
+}

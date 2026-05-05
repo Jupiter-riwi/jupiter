@@ -32,5 +32,40 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  prosody:
+    build:
+      context: .
+      dockerfile: prosody/Dockerfile
+    container_name: prosody-worker
+    ports:
+      - "8001:8001"
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+      PROSODY_QUEUE: prosody.jobs
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  scoring:
+    build:
+      context: .
+      dockerfile: scoring/Dockerfile
+    container_name: scoring-worker
+    ports:
+      - "8002:8002"
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: guest
+      RABBITMQ_PASS: guest
+      SCORING_QUEUE: scoring.jobs
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
 volumes:
   rabbitmq_data:

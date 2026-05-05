@@ -18,7 +18,7 @@ export default function Login() {
             <LogIn size={32} className="text-white" />
           </div>
         </div>
-        <h2 className="text-3xl font-bold text-center mb-8 tracking-tight">🪐 Júpiter</h2>
+        <h2 className="text-3xl font-bold text-center mb-8 tracking-tight">Apex Vision</h2>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Usuario</label>
