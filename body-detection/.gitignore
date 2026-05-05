@@ -1,0 +1,18 @@
+# MediaPipe model files — descargar manualmente (ver README)
+**/models/*.task
+**/models/*.tflite
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/
+
+# Misc
+.DS_Store
+output.json
