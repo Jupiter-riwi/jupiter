@@ -2,5 +2,5 @@
 .pytest_cache/
 __pycache__/
 *.pyc
-pose_output.json
-pose_output*.json
+whisper_output.json
+whisper_output*.json

@@ -87,6 +87,34 @@ services:
       postgres:
         condition: service_healthy
 
+  # ─── Whisper Worker ────────────────────────────────────────────────────────
+  whisper-worker:
+    build:
+      context: ./ai-workers/whisper
+      dockerfile: Dockerfile
+    container_name: jupiter-whisper-worker
+    restart: unless-stopped
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_PASS: ${RABBITMQ_PASS:-guest}
+      WHISPER_JOBS_QUEUE: whisper.jobs
+      FEATURES_RESULTS_QUEUE: features.results
+      DATABASE_URL: ${DATABASE_URL:-postgresql://jupiter:jupiter_secret@postgres:5432/jupiter_db}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://minio:9000}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      WHISPER_MODEL: ${WHISPER_MODEL:-whisper-1}
+      WHISPER_TEMP_DIR: /tmp/jupiter-whisper
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
   # ─── Frontend (React / Vite / Nginx) ─────────────────────────────────────
   frontend:
     build:
