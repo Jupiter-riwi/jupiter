@@ -16,8 +16,17 @@ class AudioExtractionError(RuntimeError):
 @dataclass(frozen=True)
 class AudioConfig:
     ffmpeg_bin: str
+    ffprobe_bin: str
     temp_dir: Path
     audio_format: str
+
+
+@dataclass(frozen=True)
+class AudioChunk:
+    index: int
+    start_sec: float
+    end_sec: float
+    path: Path
 
 
 class AudioExtractor:
@@ -59,6 +68,82 @@ class AudioExtractor:
         except OSError:
             pass
 
+    def cleanup_many(self, paths: list[Path]) -> None:
+        for path in paths:
+            self.cleanup(path)
+
+    def probe_duration_seconds(self, media_path: Path) -> float:
+        command = [
+            self.config.ffprobe_bin,
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            str(media_path),
+        ]
+        try:
+            result = subprocess.run(
+                command,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            raw = result.stdout.strip()
+            if not raw:
+                raise ValueError("empty duration")
+            return float(raw)
+        except Exception as exc:
+            raise AudioExtractionError("ffprobe failed to read media duration") from exc
+
+    def split_audio(self, audio_path: Path, *, chunk_seconds: int, duration_seconds: float) -> list[AudioChunk]:
+        if chunk_seconds <= 0:
+            raise ValueError("chunk_seconds must be > 0")
+
+        chunks: list[AudioChunk] = []
+        index = 0
+        start = 0.0
+
+        while start < duration_seconds:
+            end = min(start + float(chunk_seconds), duration_seconds)
+            chunk_path = self._build_chunk_destination(index=index)
+            command = [
+                self.config.ffmpeg_bin,
+                "-y",
+                "-ss",
+                f"{start:.3f}",
+                "-t",
+                f"{max(end - start, 0.001):.3f}",
+                "-i",
+                str(audio_path),
+                "-acodec",
+                "copy",
+                str(chunk_path),
+            ]
+
+            try:
+                subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            except subprocess.CalledProcessError as exc:
+                raise AudioExtractionError("ffmpeg failed to split audio") from exc
+
+            if not chunk_path.exists():
+                raise AudioExtractionError("ffmpeg did not produce chunked audio")
+
+            chunks.append(
+                AudioChunk(
+                    index=index,
+                    start_sec=start,
+                    end_sec=end,
+                    path=chunk_path,
+                )
+            )
+            index += 1
+            start = end
+
+        return chunks
+
     def is_silent(self, audio_path: Path, *, rms_threshold: float = 120.0) -> bool:
         try:
             with wave.open(str(audio_path), "rb") as handle:
@@ -93,4 +178,9 @@ class AudioExtractor:
     def _build_destination(self) -> Path:
         suffix = f".{self.config.audio_format.lstrip('.')}"
         filename = f"whisper-audio-{uuid.uuid4().hex}{suffix}"
+        return self.config.temp_dir / filename
+
+    def _build_chunk_destination(self, *, index: int) -> Path:
+        suffix = f".{self.config.audio_format.lstrip('.')}"
+        filename = f"whisper-chunk-{index}-{uuid.uuid4().hex}{suffix}"
         return self.config.temp_dir / filename

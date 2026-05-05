@@ -6,10 +6,12 @@ Worker responsable de transcribir videos usando OpenAI Whisper.
 
 1. Consume jobs de RabbitMQ (`whisper.jobs`).
 2. Descarga el video desde S3/MinIO o URL HTTP.
-3. Extrae el audio con `ffmpeg` a WAV 16 kHz mono.
-4. Llama a OpenAI Whisper (`whisper-1`) con `response_format=verbose_json`.
-5. Publica el resultado en `features.results` (`kind='transcript'`).
-6. Persiste el JSON en la tabla `public.features` (`kind='transcript'`).
+3. Valida duracion maxima (8 minutos por defecto).
+4. Extrae el audio con `ffmpeg` a WAV 16 kHz mono.
+5. Si el audio supera `WHISPER_CHUNK_SECONDS`, lo divide en chunks y transcribe en paralelo.
+6. Llama a OpenAI Whisper (`whisper-1`) con `response_format=verbose_json`.
+7. Publica el resultado en `features.results` (`kind='transcript'`).
+8. Persiste el JSON en la tabla `public.features` (`kind='transcript'`).
 
 ## Contrato de entrada (`whisper.jobs`)
 
@@ -70,6 +72,7 @@ Codigos de error relevantes:
 
 - `AUDIO_SILENT`: el audio extraido no tiene energia suficiente (sin voz).
 - `AUDIO_EXTRACTION_ERROR`: `ffmpeg` no pudo extraer audio (archivo corrupto/no valido).
+- `VIDEO_TOO_LONG`: la duracion excede `WHISPER_MAX_VIDEO_SECONDS`.
 
 ## Variables de entorno
 
@@ -81,6 +84,10 @@ Codigos de error relevantes:
 - `FFMPEG_BIN` (default: `ffmpeg` en el PATH)
 - `WHISPER_AUDIO_FORMAT` (default: `wav`)
 - `WHISPER_TEMP_DIR` (default: `/tmp/jupiter-whisper`)
+- `WHISPER_MAX_VIDEO_SECONDS` (default: `480` = 8 min)
+- `WHISPER_CHUNK_SECONDS` (default: `120`)
+- `WHISPER_PARALLEL_REQUESTS` (default: `2`)
+- `WHISPER_WORD_TIMESTAMPS` (default: `false`, mejora latencia)
 - RabbitMQ / Postgres / S3: mismos valores que otros workers.
 
 ## Ejecutar localmente

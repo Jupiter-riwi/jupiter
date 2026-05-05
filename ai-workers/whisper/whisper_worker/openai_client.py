@@ -20,6 +20,7 @@ class WhisperClient:
         model: str,
         temperature: float,
         default_language: str | None,
+        include_word_timestamps: bool,
     ) -> None:
         if not api_key:
             raise WhisperTranscriptionError("OPENAI_API_KEY is required")
@@ -28,6 +29,7 @@ class WhisperClient:
         self.model = model
         self.temperature = temperature
         self.default_language = default_language
+        self.include_word_timestamps = include_word_timestamps
 
     def transcribe(self, audio_path: Path, *, language: str | None, prompt: str | None) -> dict[str, Any]:
         try:
@@ -35,8 +37,12 @@ class WhisperClient:
                 "model": self.model,
                 "response_format": "verbose_json",
                 "temperature": self.temperature,
-                "timestamp_granularities": ["segment", "word"],
             }
+
+            granularity = ["segment"]
+            if self.include_word_timestamps:
+                granularity.append("word")
+            options["timestamp_granularities"] = granularity
 
             lang = language or self.default_language
             if lang:

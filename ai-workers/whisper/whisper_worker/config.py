@@ -19,6 +19,13 @@ def _get_float(name: str, default: float) -> float:
     return float(raw)
 
 
+def _get_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None or raw == "":
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
 @dataclass(frozen=True)
 class Settings:
     rabbitmq_host: str
@@ -36,7 +43,12 @@ class Settings:
     worker_name: str
     temp_dir: Path
     ffmpeg_bin: str
+    ffprobe_bin: str
     audio_format: str
+    whisper_max_video_seconds: int
+    whisper_chunk_seconds: int
+    whisper_parallel_requests: int
+    whisper_word_timestamps: bool
     openai_api_key: str
     openai_api_base: str
     whisper_model: str
@@ -63,7 +75,12 @@ class Settings:
             worker_name=os.getenv("WHISPER_WORKER_NAME", "whisper-worker"),
             temp_dir=temp_dir,
             ffmpeg_bin=os.getenv("FFMPEG_BIN", "ffmpeg"),
+            ffprobe_bin=os.getenv("FFPROBE_BIN", "ffprobe"),
             audio_format=os.getenv("WHISPER_AUDIO_FORMAT", "wav"),
+            whisper_max_video_seconds=_get_int("WHISPER_MAX_VIDEO_SECONDS", 480),
+            whisper_chunk_seconds=_get_int("WHISPER_CHUNK_SECONDS", 120),
+            whisper_parallel_requests=_get_int("WHISPER_PARALLEL_REQUESTS", 2),
+            whisper_word_timestamps=_get_bool("WHISPER_WORD_TIMESTAMPS", False),
             openai_api_key=os.getenv("OPENAI_API_KEY", ""),
             openai_api_base=os.getenv("OPENAI_API_BASE", ""),
             whisper_model=os.getenv("WHISPER_MODEL", "whisper-1"),

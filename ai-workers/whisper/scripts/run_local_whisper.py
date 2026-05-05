@@ -56,10 +56,18 @@ def main() -> None:
     extractor = AudioExtractor(
         AudioConfig(
             ffmpeg_bin=settings.ffmpeg_bin,
+            ffprobe_bin=settings.ffprobe_bin,
             temp_dir=settings.temp_dir,
             audio_format=settings.audio_format,
         )
     )
+
+    video_duration = extractor.probe_duration_seconds(video_path)
+    if video_duration > settings.whisper_max_video_seconds:
+        raise RuntimeError(
+            f"Video duration {video_duration:.2f}s exceeds max of "
+            f"{settings.whisper_max_video_seconds}s"
+        )
 
     transcriber = WhisperClient(
         api_key=settings.openai_api_key,
@@ -67,6 +75,7 @@ def main() -> None:
         model=settings.whisper_model,
         temperature=settings.whisper_temperature,
         default_language=settings.whisper_language,
+        include_word_timestamps=settings.whisper_word_timestamps,
     )
 
     audio_path = extractor.extract(video_path)

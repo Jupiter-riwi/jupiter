@@ -16,6 +16,7 @@ def test_client_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
             model="whisper-1",
             temperature=0.0,
             default_language=None,
+            include_word_timestamps=False,
         )
 
 
@@ -28,7 +29,10 @@ def test_transcribe_uses_model_dump(monkeypatch: pytest.MonkeyPatch, tmp_path: P
             return {"text": "hello"}
 
     class FakeTranscriptions:
+        kwargs_seen: dict[str, Any] | None = None
+
         def create(self, file, **kwargs):  # type: ignore[no-untyped-def]
+            self.kwargs_seen = kwargs
             return FakeResult()
 
     class FakeOpenAI:
@@ -43,7 +47,10 @@ def test_transcribe_uses_model_dump(monkeypatch: pytest.MonkeyPatch, tmp_path: P
         model="whisper-1",
         temperature=0.0,
         default_language=None,
+        include_word_timestamps=False,
     )
 
     result = client.transcribe(audio_path, language=None, prompt=None)
     assert result["text"] == "hello"
+    assert client.client.audio.transcriptions.kwargs_seen is not None
+    assert client.client.audio.transcriptions.kwargs_seen["timestamp_granularities"] == ["segment"]
