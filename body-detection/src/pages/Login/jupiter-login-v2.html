@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jupiter — Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./jupiter-login-v2.css">
+</head>
+<body>
+
+<!-- Fox full-bleed background -->
+<div class="fox-layer" id="foxLayer"></div>
+
+<!-- Edge darkening vignette -->
+<div class="vignette"></div>
+
+<!-- Stars (only visible in dark space area) -->
+<canvas id="starCanvas"></canvas>
+
+<!-- Ambient particle canvas -->
+<canvas id="bgCanvas"></canvas>
+
+<!-- Floating holographic panels -->
+<div class="holo-wrap">
+  <div class="scan-line"></div>
+
+  <div class="holo-panel" style="top:12%;left:3%;--dur:6s;--rot:-1.5deg;--delay:1.3s;">
+    <div class="holo-title">◈ pitch.analyze()</div>
+    <div>clarity &nbsp;&nbsp;: <span class="ok">94.2%</span></div>
+    <div>pace &nbsp;&nbsp;&nbsp;&nbsp;: <span class="ok">optimal</span></div>
+    <div>impact &nbsp;&nbsp;: <span class="ok">HIGH ✓</span></div>
+    <div>filler &nbsp;&nbsp;: <span class="warn">2 words</span></div>
+  </div>
+
+  <div class="holo-panel" style="top:42%;left:2%;--dur:7.5s;--rot:1deg;--delay:1.7s;">
+    <div class="holo-title">◈ voice.metrics</div>
+    <div>tone &nbsp;&nbsp;&nbsp;&nbsp;: confident</div>
+    <div>volume &nbsp;: <span class="ok">stable</span></div>
+    <div>score &nbsp;&nbsp;: <span class="ok">9.1/10</span></div>
+  </div>
+</div>
+
+<!-- Brand (top-left) -->
+<div class="brand-corner">
+  <div class="brand-dot"></div>
+  <span class="brand-name">Jupiter</span>
+  <div class="brand-sep"></div>
+  <span class="brand-sub">Speech AI</span>
+</div>
+
+<!-- Tagline (left, above stats) -->
+<div class="tagline-block">
+  <div class="tagline-sep"></div>
+  <h1>Tu evaluador <em>objetivo</em> de oratoria.</h1>
+  <p>Transforma tu pitch con datos precisos, no con percepciones subjetivas.</p>
+</div>
+
+<!-- Stats (bottom-left) -->
+<div class="stats-strip">
+  <div class="stat-item">
+    <div class="stat-num">97%</div>
+    <div class="stat-label">Precisión</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num">12k+</div>
+    <div class="stat-label">Pitches evaluados</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num">4.9★</div>
+    <div class="stat-label">Valoración</div>
+  </div>
+</div>
+
+<!-- Decorative glyphs -->
+<div class="glyph" style="bottom:48px;right:calc(6vw + 405px);">
+  <svg width="16" height="16" viewBox="0 0 20 20" stroke-width="1.5"><path d="M10 2v16M2 10h16M4.93 4.93l10.14 10.14M15.07 4.93L4.93 15.07"/></svg>
+</div>
+
+<!-- ══ LOGIN CARD ══ -->
+<div class="scene">
+  <div class="login-card">
+    <div class="card-glow-top"></div>
+    <div class="card-orbit"></div>
+
+    <!-- Logo -->
+    <div class="card-logo">
+      <div class="card-logo-icon">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><ellipse cx="12" cy="12" rx="11" ry="4" transform="rotate(-20 12 12)"/></svg>
+      </div>
+      <div class="card-logo-text">
+        <div class="card-logo-name">Jupiter</div>
+        <div class="card-logo-sub">Speech Intelligence</div>
+      </div>
+    </div>
+
+    <div class="card-header">
+      <h2>Bienvenido de vuelta</h2>
+      <p>Accede a tu panel de análisis</p>
+    </div>
+
+    <div class="card-sep"></div>
+
+    <div class="field">
+      <label for="user">Usuario o Email</label>
+      <input id="user" type="text" placeholder="example@email.com">
+    </div>
+
+    <div class="field">
+      <label for="pass">Contraseña</label>
+      <div class="password-wrap">
+        <input id="pass" type="password" placeholder="••••••••••">
+        <button class="eye-btn" onclick="togglePass()" id="eyeBtn">
+          <svg id="eyeIcon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="row-extras">
+      <label class="remember-wrap">
+        <input type="checkbox" id="remember">
+        <div class="custom-check" id="checkBox" onclick="toggleCheck()"></div>
+        <span class="remember-label">Recordarme</span>
+      </label>
+      <a href="#" class="forgot-link">¿Olvidaste tu contraseña?</a>
+    </div>
+
+    <button class="btn-login" onclick="handleLogin(this)">Iniciar Sesión</button>
+
+    <div class="or-row">o</div>
+
+    <div class="signup-row">
+      ¿Nuevo en Jupiter? <a href="#">Crear cuenta gratis</a>
+    </div>
+
+    <div class="card-footer-note">
+      <span>⬡</span> Análisis en tiempo real · Datos encriptados <span>⬡</span>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="./logic.js"></script>
+</body>
+</html>
