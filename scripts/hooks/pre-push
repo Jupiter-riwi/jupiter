@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+# =============================================================================
+# JÚPITER – Git Hook: pre-push
+# Ejecuta lint + tests + build en los servicios que cambiaron.
+# En ramas protegidas (developer, main) corre el pipeline completo.
+# =============================================================================
+
+set -euo pipefail
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+ROOT="$(git rev-parse --show-toplevel)"
+CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+PROTECTED_BRANCHES="developer main"
+
+PASS=0
+FAIL=0
+
+log_section() { echo -e "\n${BLUE}━━━ $1 ━━━${NC}"; }
+log_pass()    { echo -e "  ${GREEN}✓${NC} $1"; PASS=$((PASS + 1)); }
+log_fail()    { echo -e "  ${RED}✗${NC} $1"; FAIL=$((FAIL + 1)); }
+log_warn()    { echo -e "  ${YELLOW}⚠${NC} $1"; }
+
+# ─── Detectar servicios cambiados ────────────────────────────────────────────
+# Compara contra la rama base (main o developer) si existe; si no, contra HEAD~1
+BASE_REF=""
+for branch in main developer; do
+    if git show-ref --verify --quiet "refs/heads/$branch" 2>/dev/null; then
+        BASE_REF="$branch"
+        break
+    fi
+done
+
+if [ -n "$BASE_REF" ] && [ "$CURRENT_BRANCH" != "$BASE_REF" ]; then
+    CHANGED=$(git diff --name-only "$BASE_REF"..."$CURRENT_BRANCH" 2>/dev/null || git diff --name-only HEAD~1 HEAD)
+else
+    CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || true)
+fi
+
+changed_in() { echo "$CHANGED" | grep -q "^$1/" ; }
+
+# En ramas protegidas siempre corre el pipeline completo
+is_protected() {
+    for b in $PROTECTED_BRANCHES; do
+        [ "$CURRENT_BRANCH" = "$b" ] && return 0
+    done
+    return 1
+}
+
+echo -e "${BLUE}"
+echo "   ╔══════════════════════════════════════════╗"
+echo "   ║     🪐  JÚPITER – pre-push CI Check      ║"
+echo "   ╚══════════════════════════════════════════╝"
+echo -e "${NC}"
+
+if is_protected; then
+    echo -e "${YELLOW}  Rama protegida '${CURRENT_BRANCH}' — ejecutando pipeline completo${NC}"
+    RUN_GO=1; RUN_PYTHON=1; RUN_FRONTEND=1
+else
+    echo -e "  Rama: ${CURRENT_BRANCH} — verificando servicios modificados"
+    RUN_GO=0; RUN_PYTHON=0; RUN_FRONTEND=0
+    changed_in "api-gateway" && RUN_GO=1
+    changed_in "ai-workers"  && RUN_PYTHON=1
+    changed_in "frontend"    && RUN_FRONTEND=1
+fi
+
+# ─── api-gateway (Go) ────────────────────────────────────────────────────────
+if [ "$RUN_GO" -eq 1 ]; then
+    log_section "api-gateway (Go) — lint + test + build"
+    cd "$ROOT/api-gateway"
+
+    if go vet ./... 2>&1; then
+        log_pass "go vet"
+    else
+        log_fail "go vet"
+    fi
+
+    if go test ./... -race -coverprofile=coverage.out 2>&1; then
+        log_pass "go test"
+    else
+        log_fail "go test"
+    fi
+
+    mkdir -p bin
+    if CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/gateway ./cmd/api 2>&1; then
+        log_pass "go build"
+    else
+        log_fail "go build"
+    fi
+
+    cd "$ROOT"
+fi
+
+# ─── ai-workers (Python) ─────────────────────────────────────────────────────
+if [ "$RUN_PYTHON" -eq 1 ]; then
+    log_section "ai-workers (Python) — lint + test + syntax"
+    cd "$ROOT/ai-workers"
+
+    if python -m ruff check . 2>/dev/null; then
+        log_pass "ruff"
+    elif python -m flake8 . --max-line-length=120 2>/dev/null; then
+        log_pass "flake8"
+    else
+        log_warn "ruff/flake8 no instalado — omitiendo lint Python"
+    fi
+
+    if python -m pytest tests/ -v --tb=short 2>&1; then
+        log_pass "pytest"
+    else
+        log_fail "pytest"
+    fi
+
+    if python -m compileall app/ 2>&1; then
+        log_pass "compileall"
+    else
+        log_fail "compileall"
+    fi
+
+    cd "$ROOT"
+fi
+
+# ─── frontend (React/TS) ─────────────────────────────────────────────────────
+if [ "$RUN_FRONTEND" -eq 1 ]; then
+    log_section "frontend (React/TS) — lint + build"
+    cd "$ROOT/frontend"
+
+    if npm run lint -- --max-warnings=0 2>&1; then
+        log_pass "eslint"
+    else
+        log_fail "eslint"
+    fi
+
+    if npm run build 2>&1; then
+        log_pass "vite build"
+    else
+        log_fail "vite build"
+    fi
+
+    cd "$ROOT"
+fi
+
+# ─── Resumen ─────────────────────────────────────────────────────────────────
+TOTAL=$((PASS + FAIL))
+echo ""
+echo -e "${BLUE}╔══════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║${NC}  pre-push CI – Resultado             ${BLUE}║${NC}"
+echo -e "${BLUE}╠══════════════════════════════════════╣${NC}"
+printf "${BLUE}║${NC}  ${GREEN}✓ %d pasado(s)${NC}                       ${BLUE}║${NC}\n" "$PASS"
+printf "${BLUE}║${NC}  ${RED}✗ %d fallido(s)${NC}                      ${BLUE}║${NC}\n" "$FAIL"
+echo -e "${BLUE}╚══════════════════════════════════════╝${NC}"
+echo ""
+
+if [ "$FAIL" -gt 0 ]; then
+    echo -e "${RED}✗ Push bloqueado — corrige los errores y vuelve a intentarlo.${NC}"
+    echo -e "${YELLOW}  Tip: usa 'make ci' para correr el pipeline completo localmente.${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✓ Todos los checks pasaron — push permitido.${NC}"

@@ -1,4 +1,4 @@
-.PHONY: help install lint test build deploy dev clean
+.PHONY: help install lint test build deploy dev clean hooks hooks-uninstall
 
 SHELL := /bin/bash
 ENV_FILE := .env
@@ -86,6 +86,15 @@ dev: ## Iniciar entorno de desarrollo completo
 # ─── CI Pipeline ─────────────────────────────────────────────────────────────
 
 ci: install lint test build ## Pipeline CI completo (local)
+
+# ─── Git Hooks ───────────────────────────────────────────────────────────────
+
+hooks: ## Instalar git hooks (pre-commit lint + pre-push CI)
+	bash scripts/hooks/install-hooks.sh
+
+hooks-uninstall: ## Desinstalar git hooks
+	@rm -f .git/hooks/pre-commit .git/hooks/pre-push
+	@echo "Git hooks desinstalados."
 
 # ─── Limpieza ────────────────────────────────────────────────────────────────
 

@@ -82,6 +82,33 @@ Cualquier cambio en contratos compartidos (schema de DB, schema de jobs, contrat
 
 ---
 
+## CI/CD local — Git Hooks
+
+El repo incluye git hooks que corren automáticamente y bloquean pushes rotos **antes** de que lleguen a `developer` o `main`.
+
+### Instalar (una sola vez por máquina)
+
+```bash
+make hooks
+```
+
+### Qué hace cada hook
+
+| Hook | Cuándo corre | Qué verifica |
+|---|---|---|
+| `pre-commit` | Antes de cada commit | Lint (go vet / ruff / eslint) solo en los servicios con archivos staged |
+| `pre-push` | Antes de cada push | Lint + tests + build en los servicios modificados; pipeline completo en `developer` y `main` |
+
+Si un check falla, el commit/push se cancela con el error exacto. Podés correr `make lint`, `make test` o `make ci` para depurar antes de reintentar.
+
+### Desinstalar
+
+```bash
+make hooks-uninstall
+```
+
+---
+
 ## Contribuir
 
 1. Branch siguiendo el patrón `<area>/feature/<descripción>` (ver branches existentes).
