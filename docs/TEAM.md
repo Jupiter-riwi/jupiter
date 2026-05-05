@@ -96,7 +96,7 @@ Equipo de **4 desarrolladores** trabajando en paralelo. Cada uno tiene un domini
 
 ### Entregables
 
-1. **API Gateway en FastAPI** (`api-gateway/`) — reemplaza el esqueleto en Go.
+1. **API Gateway en FastAPI** (`api-gateway/`)
    - Auth JWT con `tenant_id` y `role` en claims.
    - Endpoints:
      - `POST /auth/login`, `POST /auth/refresh`
@@ -219,13 +219,91 @@ Definida en `ARCHITECTURE.md` sección 5. Cualquier cambio se discute en PR.
 
 ---
 
+## Flujo de branches
+
+```
+  <area>/feature/xxx ──PR──▶  features ──┐
+                                         ├──PR──▶  developer  ──PR──▶  main
+  <area>/fix/xxx     ──PR──▶  fix     ──┘
+      │                  │                   │                    │
+  trabajo             código              integración          producción
+  individual           nuevo /            final                releases
+                      correcciones
+```
+
+| Rama | Propósito | Se nutre de | Mergea a |
+|---|---|---|---|
+| `main` | Producción / releases estables | `developer` via PR | — |
+| `developer` | Integración final | `features` y `fix` via PR | `main` |
+| `features` | Acumula código nuevo antes de integrar | `<area>/feature/xxx` via PR | `developer` |
+| `fix` | Acumula correcciones antes de integrar | `<area>/fix/xxx` via PR | `developer` |
+| `<area>/feature/<desc>` | Desarrollo de una feature individual | Dev local | `features` |
+| `<area>/fix/<desc>` | Corrección de un bug individual | Dev local | `fix` |
+
+### Cuándo usar cada rama
+
+- **Nueva funcionalidad** (pose worker, pantalla de grabación, endpoint de auth, etc.) → branch desde `features`
+- **Bug o error** detectado en `developer` o reportado → branch desde `fix`
+- **Cambio en docs o contratos** (ARCHITECTURE.md, TEAM.md) → puede ir directo a `developer` via PR
+
+### Subir código nuevo (feature)
+
+```bash
+# 1. Partir de features actualizado
+git checkout features && git pull origin features
+
+# 2. Crear tu branch de trabajo
+git checkout -b ai-workers/feature/pose-worker
+
+# 3. Desarrollar y commitear en pasos pequeños
+git add backend/pose_detector.py
+git commit -m "feat(pose): procesar video desde archivo en lugar de cámara"
+
+# 4. Pushear y abrir PR hacia features
+git push origin ai-workers/feature/pose-worker
+gh pr create --base features \
+  --title "feat(pose): pose worker con MediaPipe" \
+  --body "## Qué hace\n...\n## Cómo probar\n..."
+```
+
+### Corregir un error (fix)
+
+```bash
+# 1. Partir de fix actualizado
+git checkout fix && git pull origin fix
+
+# 2. Crear tu branch de corrección
+git checkout -b ai-workers/fix/pose-crash-empty-video
+
+# 3. Corregir y commitear
+git add backend/pose_detector.py
+git commit -m "fix(pose): manejar video vacío sin lanzar excepción"
+
+# 4. Pushear y abrir PR hacia fix
+git push origin ai-workers/fix/pose-crash-empty-video
+gh pr create --base fix \
+  --title "fix(pose): crash con video vacío" \
+  --body "## Problema\n...\n## Solución\n...\n## Cómo reproducir\n..."
+```
+
+### Cuándo mergear a developer
+
+- `features → developer`: grupo coherente de features listas. Se decide en el sync semanal.
+- `fix → developer`: apenas el fix está validado. Los bugs no esperan al sync.
+
+### Cuándo hacer PR de developer → main
+
+Solo cuando el equipo decide en el sync semanal que `developer` está listo para producción. Requiere review de todos.
+
+---
+
 ## Cadencia y proceso
 
 - **Daily async** (Slack, 10 min): qué hice / qué hago / blockers.
-- **Sync semanal** (1h): demo de lo que avanzó cada uno + decisiones abiertas.
-- **PRs**: review obligatorio de al menos 1 dev fuera del dominio. PRs chicos (< 400 líneas).
-- **Branches**: seguir el patrón existente `<area>/feature/<descripción>`.
-- **Decisiones de arquitectura**: cualquier cambio en contratos compartidos → PR a `ARCHITECTURE.md` antes de implementar. Usar la skill `/generate-arch` para mantener el doc consistente.
+- **Sync semanal** (1h): demo de lo que avanzó cada uno + decisiones de release a `main`.
+- **PRs a developer**: review obligatorio de al menos 1 dev fuera del dominio. PRs chicos (< 400 líneas).
+- **PRs a main**: review de todos + decisión de equipo.
+- **Decisiones de arquitectura**: cualquier cambio en contratos compartidos → PR a `docs/ARCHITECTURE.md` antes de implementar. Usar la skill `/generate-arch` para mantener el doc consistente.
 
 ---
 

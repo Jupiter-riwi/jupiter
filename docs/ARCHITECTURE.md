@@ -36,7 +36,7 @@
                              │ HTTPS (REST + WS)
                              ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                         API GATEWAY (Go o FastAPI)                       │
+│                         API GATEWAY (FastAPI)                     │
 │  - Auth JWT + tenant_id en claims                                        │
 │  - POST /evaluations  (crea registro + presigned URL)                    │
 │  - PUT  <storage>/...  (upload directo del cliente)                      │
@@ -144,17 +144,20 @@ GPT-4o se llama con `response_format: { type: "json_schema" }` para garantizar e
 | Pose | MediaPipe (ya existe) | Reciclable |
 | ASR | OpenAI Whisper API | Pedido del usuario |
 | LLM | OpenAI GPT-4o (JSON mode) | Pedido del usuario |
-| DB | Postgres 16 | Estándar, soporta jsonb + RLS |
-| Storage | MinIO en dev / S3 en prod | API compatible |
-| Auth | JWT con `tenant_id` y `role` en claims | Simple y multi-tenant |
+| DB | **Supabase (PostgreSQL 15)** (decidido) | Postgres hosteado + RLS + Realtime + Auth integrados |
+| Storage | **Supabase Storage** bucket `videos` (decidido) | Reemplaza MinIO/S3; signed URLs, políticas por tenant |
+| Auth | **Supabase Auth** (decidido) | Reemplaza JWT custom; JWT generado automáticamente |
+| Realtime | **Supabase Realtime** (decidido) | Reemplaza WebSocket custom del gateway; notifica score listo |
+| DB local (dev) | Postgres 16 en docker-compose | Para desarrollo offline sin depender de Supabase |
 
 ---
 
 ## 7. Plan de construcción por fases
 
 **Fase 0 — Bootstrap (2-3 días)**
-- Docker Compose: Postgres + RabbitMQ + MinIO + frontend + gateway + 1 worker dummy.
-- Migraciones de schema iniciales.
+- Aplicar schema en Supabase (`supabase/migrations/20260505000000_initial_schema.sql`).
+- Docker Compose: RabbitMQ + workers + gateway (Supabase reemplaza Postgres + MinIO).
+- Variables de entorno (`.env` desde `.env.example`).
 - CI básico (lint + tests).
 
 **Fase 1 — Vertical slice (1 semana)**
@@ -187,17 +190,13 @@ Ya conectados en este entorno:
 
 | MCP | Para qué sirve en este proyecto |
 |---|---|
-| **Claude_Preview** | Levantar el frontend en preview, ver consola/errores, screenshots — útil iterando UI de grabación y dashboard |
-| **Claude_in_Chrome** | Automatizar la prueba real del flujo (grabar, subir, ver resultado) en Chrome con permisos de cámara/mic |
-| **mcp-registry** | Buscar y sugerir MCPs cuando los necesitemos (ej: Postgres, S3, OpenAI) |
-| **scheduled-tasks** | Tareas periódicas (cleanup de videos viejos, reportes semanales por cliente) |
+| **Supabase** ✅ | Interactuar directo con el proyecto: ejecutar SQL, inspeccionar schema, gestionar storage y auth — sin salir del editor. Config en `.mcp.json` |
+| **Claude_Preview** | Levantar el frontend en preview, ver consola/errores, screenshots |
+| **Claude_in_Chrome** | Testear el flujo real (grabar, subir, ver resultado) en Chrome con permisos de cámara/mic |
+| **mcp-registry** | Buscar y agregar nuevos MCPs según necesidad |
+| **scheduled-tasks** | Cleanup de videos viejos, reportes periódicos por cliente |
 
-Recomendados para agregar (buscar en `mcp-registry`):
-
-- **Postgres MCP** — inspección directa del schema y queries de debug.
-- **S3/MinIO MCP** — listar y validar uploads.
-- **OpenAI MCP** (si existe) — probar prompts del scoring worker sin escribir código.
-- **RabbitMQ MCP** — inspeccionar colas y mensajes en dev.
+Ver detalle de uso del MCP de Supabase en `docs/SUPABASE.md`.
 
 ### Skills (Claude Code)
 

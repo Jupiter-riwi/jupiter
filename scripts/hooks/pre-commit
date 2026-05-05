@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# =============================================================================
+# JÚPITER – Git Hook: pre-commit
+# Ejecuta lint rápido solo en los archivos/servicios que cambiaron.
+# =============================================================================
+
+set -euo pipefail
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+ROOT="$(git rev-parse --show-toplevel)"
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR)
+
+log_section() { echo -e "\n${BLUE}━━━ $1 ━━━${NC}"; }
+log_pass()    { echo -e "  ${GREEN}✓${NC} $1"; }
+log_fail()    { echo -e "  ${RED}✗${NC} $1"; }
+log_warn()    { echo -e "  ${YELLOW}⚠${NC} $1"; }
+
+FAIL=0
+
+changed_in() { echo "$STAGED" | grep -q "^$1/" ; }
+
+# ─── Python lint ─────────────────────────────────────────────────────────────
+if changed_in "ai-workers"; then
+    log_section "Lint: ai-workers (Python)"
+    cd "$ROOT/ai-workers"
+    if python -m ruff check . 2>/dev/null; then
+        log_pass "ruff"
+    elif python -m flake8 . --max-line-length=120 2>/dev/null; then
+        log_pass "flake8"
+    else
+        log_warn "ruff/flake8 no instalado — omitiendo lint Python"
+    fi
+    cd "$ROOT"
+fi
+
+# ─── Frontend lint ───────────────────────────────────────────────────────────
+if changed_in "frontend"; then
+    log_section "Lint: frontend (React/TS)"
+    cd "$ROOT/frontend"
+    if npm run lint -- --max-warnings=0 2>&1; then
+        log_pass "eslint"
+    else
+        log_fail "eslint — corrige los warnings antes de hacer commit"
+        FAIL=$((FAIL + 1))
+    fi
+    cd "$ROOT"
+fi
+
+# ─── Resultado ───────────────────────────────────────────────────────────────
+echo ""
+if [ "$FAIL" -gt 0 ]; then
+    echo -e "${RED}✗ pre-commit falló ($FAIL error(s)). Commit bloqueado.${NC}"
+    echo -e "${YELLOW}  Tip: usa 'make lint' para ver todos los problemas.${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✓ pre-commit OK${NC}"

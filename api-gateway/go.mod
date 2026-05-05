@@ -1,3 +1,0 @@
-module github.com/APEX-VISION/apex-vision-api-gateway
-
-go 1.22.0

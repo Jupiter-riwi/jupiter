@@ -1,0 +1,269 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --cyan: #00d4e8;
+  --cyan-glow: rgba(0,212,232,0.4);
+  --cyan-dim: rgba(0,212,232,0.12);
+  --amber: #e8901a;
+  --amber-glow: rgba(232,144,26,0.35);
+  --text: #eef2fc;
+  --muted: #7a8aa8;
+  --bg-login: #07101e;
+  --border: rgba(255,255,255,0.08);
+  --card: rgba(255,255,255,0.035);
+}
+
+.login-wrapper {
+  height: 100vh;
+  width: 100vw;
+  font-family: 'DM Sans', sans-serif;
+  background: #060e1a;
+  color: var(--text);
+  overflow: hidden;
+  position: relative;
+}
+
+/* ══════════════════════
+   FULL-SCREEN CANVAS BG
+══════════════════════ */
+#bgCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+/* ══════════════════════
+   ROOT LAYOUT
+══════════════════════ */
+.scene {
+  position: relative;
+  z-index: 1;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* ══════════════════════
+   FOX — fills entire BG
+══════════════════════ */
+.fox-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  /* La imagen base64 original es muy grande para ir en este archivo.
+     Reemplazar 'fox-background.png' por la ruta a la imagen en tu carpeta public/assets */
+  background-image: var(--fox-img, url('/fox-background.png'));
+  background-size: cover;
+  background-position: center center;
+  filter: brightness(1.15) contrast(1.05) saturate(1.1);
+  animation: foxBreath 12s ease-in-out infinite alternate;
+}
+@keyframes foxBreath {
+  from { transform: scale(1.0); }
+  to   { transform: scale(1.03); }
+}
+
+/* Edge vignette — darkens periphery so login card pops */
+.vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background:
+    radial-gradient(ellipse 85% 90% at 30% 60%, transparent 40%, rgba(4,8,18,0.15) 75%, rgba(4,8,18,0.3) 100%),
+    linear-gradient(to right, rgba(4,8,18,0.02) 0%, transparent 30%, rgba(4,8,18,0.1) 70%, rgba(4,8,18,0.2) 100%);
+  pointer-events: none;
+}
+
+/* Stars canvas overlay */
+#starCanvas {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  /* Only show stars in the dark left/top area — mask over the Jupiter region */
+  mask-image: radial-gradient(ellipse 60% 70% at 15% 25%, black 20%, transparent 80%);
+}
+
+/* ══════════════════════
+   FLOATING HOLO ELEMENTS
+══════════════════════ */
+.holo-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.holo-panel {
+  position: absolute;
+  border: 1px solid rgba(0,212,232,0.3);
+  border-radius: 8px;
+  background: rgba(2,12,26,0.6);
+  backdrop-filter: blur(6px);
+  padding: 10px 14px;
+  font-family: 'Courier New', monospace;
+  font-size: 9.5px;
+  line-height: 1.75;
+  color: rgba(0,212,232,0.75);
+  box-shadow: 0 0 20px rgba(0,212,232,0.08), inset 0 0 12px rgba(0,212,232,0.03);
+  animation: holoFloat var(--dur, 6s) ease-in-out infinite alternate, fadeUp 1s ease forwards var(--delay, 0s);
+  opacity: 0;
+}
+.holo-panel .holo-title {
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  margin-bottom: 5px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(0,212,232,0.2);
+}
+.holo-panel .ok { color: #30e890; }
+.holo-panel .warn { color: var(--amber); }
+
+@keyframes holoFloat {
+  from { transform: translateY(0) rotate(var(--rot, 0deg)); }
+  to   { transform: translateY(-14px) rotate(var(--rot, 0deg)); }
+}
+
+/* Data scan line moving across screen */
+.scan-line {
+  position: absolute;
+  left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(to right, transparent 0%, rgba(0,212,232,0.4) 30%, rgba(0,212,232,0.15) 70%, transparent 100%);
+  animation: scanMove 8s ease-in-out infinite;
+  opacity: 0.5;
+}
+@keyframes scanMove {
+  0%   { top: 0%; opacity: 0; }
+  5%   { opacity: 0.5; }
+  95%  { opacity: 0.3; }
+  100% { top: 100%; opacity: 0; }
+}
+
+/* ══════════════════════
+   BRAND TAG (top-left)
+══════════════════════ */
+.brand-corner {
+  position: absolute;
+  top: 32px;
+  left: 40px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  opacity: 0;
+  animation: fadeUp 0.8s ease forwards 0.3s;
+}
+.brand-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 10px var(--cyan), 0 0 20px var(--cyan-glow);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 10px var(--cyan), 0 0 20px var(--cyan-glow); }
+  50%       { box-shadow: 0 0 4px var(--cyan), 0 0 8px var(--cyan-glow); }
+}
+.brand-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+.brand-sep { width: 1px; height: 16px; background: var(--border); }
+.brand-sub {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ══════════════════════
+   STATS STRIP (bottom-left)
+══════════════════════ */
+.stats-strip {
+  position: absolute;
+  bottom: 36px;
+  left: 40px;
+  z-index: 10;
+  display: flex;
+  gap: 40px;
+  opacity: 0;
+  animation: fadeUp 0.8s ease forwards 1.0s;
+}
+.stat-item {}
+.stat-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--amber);
+  text-shadow: 0 0 20px var(--amber-glow);
+  line-height: 1;
+}
+.stat-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(120,140,175,0.8);
+  margin-top: 4px;
+}
+
+/* ══════════════════════
+   TAGLINE (mid-left)
+══════════════════════ */
+.tagline-block {
+  position: absolute;
+  left: 40px;
+  bottom: 160px;
+  z-index: 10;
+  opacity: 0;
+  animation: fadeUp 0.8s ease forwards 0.7s;
+  max-width: 280px;
+}
+.tagline-block h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(22px, 2.4vw, 34px);
+  line-height: 1.2;
+  font-weight: 700;
+  text-shadow: 0 2px 24px rgba(0,0,0,0.8);
+}
+.tagline-block h1 em { font-style: italic; color: var(--cyan); }
+.tagline-block p {
+  font-size: 13px;
+  color: rgba(190,205,230,0.7);
+  line-height: 1.6;
+  margin-top: 10px;
+}
+.tagline-sep {
+  width: 36px;
+  height: 2px;
+  background: linear-gradient(to right, var(--amber), transparent);
+  margin-bottom: 14px;
+  border-radius: 1px;
+/* Star glyphs */
+.glyph {
+  position: absolute;
+  pointer-events: none;
+  z-index: 8;
+}
+.glyph svg { stroke: var(--cyan); fill: none; opacity: 0.4; }
+
+/* ══════════════════════
+   ANIMATIONS
+══════════════════════ */
+@keyframes rotateRing { 
+  from { transform: rotate(0deg); } 
+  to { transform: rotate(360deg); } 
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

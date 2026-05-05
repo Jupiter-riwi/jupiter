@@ -1,0 +1,106 @@
+version: "3.9"
+
+services:
+  # ─── PostgreSQL ──────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: jupiter-postgres
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER:-jupiter}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-jupiter_secret}
+      POSTGRES_DB: ${DB_NAME:-jupiter_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-jupiter} -d ${DB_NAME:-jupiter_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── RabbitMQ ────────────────────────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: jupiter-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── API Gateway (FastAPI / Python) ───────────────────────────────────────
+  # TODO: reemplazar con el nuevo gateway en Python cuando esté listo (Dev 3)
+
+  # ─── AI Workers (Python / FastAPI) ───────────────────────────────────────
+  ai-workers:
+    build:
+      context: ./ai-workers
+      dockerfile: Dockerfile
+    container_name: jupiter-ai-workers
+    restart: unless-stopped
+    ports:
+      - "${AI_WORKERS_PORT:-8000}:8000"
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_PASS: ${RABBITMQ_PASS:-guest}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  # ─── Pose Worker (Dev 1) ───────────────────────────────────────────────────
+  pose-worker:
+    build:
+      context: ./ai-workers/pose
+      dockerfile: Dockerfile
+    container_name: jupiter-pose-worker
+    restart: unless-stopped
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: "5672"
+      RABBITMQ_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_PASS: ${RABBITMQ_PASS:-guest}
+      POSE_JOBS_QUEUE: pose.jobs
+      FEATURES_RESULTS_QUEUE: features.results
+      DATABASE_URL: ${DATABASE_URL:-postgresql://jupiter:jupiter_secret@postgres:5432/jupiter_db}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://minio:9000}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      POSE_SEGMENT_SECONDS: ${POSE_SEGMENT_SECONDS:-5}
+      POSE_MAX_VIDEO_SECONDS: ${POSE_MAX_VIDEO_SECONDS:-600}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  # ─── Frontend (React / Vite / Nginx) ─────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
+    container_name: jupiter-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      - ai-workers
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
