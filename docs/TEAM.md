@@ -222,44 +222,78 @@ Definida en `ARCHITECTURE.md` sección 5. Cualquier cambio se discute en PR.
 ## Flujo de branches
 
 ```
-feature/xxx  ──PR──▶  developer  ──PR──▶  main
-                         │                  │
-                    integración          producción /
-                    y pruebas            releases
+  <area>/feature/xxx ──PR──▶  features ──┐
+                                         ├──PR──▶  developer  ──PR──▶  main
+  <area>/fix/xxx     ──PR──▶  fix     ──┘
+      │                  │                   │                    │
+  trabajo             código              integración          producción
+  individual           nuevo /            final                releases
+                      correcciones
 ```
 
-### Reglas
+| Rama | Propósito | Se nutre de | Mergea a |
+|---|---|---|---|
+| `main` | Producción / releases estables | `developer` via PR | — |
+| `developer` | Integración final | `features` y `fix` via PR | `main` |
+| `features` | Acumula código nuevo antes de integrar | `<area>/feature/xxx` via PR | `developer` |
+| `fix` | Acumula correcciones antes de integrar | `<area>/fix/xxx` via PR | `developer` |
+| `<area>/feature/<desc>` | Desarrollo de una feature individual | Dev local | `features` |
+| `<area>/fix/<desc>` | Corrección de un bug individual | Dev local | `fix` |
 
-| Rama | Propósito | Quién pushea |
-|---|---|---|
-| `main` | Código estable / releases | Solo via PR desde `developer` |
-| `developer` | Integración de todas las features | Solo via PR desde feature branches |
-| `<area>/feature/<desc>` | Desarrollo individual | Cada developer en su área |
+### Cuándo usar cada rama
 
-### Pasos para contribuir
+- **Nueva funcionalidad** (pose worker, pantalla de grabación, endpoint de auth, etc.) → branch desde `features`
+- **Bug o error** detectado en `developer` o reportado → branch desde `fix`
+- **Cambio en docs o contratos** (ARCHITECTURE.md, TEAM.md) → puede ir directo a `developer` via PR
+
+### Subir código nuevo (feature)
 
 ```bash
-# 1. Siempre partir de developer actualizado
-git checkout developer && git pull origin developer
+# 1. Partir de features actualizado
+git checkout features && git pull origin features
 
-# 2. Crear feature branch
+# 2. Crear tu branch de trabajo
 git checkout -b ai-workers/feature/pose-worker
 
-# 3. Trabajar y commitear (commits pequeños y descriptivos)
-git add <archivos específicos>
-git commit -m "feat(pose): implementar procesamiento de video con MediaPipe"
+# 3. Desarrollar y commitear en pasos pequeños
+git add backend/pose_detector.py
+git commit -m "feat(pose): procesar video desde archivo en lugar de cámara"
 
-# 4. Pushear la feature branch
+# 4. Pushear y abrir PR hacia features
 git push origin ai-workers/feature/pose-worker
-
-# 5. Abrir PR hacia developer (NO hacia main directamente)
-gh pr create --base developer --title "feat(pose): pose worker con MediaPipe" \
+gh pr create --base features \
+  --title "feat(pose): pose worker con MediaPipe" \
   --body "## Qué hace\n...\n## Cómo probar\n..."
 ```
 
+### Corregir un error (fix)
+
+```bash
+# 1. Partir de fix actualizado
+git checkout fix && git pull origin fix
+
+# 2. Crear tu branch de corrección
+git checkout -b ai-workers/fix/pose-crash-empty-video
+
+# 3. Corregir y commitear
+git add backend/pose_detector.py
+git commit -m "fix(pose): manejar video vacío sin lanzar excepción"
+
+# 4. Pushear y abrir PR hacia fix
+git push origin ai-workers/fix/pose-crash-empty-video
+gh pr create --base fix \
+  --title "fix(pose): crash con video vacío" \
+  --body "## Problema\n...\n## Solución\n...\n## Cómo reproducir\n..."
+```
+
+### Cuándo mergear a developer
+
+- `features → developer`: grupo coherente de features listas. Se decide en el sync semanal.
+- `fix → developer`: apenas el fix está validado. Los bugs no esperan al sync.
+
 ### Cuándo hacer PR de developer → main
 
-Solo cuando el equipo decide que `developer` tiene un conjunto coherente de features listas para producción. Esto se decide en el sync semanal. El PR lo abre cualquier dev, pero requiere review de todos.
+Solo cuando el equipo decide en el sync semanal que `developer` está listo para producción. Requiere review de todos.
 
 ---
 
