@@ -96,7 +96,7 @@ Equipo de **4 desarrolladores** trabajando en paralelo. Cada uno tiene un domini
 
 ### Entregables
 
-1. **API Gateway en FastAPI** (`api-gateway/`) — reemplaza el esqueleto en Go.
+1. **API Gateway en FastAPI** (`api-gateway/`)
    - Auth JWT con `tenant_id` y `role` en claims.
    - Endpoints:
      - `POST /auth/login`, `POST /auth/refresh`

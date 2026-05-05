@@ -104,7 +104,9 @@ alter table public.scores        enable row level security;
 
 -- Helper: obtiene el tenant_id del usuario autenticado
 create or replace function public.my_tenant_id()
-returns uuid language sql stable as $$
+returns uuid language sql stable
+set search_path = ''
+as $$
   select tenant_id from public.profiles where id = auth.uid()
 $$;
 

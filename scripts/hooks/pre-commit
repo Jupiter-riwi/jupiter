@@ -24,19 +24,6 @@ FAIL=0
 
 changed_in() { echo "$STAGED" | grep -q "^$1/" ; }
 
-# ─── Go lint ─────────────────────────────────────────────────────────────────
-if changed_in "api-gateway"; then
-    log_section "Lint: api-gateway (Go)"
-    cd "$ROOT/api-gateway"
-    if go vet ./... 2>&1; then
-        log_pass "go vet"
-    else
-        log_fail "go vet — corrige los errores antes de hacer commit"
-        FAIL=$((FAIL + 1))
-    fi
-    cd "$ROOT"
-fi
-
 # ─── Python lint ─────────────────────────────────────────────────────────────
 if changed_in "ai-workers"; then
     log_section "Lint: ai-workers (Python)"

@@ -59,40 +59,12 @@ echo -e "${NC}"
 
 if is_protected; then
     echo -e "${YELLOW}  Rama protegida '${CURRENT_BRANCH}' — ejecutando pipeline completo${NC}"
-    RUN_GO=1; RUN_PYTHON=1; RUN_FRONTEND=1
+    RUN_PYTHON=1; RUN_FRONTEND=1
 else
     echo -e "  Rama: ${CURRENT_BRANCH} — verificando servicios modificados"
-    RUN_GO=0; RUN_PYTHON=0; RUN_FRONTEND=0
-    changed_in "api-gateway" && RUN_GO=1
+    RUN_PYTHON=0; RUN_FRONTEND=0
     changed_in "ai-workers"  && RUN_PYTHON=1
     changed_in "frontend"    && RUN_FRONTEND=1
-fi
-
-# ─── api-gateway (Go) ────────────────────────────────────────────────────────
-if [ "$RUN_GO" -eq 1 ]; then
-    log_section "api-gateway (Go) — lint + test + build"
-    cd "$ROOT/api-gateway"
-
-    if go vet ./... 2>&1; then
-        log_pass "go vet"
-    else
-        log_fail "go vet"
-    fi
-
-    if go test ./... -race -coverprofile=coverage.out 2>&1; then
-        log_pass "go test"
-    else
-        log_fail "go test"
-    fi
-
-    mkdir -p bin
-    if CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/gateway ./cmd/api 2>&1; then
-        log_pass "go build"
-    else
-        log_fail "go build"
-    fi
-
-    cd "$ROOT"
 fi
 
 # ─── ai-workers (Python) ─────────────────────────────────────────────────────

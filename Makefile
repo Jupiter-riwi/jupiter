@@ -8,10 +8,7 @@ help: ## Mostrar todos los comandos disponibles
 
 # ─── Dependencias ────────────────────────────────────────────────────────────
 
-install: install-go install-python install-frontend ## Instalar dependencias de todos los servicios
-
-install-go: ## Instalar dependencias de api-gateway (Go)
-	cd api-gateway && go mod download && go mod verify
+install: install-python install-frontend ## Instalar dependencias de todos los servicios
 
 install-python: ## Instalar dependencias de ai-workers (Python)
 	cd ai-workers && pip install -r requirements.txt
@@ -21,10 +18,7 @@ install-frontend: ## Instalar dependencias de frontend (Node)
 
 # ─── Lint ────────────────────────────────────────────────────────────────────
 
-lint: lint-go lint-python lint-frontend ## Ejecutar lint en todos los servicios
-
-lint-go: ## Lint de api-gateway
-	cd api-gateway && go vet ./...
+lint: lint-python lint-frontend ## Ejecutar lint en todos los servicios
 
 lint-python: ## Lint de ai-workers
 	cd ai-workers && python -m ruff check . 2>/dev/null || python -m flake8 . --max-line-length=120 2>/dev/null || echo "ruff/flake8 no instalado, omitiendo lint Python"
@@ -34,20 +28,14 @@ lint-frontend: ## Lint de frontend
 
 # ─── Tests ───────────────────────────────────────────────────────────────────
 
-test: test-go test-python ## Ejecutar tests en todos los servicios
-
-test-go: ## Tests de api-gateway
-	cd api-gateway && go test ./... -v -race -coverprofile=coverage.out
+test: test-python ## Ejecutar tests en todos los servicios
 
 test-python: ## Tests de ai-workers
 	cd ai-workers && python -m pytest tests/ -v --tb=short
 
 # ─── Build ───────────────────────────────────────────────────────────────────
 
-build: build-go build-python build-frontend ## Build de todos los servicios
-
-build-go: ## Build de api-gateway
-	cd api-gateway && CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/gateway ./cmd/api
+build: build-python build-frontend ## Build de todos los servicios
 
 build-python: ## Verificar sintaxis de ai-workers
 	cd ai-workers && python -m compileall app/
@@ -99,7 +87,6 @@ hooks-uninstall: ## Desinstalar git hooks
 # ─── Limpieza ────────────────────────────────────────────────────────────────
 
 clean: ## Limpiar artefactos de build
-	rm -rf api-gateway/bin/
 	rm -rf frontend/dist/
 	rm -rf ai-workers/__pycache__/ ai-workers/app/__pycache__/ ai-workers/tests/__pycache__/
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true

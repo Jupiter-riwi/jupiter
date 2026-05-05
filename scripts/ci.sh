@@ -29,17 +29,6 @@ log_warn()   { echo -e "  ${YELLOW}⚠${NC} $1"; }
 
 # ─── Lint ────────────────────────────────────────────────────────────────────
 
-run_lint_go() {
-    log_section "Lint: api-gateway (Go)"
-    cd api-gateway
-    if go vet ./... 2>&1; then
-        log_pass "go vet"
-    else
-        log_fail "go vet"
-    fi
-    cd ..
-}
-
 run_lint_python() {
     log_section "Lint: ai-workers (Python)"
     cd ai-workers
@@ -66,17 +55,6 @@ run_lint_frontend() {
 
 # ─── Tests ───────────────────────────────────────────────────────────────────
 
-run_test_go() {
-    log_section "Test: api-gateway (Go)"
-    cd api-gateway
-    if go test ./... -v -race -coverprofile=coverage.out 2>&1; then
-        log_pass "go test"
-    else
-        log_fail "go test"
-    fi
-    cd ..
-}
-
 run_test_python() {
     log_section "Test: ai-workers (Python)"
     cd ai-workers
@@ -89,18 +67,6 @@ run_test_python() {
 }
 
 # ─── Build ───────────────────────────────────────────────────────────────────
-
-run_build_go() {
-    log_section "Build: api-gateway (Go)"
-    cd api-gateway
-    mkdir -p bin
-    if CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/gateway ./cmd/api 2>&1; then
-        log_pass "go build"
-    else
-        log_fail "go build"
-    fi
-    cd ..
-}
 
 run_build_python() {
     log_section "Build (syntax check): ai-workers (Python)"
@@ -152,26 +118,20 @@ echo -e "${NC}"
 
 case "$MODE" in
     --lint-only)
-        run_lint_go
         run_lint_python
         run_lint_frontend
         ;;
     --test-only)
-        run_test_go
         run_test_python
         ;;
     --build-only)
-        run_build_go
         run_build_python
         run_build_frontend
         ;;
     full|*)
-        run_lint_go
         run_lint_python
         run_lint_frontend
-        run_test_go
         run_test_python
-        run_build_go
         run_build_python
         run_build_frontend
         ;;

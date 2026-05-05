@@ -36,7 +36,7 @@
                              │ HTTPS (REST + WS)
                              ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                         API GATEWAY (Go o FastAPI)                       │
+│                         API GATEWAY (FastAPI)                     │
 │  - Auth JWT + tenant_id en claims                                        │
 │  - POST /evaluations  (crea registro + presigned URL)                    │
 │  - PUT  <storage>/...  (upload directo del cliente)                      │

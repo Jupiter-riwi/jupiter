@@ -19,7 +19,7 @@ jupiter/
 │   ├── ARCHITECTURE.md      ← arquitectura del sistema
 │   └── TEAM.md              ← división de trabajo y contratos
 ├── infra/                   ← docker-compose, k8s, scripts de infra
-├── api-gateway/             ← FastAPI gateway (auth, multi-tenant, presigned URLs, WS)
+├── api-gateway/             ← FastAPI gateway (auth, multi-tenant, presigned URLs, WS) — Python, reemplaza Go
 ├── ai-workers/              ← workers de IA (pose, whisper, prosody, scoring)
 ├── frontend/                ← React + Vite + Tailwind (grabación + dashboard)
 ├── README.md                ← este archivo
@@ -96,7 +96,7 @@ make hooks
 
 | Hook | Cuándo corre | Qué verifica |
 |---|---|---|
-| `pre-commit` | Antes de cada commit | Lint (go vet / ruff / eslint) solo en los servicios con archivos staged |
+| `pre-commit` | Antes de cada commit | Lint (ruff / eslint) solo en los servicios con archivos staged |
 | `pre-push` | Antes de cada push | Lint + tests + build en los servicios modificados; pipeline completo en `developer` y `main` |
 
 Si un check falla, el commit/push se cancela con el error exacto. Podés correr `make lint`, `make test` o `make ci` para depurar antes de reintentar.
