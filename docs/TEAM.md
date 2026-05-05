@@ -219,13 +219,57 @@ Definida en `ARCHITECTURE.md` sección 5. Cualquier cambio se discute en PR.
 
 ---
 
+## Flujo de branches
+
+```
+feature/xxx  ──PR──▶  developer  ──PR──▶  main
+                         │                  │
+                    integración          producción /
+                    y pruebas            releases
+```
+
+### Reglas
+
+| Rama | Propósito | Quién pushea |
+|---|---|---|
+| `main` | Código estable / releases | Solo via PR desde `developer` |
+| `developer` | Integración de todas las features | Solo via PR desde feature branches |
+| `<area>/feature/<desc>` | Desarrollo individual | Cada developer en su área |
+
+### Pasos para contribuir
+
+```bash
+# 1. Siempre partir de developer actualizado
+git checkout developer && git pull origin developer
+
+# 2. Crear feature branch
+git checkout -b ai-workers/feature/pose-worker
+
+# 3. Trabajar y commitear (commits pequeños y descriptivos)
+git add <archivos específicos>
+git commit -m "feat(pose): implementar procesamiento de video con MediaPipe"
+
+# 4. Pushear la feature branch
+git push origin ai-workers/feature/pose-worker
+
+# 5. Abrir PR hacia developer (NO hacia main directamente)
+gh pr create --base developer --title "feat(pose): pose worker con MediaPipe" \
+  --body "## Qué hace\n...\n## Cómo probar\n..."
+```
+
+### Cuándo hacer PR de developer → main
+
+Solo cuando el equipo decide que `developer` tiene un conjunto coherente de features listas para producción. Esto se decide en el sync semanal. El PR lo abre cualquier dev, pero requiere review de todos.
+
+---
+
 ## Cadencia y proceso
 
 - **Daily async** (Slack, 10 min): qué hice / qué hago / blockers.
-- **Sync semanal** (1h): demo de lo que avanzó cada uno + decisiones abiertas.
-- **PRs**: review obligatorio de al menos 1 dev fuera del dominio. PRs chicos (< 400 líneas).
-- **Branches**: seguir el patrón existente `<area>/feature/<descripción>`.
-- **Decisiones de arquitectura**: cualquier cambio en contratos compartidos → PR a `ARCHITECTURE.md` antes de implementar. Usar la skill `/generate-arch` para mantener el doc consistente.
+- **Sync semanal** (1h): demo de lo que avanzó cada uno + decisiones de release a `main`.
+- **PRs a developer**: review obligatorio de al menos 1 dev fuera del dominio. PRs chicos (< 400 líneas).
+- **PRs a main**: review de todos + decisión de equipo.
+- **Decisiones de arquitectura**: cualquier cambio en contratos compartidos → PR a `docs/ARCHITECTURE.md` antes de implementar. Usar la skill `/generate-arch` para mantener el doc consistente.
 
 ---
 
