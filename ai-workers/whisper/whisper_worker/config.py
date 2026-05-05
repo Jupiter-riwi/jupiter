@@ -77,7 +77,7 @@ class Settings:
             ffmpeg_bin=os.getenv("FFMPEG_BIN", "ffmpeg"),
             ffprobe_bin=os.getenv("FFPROBE_BIN", "ffprobe"),
             audio_format=os.getenv("WHISPER_AUDIO_FORMAT", "wav"),
-            whisper_max_video_seconds=_get_int("WHISPER_MAX_VIDEO_SECONDS", 480),
+            whisper_max_video_seconds=_get_int("WHISPER_MAX_VIDEO_SECONDS", 600),
             whisper_chunk_seconds=_get_int("WHISPER_CHUNK_SECONDS", 120),
             whisper_parallel_requests=_get_int("WHISPER_PARALLEL_REQUESTS", 2),
             whisper_word_timestamps=_get_bool("WHISPER_WORD_TIMESTAMPS", False),

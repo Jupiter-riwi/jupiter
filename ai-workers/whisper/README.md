@@ -84,7 +84,7 @@ Codigos de error relevantes:
 - `FFMPEG_BIN` (default: `ffmpeg` en el PATH)
 - `WHISPER_AUDIO_FORMAT` (default: `wav`)
 - `WHISPER_TEMP_DIR` (default: `/tmp/jupiter-whisper`)
-- `WHISPER_MAX_VIDEO_SECONDS` (default: `480` = 8 min)
+- `WHISPER_MAX_VIDEO_SECONDS` (default: `600` = 10 min)
 - `WHISPER_CHUNK_SECONDS` (default: `120`)
 - `WHISPER_PARALLEL_REQUESTS` (default: `2`)
 - `WHISPER_WORD_TIMESTAMPS` (default: `false`, mejora latencia)

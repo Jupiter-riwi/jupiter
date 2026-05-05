@@ -28,7 +28,7 @@ def _make_settings() -> Settings:
         ffmpeg_bin="ffmpeg",
         ffprobe_bin="ffprobe",
         audio_format="wav",
-        whisper_max_video_seconds=480,
+        whisper_max_video_seconds=600,
         whisper_chunk_seconds=120,
         whisper_parallel_requests=2,
         whisper_word_timestamps=False,
