@@ -7,13 +7,19 @@ import (
 	"github.com/Jupiter-riwi/jupiter/api-gateway/internal/auth"
 	"github.com/Jupiter-riwi/jupiter/api-gateway/internal/database"
 	"github.com/Jupiter-riwi/jupiter/api-gateway/internal/handlers"
+	"github.com/Jupiter-riwi/jupiter/api-gateway/internal/rabbitmq"
+	"github.com/Jupiter-riwi/jupiter/api-gateway/internal/storage"
 	"github.com/Jupiter-riwi/jupiter/api-gateway/internal/tenant"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"gorm.io/gorm"
 )
 
-func setupRouter(authHandler *handlers.AuthHandler, db *gorm.DB) *gin.Engine {
+func setupRouter(
+	authHandler *handlers.AuthHandler,
+	evalHandler *handlers.EvaluationHandler,
+	db *gorm.DB,
+) *gin.Engine {
 	r := gin.Default()
 
 	r.GET("/health", func(c *gin.Context) {
@@ -31,6 +37,12 @@ func setupRouter(authHandler *handlers.AuthHandler, db *gorm.DB) *gin.Engine {
 	protected.Use(auth.Middleware(), tenant.Middleware(db))
 	{
 		protected.GET("/me", authHandler.Me)
+
+		protected.POST("/evaluations", evalHandler.Create)
+		protected.POST("/evaluations/:id/complete", evalHandler.Complete)
+		protected.GET("/evaluations/:id", evalHandler.GetByID)
+		protected.GET("/evaluations", evalHandler.List)
+		protected.GET("/evaluations/:id/stream", evalHandler.Stream)
 	}
 
 	return r
@@ -46,10 +58,22 @@ func main() {
 		log.Fatal("failed to connect to database:", err)
 	}
 
+	minioClient, err := storage.NewMinioClient()
+	if err != nil {
+		log.Fatal("failed to connect to minio:", err)
+	}
+
+	mqClient, err := rabbitmq.NewClient()
+	if err != nil {
+		log.Fatal("failed to connect to rabbitmq:", err)
+	}
+	defer mqClient.Close()
+
 	authService := auth.NewService(db)
 	authHandler := handlers.NewAuthHandler(authService, db)
+	evalHandler := handlers.NewEvaluationHandler(db, minioClient, mqClient)
 
-	r := setupRouter(authHandler, db)
+	r := setupRouter(authHandler, evalHandler, db)
 
 	port := os.Getenv("PORT")
 	if port == "" {
