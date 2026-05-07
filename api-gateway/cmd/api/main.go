@@ -18,6 +18,7 @@ import (
 func setupRouter(
 	authHandler *handlers.AuthHandler,
 	evalHandler *handlers.EvaluationHandler,
+	questionHandler *handlers.QuestionHandler,
 	db *gorm.DB,
 ) *gin.Engine {
 	r := gin.Default()
@@ -43,6 +44,8 @@ func setupRouter(
 		protected.GET("/evaluations/:id", evalHandler.GetByID)
 		protected.GET("/evaluations", evalHandler.List)
 		protected.GET("/evaluations/:id/stream", evalHandler.Stream)
+
+		protected.GET("/questions", questionHandler.List)
 	}
 
 	return r
@@ -72,8 +75,9 @@ func main() {
 	authService := auth.NewService(db)
 	authHandler := handlers.NewAuthHandler(authService, db)
 	evalHandler := handlers.NewEvaluationHandler(db, minioClient, mqClient)
+	questionHandler := handlers.NewQuestionHandler(db)
 
-	r := setupRouter(authHandler, evalHandler, db)
+	r := setupRouter(authHandler, evalHandler, questionHandler, db)
 
 	port := os.Getenv("PORT")
 	if port == "" {
