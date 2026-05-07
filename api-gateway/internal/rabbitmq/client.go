@@ -14,6 +14,7 @@ const (
 	QueuePose    = "jupiter.pose"
 	QueueWhisper = "jupiter.whisper"
 	QueueProsody = "jupiter.prosody"
+	QueueScoring = "jupiter.scoring"
 )
 
 type JobMessage struct {
@@ -56,7 +57,7 @@ func NewClient() (*Client, error) {
 }
 
 func (c *Client) declareQueues() error {
-	for _, q := range []string{QueuePose, QueueWhisper, QueueProsody} {
+	for _, q := range []string{QueuePose, QueueWhisper, QueueProsody, QueueScoring} {
 		_, err := c.channel.QueueDeclare(q, true, false, false, false, nil)
 		if err != nil {
 			return fmt.Errorf("declare queue %s: %w", q, err)

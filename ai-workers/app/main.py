@@ -1,17 +1,22 @@
+"""
+AI Workers — FastAPI entrypoint.
+
+Selects the correct worker class based on the WORKER_TYPE environment variable,
+starts it in a daemon thread, and exposes a /health endpoint for Docker health
+checks.
+
+WORKER_TYPE values: pose | whisper | prosody | scoring
+"""
+
 import logging
 import os
+import sys
+import threading
 from contextlib import asynccontextmanager
 
-import pika
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
-from app.consumer import start_consumer
-from app.rabbitmq import QUEUE_NAME, get_channel, get_connection
-
-# ---------------------------------------------------------------------------
-# Logging
-# ---------------------------------------------------------------------------
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
@@ -19,63 +24,48 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+WORKER_TYPE = os.getenv("WORKER_TYPE", "pose")
 
-# ---------------------------------------------------------------------------
-# Lifespan: arranca el consumer al iniciar y lo detiene al cerrar
-# ---------------------------------------------------------------------------
+
+def _build_worker():
+    if WORKER_TYPE == "pose":
+        from workers.pose import PoseWorker
+        return PoseWorker()
+    elif WORKER_TYPE == "whisper":
+        from workers.whisper import WhisperWorker
+        return WhisperWorker()
+    elif WORKER_TYPE == "prosody":
+        from workers.prosody import ProsodyWorker
+        return ProsodyWorker()
+    elif WORKER_TYPE == "scoring":
+        from workers.scoring import ScoringWorker
+        return ScoringWorker()
+    else:
+        logger.error("Unknown WORKER_TYPE=%r — must be pose|whisper|prosody|scoring", WORKER_TYPE)
+        sys.exit(1)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Iniciando aplicación…")
-    start_consumer()          # lanza el hilo de RabbitMQ
+    worker = _build_worker()
+    thread = threading.Thread(target=worker.run, name=f"worker-{WORKER_TYPE}", daemon=True)
+    thread.start()
+    logger.info("Worker thread started for WORKER_TYPE=%s", WORKER_TYPE)
     yield
-    logger.info("Apagando aplicación…")
+    logger.info("Shutting down %s worker", WORKER_TYPE)
 
-
-# ---------------------------------------------------------------------------
-# Instancia de FastAPI
-# ---------------------------------------------------------------------------
 
 app = FastAPI(
-    title="FastAPI + RabbitMQ",
-    description="Servidor base con health check y consumer de telemetría.",
+    title=f"Jupiter Worker — {WORKER_TYPE}",
+    description="AI feature extraction worker with fan-in coordinator.",
     version="1.0.0",
     lifespan=lifespan,
 )
 
 
-# ---------------------------------------------------------------------------
-# Endpoints
-# ---------------------------------------------------------------------------
-
 @app.get("/health", tags=["Monitoring"])
 def health_check():
-    """
-    Verifica el estado del servicio y la conectividad con RabbitMQ.
-
-    Retorna:
-        200 – servicio y broker operativos
-        503 – no se puede alcanzar RabbitMQ
-    """
-    rabbitmq_status = "ok"
-    try:
-        conn = get_connection()
-        ch = get_channel(conn)
-        queue_info = ch.queue_declare(queue=QUEUE_NAME, durable=True, passive=True)
-        message_count = queue_info.method.message_count
-        conn.close()
-    except Exception as exc:
-        logger.warning("Health check – RabbitMQ no disponible: %s", exc)
-        rabbitmq_status = f"error: {exc}"
-
-    status_code = 200 if rabbitmq_status == "ok" else 503
     return JSONResponse(
-        status_code=status_code,
-        content={
-            "status": "ok" if status_code == 200 else "degraded",
-            "service": "fastapi-rabbitmq",
-            "rabbitmq": rabbitmq_status,
-            "queue": QUEUE_NAME,
-            "messages_in_queue": message_count if rabbitmq_status == "ok" else None,
-        },
+        status_code=200,
+        content={"status": "ok", "worker_type": WORKER_TYPE},
     )
