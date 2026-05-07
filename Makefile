@@ -1,93 +1,53 @@
-.PHONY: help install lint test build deploy dev clean hooks hooks-uninstall
+.PHONY: up down restart logs seed ps build pull health
 
-SHELL := /bin/bash
-ENV_FILE := .env
+# ── Lifecycle ──────────────────────────────────────────────────────────────────
 
-help: ## Mostrar todos los comandos disponibles
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+up:
+	docker compose up -d --build
+	@echo ""
+	@echo "Services available:"
+	@echo "  Gateway   → http://localhost:$${GATEWAY_PORT:-8080}"
+	@echo "  API Docs  → http://localhost:$${GATEWAY_PORT:-8080}/docs"
+	@echo "  Frontend  → http://localhost:$${FRONTEND_PORT:-5173}"
+	@echo "  RabbitMQ  → http://localhost:15672  (guest / guest)"
+	@echo "  MinIO     → http://localhost:9001   (minioadmin / minioadmin)"
 
-# ─── Dependencias ────────────────────────────────────────────────────────────
+down:
+	docker compose down
 
-install: install-python install-frontend ## Instalar dependencias de todos los servicios
+restart:
+	docker compose restart
 
-install-python: ## Instalar dependencias de ai-workers (Python)
-	cd ai-workers && pip install -r requirements.txt
+# ── Observability ──────────────────────────────────────────────────────────────
 
-install-frontend: ## Instalar dependencias de frontend (Node)
-	cd frontend && npm ci
-
-# ─── Lint ────────────────────────────────────────────────────────────────────
-
-lint: lint-python lint-frontend ## Ejecutar lint en todos los servicios
-
-lint-python: ## Lint de ai-workers
-	cd ai-workers && python -m ruff check . 2>/dev/null || python -m flake8 . --max-line-length=120 2>/dev/null || echo "ruff/flake8 no instalado, omitiendo lint Python"
-
-lint-frontend: ## Lint de frontend
-	cd frontend && npm run lint -- --max-warnings=0
-
-# ─── Tests ───────────────────────────────────────────────────────────────────
-
-test: test-python ## Ejecutar tests en todos los servicios
-
-test-python: ## Tests de ai-workers
-	cd ai-workers && python -m pytest tests/ -v --tb=short
-
-# ─── Build ───────────────────────────────────────────────────────────────────
-
-build: build-python build-frontend ## Build de todos los servicios
-
-build-python: ## Verificar sintaxis de ai-workers
-	cd ai-workers && python -m compileall app/
-
-build-frontend: ## Build de frontend
-	cd frontend && npm run build
-
-# ─── Docker ──────────────────────────────────────────────────────────────────
-
-docker-build: ## Construir imágenes Docker de todos los servicios
-	docker compose build
-
-docker-up: ## Levantar todos los servicios con Docker Compose
-	docker compose --env-file $(ENV_FILE) up -d --build
-
-docker-down: ## Detener todos los servicios
-	docker compose down -v
-
-docker-logs: ## Ver logs de todos los servicios
+logs:
 	docker compose logs -f
 
-docker-restart: docker-down docker-up ## Reiniciar stack completo
+ps:
+	docker compose ps
 
-# ─── Desarrollo ──────────────────────────────────────────────────────────────
+# ── Data ──────────────────────────────────────────────────────────────────────
 
-dev: ## Iniciar entorno de desarrollo completo
-	docker compose --env-file $(ENV_FILE) up -d --build rabbitmq postgres
-	@echo "RabbitMQ → http://localhost:15672 (guest/guest)"
-	@echo "PostgreSQL → localhost:5432"
-	@echo ""
-	@echo "Ejecuta los servicios en terminales separadas:"
-	@echo "  cd api-gateway && go run ./cmd/api"
-	@echo "  cd ai-workers && uvicorn app.main:app --reload --port 8000"
-	@echo "  cd frontend && npm run dev"
+seed:
+	docker compose run --rm migrate \
+		sh -c "pip install -q -r requirements.txt && python -c \
+		\"import os, sys; sys.path.insert(0, '.'); \
+		from versions.seed import run; run(os.environ.get('SEED_TENANT_ID'))\""
+	@echo "Seed complete."
 
-# ─── CI Pipeline ─────────────────────────────────────────────────────────────
+# ── Build & pull ──────────────────────────────────────────────────────────────
 
-ci: install lint test build ## Pipeline CI completo (local)
+build:
+	docker compose build
 
-# ─── Git Hooks ───────────────────────────────────────────────────────────────
+pull:
+	docker compose pull
 
-hooks: ## Instalar git hooks (pre-commit lint + pre-push CI)
-	bash scripts/hooks/install-hooks.sh
+# ── Health check ──────────────────────────────────────────────────────────────
 
-hooks-uninstall: ## Desinstalar git hooks
-	@rm -f .git/hooks/pre-commit .git/hooks/pre-push
-	@echo "Git hooks desinstalados."
-
-# ─── Limpieza ────────────────────────────────────────────────────────────────
-
-clean: ## Limpiar artefactos de build
-	rm -rf frontend/dist/
-	rm -rf ai-workers/__pycache__/ ai-workers/app/__pycache__/ ai-workers/tests/__pycache__/
-	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-	docker compose down -v --remove-orphans
+health:
+	@echo "Checking service health..."
+	@curl -sf http://localhost:$${GATEWAY_PORT:-8080}/health && echo " gateway OK" || echo " gateway FAIL"
+	@curl -sf http://localhost:$${FRONTEND_PORT:-5173} > /dev/null && echo " frontend OK" || echo " frontend FAIL"
+	@curl -sf http://localhost:15672 > /dev/null && echo " rabbitmq OK" || echo " rabbitmq FAIL"
+	@curl -sf http://localhost:9001 > /dev/null && echo " minio OK" || echo " minio FAIL"

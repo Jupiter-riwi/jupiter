@@ -1,36 +1,37 @@
 version: "3.9"
 
 services:
-  # ─── PostgreSQL ──────────────────────────────────────────────────────────
+
+  # ── Infrastructure ─────────────────────────────────────────────────────────
+
   postgres:
     image: postgres:16-alpine
     container_name: jupiter-postgres
     restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-jupiter}
     ports:
       - "${DB_PORT:-5432}:5432"
-    environment:
-      POSTGRES_USER: ${DB_USER:-jupiter}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-jupiter_secret}
-      POSTGRES_DB: ${DB_NAME:-jupiter_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-jupiter} -d ${DB_NAME:-jupiter_db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-jupiter}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # ─── RabbitMQ ────────────────────────────────────────────────────────────
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     container_name: jupiter-rabbitmq
     restart: unless-stopped
-    ports:
-      - "5672:5672"
-      - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "15672:15672"   # Management UI → http://localhost:15672
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -39,100 +40,198 @@ services:
       timeout: 5s
       retries: 5
 
-  # ─── API Gateway (FastAPI / Python) ───────────────────────────────────────
-  # TODO: reemplazar con el nuevo gateway en Python cuando esté listo (Dev 3)
+  minio:
+    image: minio/minio:latest
+    container_name: jupiter-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "9001:9001"     # Console UI → http://localhost:9001
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # ─── AI Workers (Python / FastAPI) ───────────────────────────────────────
-  ai-workers:
+  # ── Migrations ─────────────────────────────────────────────────────────────
+
+  migrate:
+    image: python:3.12-slim
+    container_name: jupiter-migrate
+    working_dir: /migrations
+    volumes:
+      - ./infra/migrations:/migrations
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-jupiter}
+    command: >
+      sh -c "pip install -q -r requirements.txt &&
+             alembic upgrade head"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # ── API Gateway ─────────────────────────────────────────────────────────────
+
+  gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: jupiter-gateway
+    restart: unless-stopped
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"
+    environment:
+      PORT: 8080
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-jupiter}
+      JWT_SECRET: ${JWT_SECRET:-change_me_in_production}
+      JWT_EXPIRY_MINUTES: ${JWT_EXPIRY_MINUTES:-15}
+      JWT_REFRESH_EXPIRY_HOURS: ${JWT_REFRESH_EXPIRY_HOURS:-168}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_BUCKET: ${MINIO_BUCKET:-jupiter-videos}
+      MINIO_USE_SSL: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── AI Workers ──────────────────────────────────────────────────────────────
+
+  worker-pose:
     build:
       context: ./ai-workers
       dockerfile: Dockerfile
-    container_name: jupiter-ai-workers
+    container_name: jupiter-worker-pose
     restart: unless-stopped
-    ports:
-      - "${AI_WORKERS_PORT:-8000}:8000"
     environment:
+      WORKER_TYPE: pose
       RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: "5672"
+      RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_USER:-guest}
       RABBITMQ_PASS: ${RABBITMQ_PASS:-guest}
+      QUEUE_NAME: jupiter.pose
     depends_on:
       rabbitmq:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
 
-  # ─── Pose Worker (Dev 1) ───────────────────────────────────────────────────
-  pose-worker:
+  worker-whisper:
     build:
-      context: ./ai-workers/pose
+      context: ./ai-workers
       dockerfile: Dockerfile
-    container_name: jupiter-pose-worker
+    container_name: jupiter-worker-whisper
     restart: unless-stopped
     environment:
+      WORKER_TYPE: whisper
       RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: "5672"
+      RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_USER:-guest}
       RABBITMQ_PASS: ${RABBITMQ_PASS:-guest}
-      POSE_JOBS_QUEUE: pose.jobs
-      FEATURES_RESULTS_QUEUE: features.results
-      DATABASE_URL: ${DATABASE_URL:-postgresql://jupiter:jupiter_secret@postgres:5432/jupiter_db}
-      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://minio:9000}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioadmin}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
-      AWS_REGION: ${AWS_REGION:-us-east-1}
-      POSE_SEGMENT_SECONDS: ${POSE_SEGMENT_SECONDS:-5}
-      POSE_MAX_VIDEO_SECONDS: ${POSE_MAX_VIDEO_SECONDS:-600}
+      QUEUE_NAME: jupiter.whisper
     depends_on:
       rabbitmq:
         condition: service_healthy
-      postgres:
-        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
 
-  # ─── Whisper Worker ────────────────────────────────────────────────────────
-  whisper-worker:
+  worker-prosody:
     build:
-      context: ./ai-workers/whisper
+      context: ./ai-workers
       dockerfile: Dockerfile
-    container_name: jupiter-whisper-worker
+    container_name: jupiter-worker-prosody
     restart: unless-stopped
     environment:
+      WORKER_TYPE: prosody
       RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: "5672"
+      RABBITMQ_PORT: 5672
       RABBITMQ_USER: ${RABBITMQ_USER:-guest}
       RABBITMQ_PASS: ${RABBITMQ_PASS:-guest}
-      WHISPER_JOBS_QUEUE: whisper.jobs
-      FEATURES_RESULTS_QUEUE: features.results
-      DATABASE_URL: ${DATABASE_URL:-postgresql://jupiter:jupiter_secret@postgres:5432/jupiter_db}
-      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://minio:9000}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioadmin}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
-      AWS_REGION: ${AWS_REGION:-us-east-1}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      WHISPER_MODEL: ${WHISPER_MODEL:-whisper-1}
-      WHISPER_MAX_VIDEO_SECONDS: ${WHISPER_MAX_VIDEO_SECONDS:-480}
-      WHISPER_CHUNK_SECONDS: ${WHISPER_CHUNK_SECONDS:-120}
-      WHISPER_PARALLEL_REQUESTS: ${WHISPER_PARALLEL_REQUESTS:-2}
-      WHISPER_WORD_TIMESTAMPS: ${WHISPER_WORD_TIMESTAMPS:-false}
-      WHISPER_TEMP_DIR: /tmp/jupiter-whisper
+      QUEUE_NAME: jupiter.prosody
     depends_on:
       rabbitmq:
         condition: service_healthy
-      postgres:
-        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
 
-  # ─── Frontend (React / Vite / Nginx) ─────────────────────────────────────
+  worker-scoring:
+    build:
+      context: ./ai-workers
+      dockerfile: Dockerfile
+    container_name: jupiter-worker-scoring
+    restart: unless-stopped
+    environment:
+      WORKER_TYPE: scoring
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_PASS: ${RABBITMQ_PASS:-guest}
+      QUEUE_NAME: jupiter.scoring
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # ── Frontend ────────────────────────────────────────────────────────────────
+
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
+    image: node:20-alpine
     container_name: jupiter-frontend
-    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: sh -c "npm install && npm run dev -- --host"
     ports:
-      - "${FRONTEND_PORT:-5173}:80"
+      - "${FRONTEND_PORT:-5173}:5173"
+    environment:
+      VITE_API_URL: http://localhost:${GATEWAY_PORT:-8080}
     depends_on:
-      - ai-workers
+      gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5173 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:
   rabbitmq_data:
+  minio_data:

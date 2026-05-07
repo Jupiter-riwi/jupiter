@@ -1,0 +1,246 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2026-05-07T00:00:00.000Z",
+  "__export_source": "insomnia.desktop.app",
+  "resources": [
+    {
+      "_id": "wrk_jupiter",
+      "_type": "workspace",
+      "name": "Jupiter API",
+      "description": "Complete API flow for Jupiter platform",
+      "scope": "collection"
+    },
+    {
+      "_id": "env_base",
+      "_type": "environment",
+      "parentId": "wrk_jupiter",
+      "name": "Local",
+      "data": {
+        "base_url": "http://localhost:8080",
+        "access_token": "",
+        "refresh_token": "",
+        "tenant_id": "",
+        "evaluation_id": ""
+      }
+    },
+
+    {
+      "_id": "fld_auth",
+      "_type": "request_group",
+      "parentId": "wrk_jupiter",
+      "name": "01 · Auth",
+      "description": "Registration, login, token refresh and current user"
+    },
+    {
+      "_id": "req_register",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Register",
+      "method": "POST",
+      "url": "{{ base_url }}/auth/register",
+      "description": "Create a new user under a tenant. Use an existing tenant_id or run make seed first.",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"tenant_id\": \"{{ tenant_id }}\",\n  \"email\": \"demo@jupiter.ai\",\n  \"password\": \"secret123\"\n}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }]
+    },
+    {
+      "_id": "req_login",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Login",
+      "method": "POST",
+      "url": "{{ base_url }}/auth/login",
+      "description": "Authenticate and receive access + refresh tokens. Copy access_token to the environment.",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"email\": \"demo@jupiter.ai\",\n  \"password\": \"secret123\"\n}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }]
+    },
+    {
+      "_id": "req_refresh",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Refresh Token",
+      "method": "POST",
+      "url": "{{ base_url }}/auth/refresh",
+      "description": "Exchange a refresh token for a new access token pair.",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"refresh_token\": \"{{ refresh_token }}\"\n}"
+      },
+      "headers": [{ "name": "Content-Type", "value": "application/json" }]
+    },
+    {
+      "_id": "req_me",
+      "_type": "request",
+      "parentId": "fld_auth",
+      "name": "Get Current User",
+      "method": "GET",
+      "url": "{{ base_url }}/me",
+      "description": "Returns the authenticated user's profile.",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ access_token }}" }
+      ]
+    },
+
+    {
+      "_id": "fld_questions",
+      "_type": "request_group",
+      "parentId": "wrk_jupiter",
+      "name": "02 · Questions",
+      "description": "Practice questions scoped to the authenticated tenant"
+    },
+    {
+      "_id": "req_questions_list",
+      "_type": "request",
+      "parentId": "fld_questions",
+      "name": "List Questions",
+      "method": "GET",
+      "url": "{{ base_url }}/questions",
+      "description": "Returns all practice questions for the tenant. Supports ?category=sales&page=1&limit=20",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ access_token }}" }
+      ]
+    },
+    {
+      "_id": "req_questions_by_category",
+      "_type": "request",
+      "parentId": "fld_questions",
+      "name": "List Questions — Filter by Category",
+      "method": "GET",
+      "url": "{{ base_url }}/questions?category=sales",
+      "description": "Filter questions by category. Available: sales, product, communication, objection_handling",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ access_token }}" }
+      ]
+    },
+
+    {
+      "_id": "fld_evaluations",
+      "_type": "request_group",
+      "parentId": "wrk_jupiter",
+      "name": "03 · Evaluations",
+      "description": "Full evaluation lifecycle: create → upload → process → results"
+    },
+    {
+      "_id": "req_eval_create",
+      "_type": "request",
+      "parentId": "fld_evaluations",
+      "name": "1. Create Evaluation",
+      "method": "POST",
+      "url": "{{ base_url }}/evaluations",
+      "description": "Creates an evaluation record and returns a presigned MinIO URL for direct video upload. Copy the evaluation id to evaluation_id env var.",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"title\": \"Q1 Sales Pitch Demo\"\n}"
+      },
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" },
+        { "name": "Authorization", "value": "Bearer {{ access_token }}" }
+      ]
+    },
+    {
+      "_id": "req_eval_upload",
+      "_type": "request",
+      "parentId": "fld_evaluations",
+      "name": "2. Upload Video (presigned PUT)",
+      "method": "PUT",
+      "url": "<paste upload_url from previous response>",
+      "description": "Use the upload_url returned by Create Evaluation to upload the video file directly to MinIO. No Authorization header needed — the URL is pre-signed.",
+      "body": {
+        "mimeType": "application/octet-stream",
+        "fileName": "/path/to/your/video.mp4"
+      },
+      "headers": [
+        { "name": "Content-Type", "value": "video/mp4" }
+      ]
+    },
+    {
+      "_id": "req_eval_complete",
+      "_type": "request",
+      "parentId": "fld_evaluations",
+      "name": "3. Complete Evaluation (trigger analysis)",
+      "method": "POST",
+      "url": "{{ base_url }}/evaluations/{{ evaluation_id }}/complete",
+      "description": "Marks the video as uploaded and publishes pose, whisper and prosody jobs to RabbitMQ. Returns 202 Accepted.",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ access_token }}" }
+      ]
+    },
+    {
+      "_id": "req_eval_get",
+      "_type": "request",
+      "parentId": "fld_evaluations",
+      "name": "4. Get Evaluation (poll for results)",
+      "method": "GET",
+      "url": "{{ base_url }}/evaluations/{{ evaluation_id }}",
+      "description": "Returns current status, score and features. Poll until status=completed.",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ access_token }}" }
+      ]
+    },
+    {
+      "_id": "req_eval_list",
+      "_type": "request",
+      "parentId": "fld_evaluations",
+      "name": "List Evaluations",
+      "method": "GET",
+      "url": "{{ base_url }}/evaluations?page=1&limit=10",
+      "description": "Paginated list of evaluations for the authenticated user. Supports ?status=completed",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ access_token }}" }
+      ]
+    },
+    {
+      "_id": "req_eval_stream",
+      "_type": "request",
+      "parentId": "fld_evaluations",
+      "name": "5. Stream Progress (WebSocket)",
+      "method": "GET",
+      "url": "ws://localhost:8080/evaluations/{{ evaluation_id }}/stream",
+      "description": "WebSocket connection for real-time evaluation progress. Events: connected, status_changed, completed, error. Use a WebSocket client (e.g. Insomnia WS tab or wscat).",
+      "headers": [
+        { "name": "Authorization", "value": "Bearer {{ access_token }}" }
+      ]
+    },
+
+    {
+      "_id": "fld_health",
+      "_type": "request_group",
+      "parentId": "wrk_jupiter",
+      "name": "00 · Health",
+      "description": "Health checks for all services"
+    },
+    {
+      "_id": "req_health_gateway",
+      "_type": "request",
+      "parentId": "fld_health",
+      "name": "Gateway Health",
+      "method": "GET",
+      "url": "{{ base_url }}/health",
+      "description": "Returns {\"status\": \"ok\"} when the gateway is running."
+    },
+    {
+      "_id": "req_health_rabbitmq",
+      "_type": "request",
+      "parentId": "fld_health",
+      "name": "RabbitMQ Management UI",
+      "method": "GET",
+      "url": "http://localhost:15672",
+      "description": "RabbitMQ management console. Default credentials: guest / guest"
+    },
+    {
+      "_id": "req_health_minio",
+      "_type": "request",
+      "parentId": "fld_health",
+      "name": "MinIO Console",
+      "method": "GET",
+      "url": "http://localhost:9001",
+      "description": "MinIO object storage console. Default credentials: minioadmin / minioadmin"
+    }
+  ]
+}
