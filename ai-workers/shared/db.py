@@ -133,7 +133,7 @@ def fetch_features_by_evaluation(
 
 
 def all_features_ready(evaluation_id: str, conn=None) -> bool:
-    required = {"transcript"}
+    required = {"pose", "transcript", "prosody"}
     found = fetch_features_by_evaluation(evaluation_id, conn)
     return required.issubset(set(found.keys()))
 

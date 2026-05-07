@@ -88,10 +88,12 @@ def on_scoring_job(channel, method, properties, body: bytes) -> None:
         features = fetch_features_by_evaluation(job.evaluation_id)
 
         if not all_features_ready(job.evaluation_id):
+            required = {"pose", "transcript", "prosody"}
+            missing = sorted(required - set(features.keys()))
             logger.warning(
                 "Features incompletos para evaluation_id=%s — reintentando | "
-                "encontrados=%s",
-                job.evaluation_id, list(features.keys()),
+                "encontrados=%s | faltantes=%s",
+                job.evaluation_id, list(features.keys()), missing,
             )
             channel.basic_nack(delivery_tag=delivery_tag, requeue=True)
             return
