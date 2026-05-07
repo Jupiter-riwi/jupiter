@@ -99,10 +99,13 @@ services:
       JWT_REFRESH_EXPIRY_HOURS: ${JWT_REFRESH_EXPIRY_HOURS:-168}
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/
       MINIO_ENDPOINT: minio:9000
+      MINIO_PUBLIC_ENDPOINT: localhost:9000
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
       MINIO_BUCKET: ${MINIO_BUCKET:-jupiter-videos}
       MINIO_USE_SSL: "false"
+      MINIO_PUBLIC_USE_SSL: "false"
+      CORS_ALLOW_ORIGIN: http://localhost:5173
     depends_on:
       postgres:
         condition: service_healthy

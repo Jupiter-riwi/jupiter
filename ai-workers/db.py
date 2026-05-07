@@ -16,17 +16,23 @@ def get_connection():
 
 
 def save_feature(conn, evaluation_id: str, kind: str, data: dict) -> None:
-    """Upsert a feature row. Idempotent — retrying the same kind is safe."""
+    """Insert one feature row for an evaluation."""
     import json, uuid
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT tenant_id FROM evaluations WHERE id = %s", (evaluation_id,))
+        row = cur.fetchone()
+        if not row:
+            raise ValueError(f"evaluation not found: {evaluation_id}")
+        tenant_id = str(row[0])
+
     with conn.cursor() as cur:
         cur.execute(
             """
-            INSERT INTO features (id, evaluation_id, kind, data, created_at)
+            INSERT INTO features (id, evaluation_id, tenant_id, kind, payload, created_at)
             VALUES (%s, %s, %s, %s, NOW())
-            ON CONFLICT (evaluation_id, kind)
-            DO UPDATE SET data = EXCLUDED.data
             """,
-            (str(uuid.uuid4()), evaluation_id, kind, json.dumps(data)),
+            (str(uuid.uuid4()), evaluation_id, tenant_id, kind, json.dumps(data)),
         )
     conn.commit()
 

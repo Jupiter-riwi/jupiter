@@ -37,7 +37,7 @@ class ScoringWorker(BaseWorker):
     def _load_features(self, conn, evaluation_id: str) -> dict:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT kind, data FROM features WHERE evaluation_id = %s",
+                "SELECT kind, payload FROM features WHERE evaluation_id = %s",
                 (evaluation_id,),
             )
             return {row[0]: row[1] for row in cur.fetchall()}

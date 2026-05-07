@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"time"
 
@@ -11,8 +12,10 @@ import (
 )
 
 type MinioClient struct {
-	client *minio.Client
-	bucket string
+	client         *minio.Client
+	bucket         string
+	publicEndpoint string
+	securePublic   bool
 }
 
 func NewMinioClient() (*MinioClient, error) {
@@ -21,6 +24,14 @@ func NewMinioClient() (*MinioClient, error) {
 	secretKey := os.Getenv("MINIO_SECRET_KEY")
 	bucket := os.Getenv("MINIO_BUCKET")
 	useSSL := os.Getenv("MINIO_USE_SSL") == "true"
+	publicEndpoint := os.Getenv("MINIO_PUBLIC_ENDPOINT")
+	if publicEndpoint == "" {
+		publicEndpoint = endpoint
+	}
+	publicUseSSL := os.Getenv("MINIO_PUBLIC_USE_SSL") == "true"
+	if os.Getenv("MINIO_PUBLIC_USE_SSL") == "" {
+		publicUseSSL = useSSL
+	}
 
 	client, err := minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKey, secretKey, ""),
@@ -30,16 +41,37 @@ func NewMinioClient() (*MinioClient, error) {
 		return nil, fmt.Errorf("minio client: %w", err)
 	}
 
-	return &MinioClient{client: client, bucket: bucket}, nil
+	return &MinioClient{
+		client:         client,
+		bucket:         bucket,
+		publicEndpoint: publicEndpoint,
+		securePublic:   publicUseSSL,
+	}, nil
 }
 
 // PresignedPutURL generates a presigned URL for direct video upload.
 func (m *MinioClient) PresignedPutURL(ctx context.Context, objectKey string, expiry time.Duration) (string, error) {
-	url, err := m.client.PresignedPutObject(ctx, m.bucket, objectKey, expiry)
+	presignedURL, err := m.client.PresignedPutObject(ctx, m.bucket, objectKey, expiry)
 	if err != nil {
 		return "", fmt.Errorf("presigned put: %w", err)
 	}
-	return url.String(), nil
+
+	if m.publicEndpoint == "" {
+		return presignedURL.String(), nil
+	}
+
+	parsed, err := url.Parse(presignedURL.String())
+	if err != nil {
+		return "", fmt.Errorf("parse presigned url: %w", err)
+	}
+	parsed.Host = m.publicEndpoint
+	if m.securePublic {
+		parsed.Scheme = "https"
+	} else {
+		parsed.Scheme = "http"
+	}
+
+	return parsed.String(), nil
 }
 
 // EnsureBucket creates the bucket if it does not exist.

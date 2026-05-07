@@ -106,10 +106,10 @@ CREATE TABLE IF NOT EXISTS evaluations (
 CREATE TABLE IF NOT EXISTS features (
     id TEXT PRIMARY KEY,
     evaluation_id TEXT,
+    tenant_id TEXT,
     kind TEXT,
-    data TEXT,
-    created_at TEXT DEFAULT (datetime('now')),
-    UNIQUE (evaluation_id, kind)
+    payload TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
 );
 """
 
@@ -133,9 +133,12 @@ def _insert_eval(sqlite_conn, eval_id: str, status: str = "processing"):
 
 
 def _insert_feature(sqlite_conn, eval_id: str, kind: str, data: dict = None):
+    tenant_id = sqlite_conn._conn.execute(
+        "SELECT tenant_id FROM evaluations WHERE id = ?", (eval_id,)
+    ).fetchone()[0]
     sqlite_conn._conn.execute(
-        "INSERT OR REPLACE INTO features (id, evaluation_id, kind, data) VALUES (?, ?, ?, ?)",
-        (str(uuid.uuid4()), eval_id, kind, json.dumps(data or {})),
+        "INSERT INTO features (id, evaluation_id, tenant_id, kind, payload) VALUES (?, ?, ?, ?, ?)",
+        (str(uuid.uuid4()), eval_id, tenant_id, kind, json.dumps(data or {})),
     )
     sqlite_conn._conn.commit()
 
@@ -158,7 +161,7 @@ def test_save_feature_inserts_row(sqlite_conn):
     assert rows[0]["kind"] == "pose"
 
 
-def test_save_feature_is_idempotent(sqlite_conn):
+def test_save_feature_inserts_multiple_rows(sqlite_conn):
     eval_id = str(uuid.uuid4())
     _insert_eval(sqlite_conn, eval_id)
 
@@ -168,7 +171,7 @@ def test_save_feature_is_idempotent(sqlite_conn):
     rows = sqlite_conn._conn.execute(
         "SELECT * FROM features WHERE evaluation_id = ?", (eval_id,)
     ).fetchall()
-    assert len(rows) == 1
+    assert len(rows) == 3
 
 
 # ---------------------------------------------------------------------------

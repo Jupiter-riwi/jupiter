@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/Jupiter-riwi/jupiter/api-gateway/internal/apidocs"
 	"github.com/Jupiter-riwi/jupiter/api-gateway/internal/auth"
@@ -25,6 +28,7 @@ func setupRouter(
 	db *gorm.DB,
 ) *gin.Engine {
 	r := gin.Default()
+	r.Use(corsMiddleware())
 
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
@@ -39,28 +43,61 @@ func setupRouter(
 		c.JSON(http.StatusOK, spec)
 	})
 
-	authGroup := r.Group("/auth")
+	registerRoutes(r.Group(""), authHandler, evalHandler, questionHandler, db)
+	registerRoutes(r.Group("/api"), authHandler, evalHandler, questionHandler, db)
+
+	return r
+}
+
+func registerRoutes(
+	group *gin.RouterGroup,
+	authHandler *handlers.AuthHandler,
+	evalHandler *handlers.EvaluationHandler,
+	questionHandler *handlers.QuestionHandler,
+	db *gorm.DB,
+) {
+	authGroup := group.Group("/auth")
 	{
 		authGroup.POST("/register", authHandler.Register)
 		authGroup.POST("/login", authHandler.Login)
 		authGroup.POST("/refresh", authHandler.Refresh)
 	}
 
-	protected := r.Group("/")
+	protected := group.Group("/")
 	protected.Use(auth.Middleware(), tenant.Middleware(db))
 	{
 		protected.GET("/me", authHandler.Me)
-
 		protected.POST("/evaluations", evalHandler.Create)
 		protected.POST("/evaluations/:id/complete", evalHandler.Complete)
 		protected.GET("/evaluations/:id", evalHandler.GetByID)
 		protected.GET("/evaluations", evalHandler.List)
 		protected.GET("/evaluations/:id/stream", evalHandler.Stream)
-
 		protected.GET("/questions", questionHandler.List)
 	}
+}
 
-	return r
+func corsMiddleware() gin.HandlerFunc {
+	allowedOrigin := os.Getenv("CORS_ALLOW_ORIGIN")
+	if allowedOrigin == "" {
+		allowedOrigin = "http://localhost:5173"
+	}
+
+	return func(c *gin.Context) {
+		origin := c.GetHeader("Origin")
+		if origin != "" && (allowedOrigin == "*" || strings.EqualFold(origin, allowedOrigin)) {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Vary", "Origin")
+		}
+		c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")
+		c.Header("Access-Control-Allow-Credentials", "true")
+
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
+	}
 }
 
 func main() {
@@ -77,6 +114,12 @@ func main() {
 	if err != nil {
 		log.Fatal("failed to connect to minio:", err)
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	if err := minioClient.EnsureBucket(ctx); err != nil {
+		cancel()
+		log.Fatal("failed to ensure minio bucket:", err)
+	}
+	cancel()
 
 	mqClient, err := rabbitmq.NewClient()
 	if err != nil {

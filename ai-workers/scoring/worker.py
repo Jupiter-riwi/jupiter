@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Score ready publisher
+def publish_score_ready(
     evaluation_id: str,
     tenant_id: str,
     score: ScoreResult,

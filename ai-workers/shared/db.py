@@ -155,21 +155,44 @@ def insert_score(
 
     with _ensure_connection(conn) as c:
         with c.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO scores (id, evaluation_id, tenant_id, overall, dimensions, recommendations, created_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    score_id,
-                    evaluation_id,
-                    tenant_id,
-                    overall,
-                    json.dumps(dimensions, ensure_ascii=False),
-                    json.dumps(recommendations, ensure_ascii=False),
-                    now,
-                ),
-            )
+            try:
+                cur.execute(
+                    """
+                    INSERT INTO scores (id, evaluation_id, tenant_id, overall, dimensions, recommendations, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        score_id,
+                        evaluation_id,
+                        tenant_id,
+                        overall,
+                        json.dumps(dimensions, ensure_ascii=False),
+                        json.dumps(recommendations, ensure_ascii=False),
+                        now,
+                    ),
+                )
+            except Exception:
+                cur.execute(
+                    """
+                    INSERT INTO scores (id, evaluation_id, tenant_id, value, breakdown, created_at, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        score_id,
+                        evaluation_id,
+                        tenant_id,
+                        overall,
+                        json.dumps(
+                            {
+                                "dimensions": dimensions,
+                                "recommendations": recommendations,
+                            },
+                            ensure_ascii=False,
+                        ),
+                        now,
+                        now,
+                    ),
+                )
         c.commit()
 
     logger.info(
