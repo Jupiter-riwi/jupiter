@@ -13,6 +13,7 @@ const (
 	StatusPending    EvaluationStatus = "pending"
 	StatusUploading  EvaluationStatus = "uploading"
 	StatusProcessing EvaluationStatus = "processing"
+	StatusScoring    EvaluationStatus = "scoring"
 	StatusCompleted  EvaluationStatus = "completed"
 	StatusFailed     EvaluationStatus = "failed"
 )

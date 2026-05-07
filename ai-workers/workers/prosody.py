@@ -22,11 +22,11 @@ class ProsodyWorker(BaseWorker):
         video_key = job.get("video_key", "")
         logger.info("[%s] Processing prosody for video_key=%s", evaluation_id, video_key)
 
-        # Stub: return synthetic prosody metrics.
+        # Stub: return synthetic prosody metrics with realistic variance
         return {
-            "pitch_mean_hz": round(random.uniform(100, 250), 1),
-            "pitch_variability": round(random.uniform(0.1, 0.4), 3),
-            "energy_mean": round(random.uniform(0.4, 0.9), 3),
-            "speech_rate_variability": round(random.uniform(0.05, 0.3), 3),
-            "pause_ratio": round(random.uniform(0.05, 0.2), 3),
+            "pitch_mean_hz": round(random.uniform(70, 280), 1),
+            "pitch_variability": round(random.uniform(0.02, 0.55), 3),
+            "energy_mean": round(random.uniform(0.08, 0.95), 3),
+            "speech_rate_variability": round(random.uniform(0.02, 0.4), 3),
+            "pause_ratio": round(random.uniform(0.02, 0.35), 3),
         }

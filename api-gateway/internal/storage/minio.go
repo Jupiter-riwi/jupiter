@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"time"
@@ -24,6 +25,7 @@ func NewMinioClient() (*MinioClient, error) {
 	secretKey := os.Getenv("MINIO_SECRET_KEY")
 	bucket := os.Getenv("MINIO_BUCKET")
 	useSSL := os.Getenv("MINIO_USE_SSL") == "true"
+
 	publicEndpoint := os.Getenv("MINIO_PUBLIC_ENDPOINT")
 	if publicEndpoint == "" {
 		publicEndpoint = endpoint
@@ -64,6 +66,7 @@ func (m *MinioClient) PresignedPutURL(ctx context.Context, objectKey string, exp
 	if err != nil {
 		return "", fmt.Errorf("parse presigned url: %w", err)
 	}
+
 	parsed.Host = m.publicEndpoint
 	if m.securePublic {
 		parsed.Scheme = "https"
@@ -72,6 +75,20 @@ func (m *MinioClient) PresignedPutURL(ctx context.Context, objectKey string, exp
 	}
 
 	return parsed.String(), nil
+}
+
+// PutObject stores an object from a reader in the MinIO bucket.
+func (m *MinioClient) PutObject(ctx context.Context, objectKey string, reader io.Reader, size int64) (int64, error) {
+	info, err := m.client.PutObject(ctx, m.bucket, objectKey, reader, size, minio.PutObjectOptions{})
+	if err != nil {
+		return 0, fmt.Errorf("put object: %w", err)
+	}
+	return info.Size, nil
+}
+
+// GetBucket returns the configured bucket name.
+func (m *MinioClient) GetBucket() string {
+	return m.bucket
 }
 
 // EnsureBucket creates the bucket if it does not exist.

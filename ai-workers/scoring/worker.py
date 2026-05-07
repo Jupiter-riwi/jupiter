@@ -15,7 +15,7 @@ from scoring.rabbitmq import (
 )
 from scoring.llm import call_gpt4o, load_prompt, build_prompt
 from scoring.models import ScoreResult, ScoringJob
-from shared.db import fetch_features_by_evaluation, all_features_ready, insert_score
+from shared.db import fetch_features_by_evaluation, all_features_ready, insert_score, update_evaluation_status
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +119,16 @@ def on_scoring_job(channel, method, properties, body: bytes) -> None:
             overall=score.overall,
             dimensions=score.model_dump()["dimensions"],
             recommendations=score.model_dump()["recommendations"],
+        )
+        update_evaluation_status(
+            evaluation_id=job.evaluation_id,
+            status="completed",
+            score=float(score.overall) / 100.0,
+            features={
+                "overall": score.overall,
+                "dimensions": score.model_dump()["dimensions"],
+                "recommendations": score.model_dump()["recommendations"],
+            },
         )
     except Exception as exc:
         logger.exception("Error persistiendo score en Postgres | job_id=%s", job.job_id)

@@ -44,7 +44,7 @@ class BaseWorker:
         )
         conn = pika.BlockingConnection(pika.URLParameters(url))
         ch = conn.channel()
-        for q in ["jupiter.pose", "jupiter.whisper", "jupiter.prosody", "jupiter.scoring"]:
+        for q in ["jupiter.pose", "jupiter.whisper", "jupiter.prosody", "jupiter.scoring", "scoring.jobs"]:
             ch.queue_declare(queue=q, durable=True)
         ch.basic_qos(prefetch_count=1)
         return conn, ch

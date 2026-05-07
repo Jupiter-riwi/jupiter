@@ -7,8 +7,10 @@ and writes the result back to the evaluations table.
 
 import json
 import logging
+import time
 
 import db
+import pika
 from workers.base import BaseWorker
 
 logger = logging.getLogger(__name__)
@@ -16,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class ScoringWorker(BaseWorker):
     queue = "jupiter.scoring"
+    legacy_queue = "scoring.jobs"
     feature_kind = "scoring"  # sentinel — base class skips save_feature for this kind
 
     def process(self, job: dict) -> dict:
@@ -128,3 +131,34 @@ class ScoringWorker(BaseWorker):
             except Exception:
                 logger.exception("Could not mark evaluation as failed after scoring error")
             channel.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+
+    # Consume the current and legacy scoring queues so in-flight jobs sent to
+    # scoring.jobs can still be completed after the queue rename.
+    def run(self) -> None:
+        logger.info(
+            "%s worker starting on queues=%s,%s",
+            self.__class__.__name__,
+            self.queue,
+            self.legacy_queue,
+        )
+        while True:
+            try:
+                mq_conn, ch = self._get_mq_channel()
+                ch.basic_consume(
+                    queue=self.queue,
+                    on_message_callback=self.on_message,
+                    auto_ack=False,
+                )
+                if self.legacy_queue != self.queue:
+                    ch.basic_consume(
+                        queue=self.legacy_queue,
+                        on_message_callback=self.on_message,
+                        auto_ack=False,
+                    )
+                ch.start_consuming()
+            except pika.exceptions.AMQPConnectionError as exc:
+                logger.error("RabbitMQ connection lost: %s — retrying in 5s", exc)
+                time.sleep(5)
+            except Exception as exc:
+                logger.exception("Unexpected error: %s — retrying in 5s", exc)
+                time.sleep(5)

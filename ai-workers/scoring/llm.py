@@ -73,7 +73,7 @@ def _call_openai_json(prompt: str, api_key: str) -> dict:
     import urllib.error
 
     body = json.dumps({
-        "model": "gpt-4o",
+        "model": "gpt-4.1",
         "messages": [
             {"role": "system", "content": "Eres un coach de ventas. Responde solo con JSON válido."},
             {"role": "user", "content": prompt},

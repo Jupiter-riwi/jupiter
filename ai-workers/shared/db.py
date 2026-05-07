@@ -133,7 +133,7 @@ def fetch_features_by_evaluation(
 
 
 def all_features_ready(evaluation_id: str, conn=None) -> bool:
-    required = {"pose", "transcript", "prosody"}
+    required = {"transcript"}
     found = fetch_features_by_evaluation(evaluation_id, conn)
     return required.issubset(set(found.keys()))
 
@@ -153,46 +153,29 @@ def insert_score(
     score_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
 
+    breakdown = {
+        "overall": overall,
+        "dimensions": dimensions,
+        "recommendations": recommendations,
+    }
+
     with _ensure_connection(conn) as c:
         with c.cursor() as cur:
-            try:
-                cur.execute(
-                    """
-                    INSERT INTO scores (id, evaluation_id, tenant_id, overall, dimensions, recommendations, created_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    """,
-                    (
-                        score_id,
-                        evaluation_id,
-                        tenant_id,
-                        overall,
-                        json.dumps(dimensions, ensure_ascii=False),
-                        json.dumps(recommendations, ensure_ascii=False),
-                        now,
-                    ),
-                )
-            except Exception:
-                cur.execute(
-                    """
-                    INSERT INTO scores (id, evaluation_id, tenant_id, value, breakdown, created_at, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    """,
-                    (
-                        score_id,
-                        evaluation_id,
-                        tenant_id,
-                        overall,
-                        json.dumps(
-                            {
-                                "dimensions": dimensions,
-                                "recommendations": recommendations,
-                            },
-                            ensure_ascii=False,
-                        ),
-                        now,
-                        now,
-                    ),
-                )
+            cur.execute(
+                """
+                INSERT INTO scores (id, evaluation_id, tenant_id, value, breakdown, created_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    score_id,
+                    evaluation_id,
+                    tenant_id,
+                    overall,
+                    json.dumps(breakdown, ensure_ascii=False),
+                    now,
+                    now,
+                ),
+            )
         c.commit()
 
     logger.info(
@@ -200,3 +183,32 @@ def insert_score(
         score_id, evaluation_id, overall,
     )
     return score_id
+
+
+def update_evaluation_status(
+    evaluation_id: str,
+    status: str,
+    score: float | None = None,
+    features: dict | None = None,
+    conn=None,
+) -> None:
+    with _ensure_connection(conn) as c:
+        with c.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE evaluations
+                SET status = %s,
+                    score = %s,
+                    features = %s,
+                    updated_at = %s
+                WHERE id = %s
+                """,
+                (
+                    status,
+                    score,
+                    json.dumps(features, ensure_ascii=False) if features else None,
+                    datetime.now(timezone.utc),
+                    evaluation_id,
+                ),
+            )
+        c.commit()

@@ -30,7 +30,7 @@ def save_feature(conn, evaluation_id: str, kind: str, data: dict) -> None:
         cur.execute(
             """
             INSERT INTO features (id, evaluation_id, tenant_id, kind, payload, created_at)
-            VALUES (%s, %s, %s, %s, NOW())
+            VALUES (%s, %s, %s, %s, %s, NOW())
             """,
             (str(uuid.uuid4()), evaluation_id, tenant_id, kind, json.dumps(data)),
         )
@@ -46,7 +46,7 @@ def check_and_trigger_scoring(conn, mq_channel, evaluation_id: str, tenant_id: s
     If yes, publish to jupiter.scoring and update evaluation status to 'scoring'.
     Returns True if scoring was triggered.
     """
-    import json, time
+    import json, time, uuid
     from psycopg2 import sql
 
     with conn.cursor() as cur:
@@ -79,6 +79,7 @@ def check_and_trigger_scoring(conn, mq_channel, evaluation_id: str, tenant_id: s
 
     # Publish scoring job outside the transaction (broker call should not be inside TX).
     msg = json.dumps({
+        "job_id": str(uuid.uuid4()),
         "evaluation_id": evaluation_id,
         "tenant_id": tenant_id,
         "video_key": video_key,

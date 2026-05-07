@@ -38,7 +38,7 @@ class FeatureRepository:
     ) -> None:
         query = """
             insert into public.features (evaluation_id, tenant_id, kind, payload)
-            values (%s::uuid, %s::uuid, 'pose'::public.feature_kind, %s::jsonb)
+            values (%s::uuid, %s::uuid, 'pose', %s::jsonb)
         """
 
         payload_json = json.dumps(payload, separators=(",", ":"))

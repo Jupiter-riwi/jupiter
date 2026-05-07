@@ -2,6 +2,8 @@
 
 > Horizonte: sprint tecnico corto (7 dias habiles). Objetivo: dejar el flujo MVP end-to-end estable para pasar a integracion en `developer`.
 
+Estado de este plan: **actualizado al corte actual del repositorio**.
+
 ---
 
 ## 1) Objetivo de salida
@@ -27,6 +29,8 @@ Al final del plan debe funcionar de punta a punta:
 ---
 
 ## 3) Plan por dias (7 dias)
+
+Nota: varias tareas de backend ya estan adelantadas; los dias aqui se deben tomar como bloques de trabajo pendientes, no como fechas historicas.
 
 ## Dia 1 - Congelamiento de contratos (todos)
 
@@ -89,6 +93,80 @@ Responsable principal: **Dev 4**. Soporte: Dev 3.
 Entregable:
 
 - Vertical slice completo funcionando desde UI.
+
+---
+
+## 3.1 Estado actual (corte tecnico)
+
+### Avance confirmado
+
+- Gateway expone rutas necesarias y soporta prefijo `/api`.
+- CORS y presigned upload estan alineados para navegador local.
+- Flujo base frontend ya invoca login/create/upload/complete/get.
+
+### Brechas bloqueantes que siguen abiertas
+
+1. **Frontend no esta en estructura Vite completa**
+   - En `frontend/` faltan archivos esperados de build (`package.json`, `vite.config`, `index.html`, `src/main.tsx`).
+   - Impacto: `docker-compose` y build de frontend no son ejecutables hoy.
+
+2. **Seed no crea usuarios de login**
+   - `api-gateway/cmd/seed/main.go` siembra tenant y preguntas, pero no usuarios.
+   - Impacto: no hay credenciales de entrada para validar flujo E2E de frontend sin registro manual.
+
+3. **Progreso en vivo no esta integrado por WebSocket en frontend**
+   - El frontend actual usa polling de `GET /evaluations/{id}` cada 3s.
+   - Impacto: no cumple completamente el objetivo de seguimiento en vivo definido en plan/docs.
+
+4. **Contrato de eventos WS requiere cierre funcional**
+   - Existe endpoint stream en backend, pero falta consumo efectivo desde UI y validacion de UX de estados.
+
+---
+
+## 3.2 Plan ajustado de cierre (pendiente)
+
+### Estrategia vigente (sin cambiar frontend)
+
+- El frontend actual se mantiene tal como esta (composicion publica en HTML + JSX).
+- El backend debe exponer contratos y comportamiento compatibles para cuando la UI consuma datos reales, sin exigir refactor de frontend.
+- Cualquier ajuste de integracion se hace del lado backend/infra/seed.
+
+### Bloque A - Recuperar runtime frontend (P0)
+
+Owner: **Dev 4**
+
+- Restaurar estructura ejecutable de app frontend (Vite + TS).
+- Confirmar que `docker-compose` levanta frontend sin errores.
+
+Nota: este bloque no implica rediseñar UI ni cambiar composicion funcional; solo asegurar runtime.
+
+### Bloque B - Flujo de acceso de prueba (P0)
+
+Owners: **Dev 3 + Dev 4**
+
+- Definir estrategia de acceso para QA:
+  - registro desde UI, o
+  - seed de usuario demo con password conocida.
+- Documentar credenciales y pasos en `docs/`.
+
+Nota: prioridad alta porque el frontend no debe modificarse para poder iniciar pruebas.
+
+### Bloque C - Progreso en vivo real (P1)
+
+Owner: **Dev 4** (con soporte Dev 3)
+
+- Integrar WS `/api/evaluations/{id}/stream` en frontend.
+- Mantener polling como fallback solo si WS falla.
+
+Si el frontend no se toca en esta fase, al menos se debe dejar backend listo y estable para WS con contrato congelado.
+
+### Bloque D - QA de integracion (P1)
+
+Owners: **Todos**
+
+- 3 corridas E2E con evidencia.
+- Verificar estados y score final en dashboard.
+- Cierre de bugs P0/P1.
 
 ## Dia 6 - QA de integracion
 
@@ -176,3 +254,7 @@ npm run build
 ```
 
 Si un entorno no tiene toolchain instalado (Go/Python/Node), registrar esa limitacion en el acta de QA y validar en CI o en la maquina del owner del dominio.
+
+Checklist operativo detallado:
+
+- `docs/CHECKLIST_E2E_BACKEND_FRONTEND_SIN_CAMBIAR_UI.md`

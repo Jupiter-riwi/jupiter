@@ -68,6 +68,7 @@ func registerRoutes(
 	{
 		protected.GET("/me", authHandler.Me)
 		protected.POST("/evaluations", evalHandler.Create)
+		protected.PUT("/evaluations/:id/upload", evalHandler.Upload)
 		protected.POST("/evaluations/:id/complete", evalHandler.Complete)
 		protected.GET("/evaluations/:id", evalHandler.GetByID)
 		protected.GET("/evaluations", evalHandler.List)

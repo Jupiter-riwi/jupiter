@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -34,9 +33,8 @@ type createEvaluationRequest struct {
 }
 
 type createEvaluationResponse struct {
-	Evaluation  models.Evaluation `json:"evaluation"`
-	UploadURL   string            `json:"upload_url"`
-	ExpiresInSec int              `json:"expires_in_sec"`
+	Evaluation    models.Evaluation `json:"evaluation"`
+	UploadURL     string            `json:"upload_url"`
 }
 
 func (h *EvaluationHandler) Create(c *gin.Context) {
@@ -62,24 +60,58 @@ func (h *EvaluationHandler) Create(c *gin.Context) {
 	}
 
 	// Object key: tenant/user/evaluation-id.mp4
-	videoKey := fmt.Sprintf("%s/%s/%s.mp4", claims.TenantID, claims.UserID, eval.ID)
-
-	const presignExpiry = 15 * time.Minute
-	uploadURL, err := h.minio.PresignedPutURL(context.Background(), videoKey, presignExpiry)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not generate upload URL"})
-		return
-	}
+	videoKey := fmt.Sprintf("%s/%s/%s.webm", claims.TenantID, claims.UserID, eval.ID)
 
 	// Persist the video key so we can reference it later
-	db.Model(&eval).Update("video_key", videoKey)
+	db.Exec("UPDATE evaluations SET video_key = ?, updated_at = NOW() WHERE id = ?", videoKey, eval.ID)
 	eval.VideoKey = videoKey
 
 	c.JSON(http.StatusCreated, createEvaluationResponse{
-		Evaluation:   eval,
-		UploadURL:    uploadURL,
-		ExpiresInSec: int(presignExpiry.Seconds()),
+		Evaluation: eval,
+		UploadURL:  fmt.Sprintf("/api/evaluations/%s/upload", eval.ID),
 	})
+}
+
+// Upload reads the raw video body and stores it in MinIO.
+func (h *EvaluationHandler) Upload(c *gin.Context) {
+	evalID, ok := parseEvalID(c)
+	if !ok {
+		return
+	}
+
+	claims := c.MustGet("claims").(*auth.Claims)
+	db := internaltenant.DBFromContext(c, h.db)
+
+	var eval models.Evaluation
+	if err := db.First(&eval, "id = ? AND user_id = ?", evalID, claims.UserID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "evaluation not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	if eval.VideoKey == "" {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "evaluation has no video key"})
+		return
+	}
+
+	if eval.Status != models.StatusPending {
+		c.JSON(http.StatusConflict, gin.H{"error": "evaluation already has a video or is processing"})
+		return
+	}
+
+	_, err := h.minio.PutObject(c.Request.Context(), eval.VideoKey, c.Request.Body, c.Request.ContentLength)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to store video"})
+		return
+	}
+
+	db.Exec("UPDATE evaluations SET status = 'uploading', updated_at = NOW() WHERE id = ?", evalID)
+	eval.Status = models.StatusUploading
+
+	c.JSON(http.StatusOK, eval)
 }
 
 func (h *EvaluationHandler) Complete(c *gin.Context) {
@@ -101,7 +133,7 @@ func (h *EvaluationHandler) Complete(c *gin.Context) {
 		return
 	}
 
-	if eval.Status == models.StatusProcessing || eval.Status == models.StatusCompleted {
+	if eval.Status == models.StatusProcessing || eval.Status == models.StatusScoring || eval.Status == models.StatusCompleted {
 		c.JSON(http.StatusConflict, gin.H{"error": "evaluation already processing or completed"})
 		return
 	}
@@ -118,23 +150,30 @@ func (h *EvaluationHandler) Complete(c *gin.Context) {
 		{rabbitmq.QueuePose, "pose"},
 		{rabbitmq.QueueWhisper, "whisper"},
 		{rabbitmq.QueueProsody, "prosody"},
+		{rabbitmq.QueueScoring, "scoring"},
 	}
 
-	msg := rabbitmq.JobMessage{
+	baseMsg := rabbitmq.JobMessage{
 		EvaluationID: eval.ID.String(),
 		TenantID:     eval.TenantID.String(),
 		VideoKey:     eval.VideoKey,
+		VideoURL:     fmt.Sprintf("s3://%s/%s", h.minio.GetBucket(), eval.VideoKey),
 	}
 
 	for _, j := range jobs {
+		msg := baseMsg
+		msg.JobID = uuid.New().String()
 		msg.JobType = j.jobType
+		if j.queue == rabbitmq.QueueProsody {
+			msg.AudioURL = msg.VideoURL
+		}
 		if err := h.mq.PublishJob(c.Request.Context(), j.queue, msg); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to publish jobs"})
 			return
 		}
 	}
 
-	db.Model(&eval).Update("status", models.StatusProcessing)
+	db.Exec("UPDATE evaluations SET status = 'processing', updated_at = NOW() WHERE id = ?", evalID)
 	eval.Status = models.StatusProcessing
 
 	c.JSON(http.StatusAccepted, eval)

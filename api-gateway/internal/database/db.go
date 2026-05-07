@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Jupiter-riwi/jupiter/api-gateway/pkg/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -21,10 +20,6 @@ func Connect() (*gorm.DB, error) {
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		return nil, err
-	}
-
-	if err := db.AutoMigrate(&models.Tenant{}, &models.User{}, &models.Evaluation{}, &models.Question{}); err != nil {
 		return nil, err
 	}
 

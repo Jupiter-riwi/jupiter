@@ -1,9 +1,11 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"os"
 
+	internalauth "github.com/Jupiter-riwi/jupiter/api-gateway/internal/auth"
 	"github.com/Jupiter-riwi/jupiter/api-gateway/internal/database"
 	"github.com/Jupiter-riwi/jupiter/api-gateway/pkg/models"
 	"github.com/google/uuid"
@@ -52,6 +54,7 @@ func main() {
 	}
 
 	tenantID := resolveTenantID(db)
+	seedUsers(db, tenantID)
 
 	seeded := seedQuestions(db, tenantID)
 	log.Printf("Seed complete: %d questions upserted for tenant %s", seeded, tenantID)
@@ -100,4 +103,66 @@ func seedQuestions(db *gorm.DB, tenantID uuid.UUID) int {
 	}
 
 	return int(result.RowsAffected)
+}
+
+func seedUsers(db *gorm.DB, tenantID uuid.UUID) {
+	type seedUser struct {
+		Email    string
+		Password string
+		Role     models.Role
+	}
+
+	users := []seedUser{
+		{
+			Email:    envOrDefault("SEED_DEMO_SELLER_EMAIL", "seller.demo@jupiter.local"),
+			Password: envOrDefault("SEED_DEMO_SELLER_PASSWORD", "Demo1234!"),
+			Role:     models.RoleMember,
+		},
+		{
+			Email:    envOrDefault("SEED_DEMO_ADMIN_EMAIL", "admin.demo@jupiter.local"),
+			Password: envOrDefault("SEED_DEMO_ADMIN_PASSWORD", "Demo1234!"),
+			Role:     models.RoleAdmin,
+		},
+	}
+
+	created := 0
+	for _, su := range users {
+		var existing models.User
+		err := db.Where("tenant_id = ? AND email = ?", tenantID, su.Email).First(&existing).Error
+		if err == nil {
+			log.Printf("Seed user exists: %s (%s)", su.Email, su.Role)
+			continue
+		}
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			log.Fatalf("seed user lookup failed for %s: %v", su.Email, err)
+		}
+
+		hash, hashErr := internalauth.HashPassword(su.Password)
+		if hashErr != nil {
+			log.Fatalf("seed user password hash failed for %s: %v", su.Email, hashErr)
+		}
+
+		user := models.User{
+			TenantID:     tenantID,
+			Email:        su.Email,
+			PasswordHash: hash,
+			Role:         su.Role,
+		}
+
+		if createErr := db.Create(&user).Error; createErr != nil {
+			log.Fatalf("seed user create failed for %s: %v", su.Email, createErr)
+		}
+		created++
+		log.Printf("Seed user created: %s (%s)", su.Email, su.Role)
+	}
+
+	log.Printf("Seed users complete: %d new users", created)
+}
+
+func envOrDefault(name, fallback string) string {
+	v := os.Getenv(name)
+	if v == "" {
+		return fallback
+	}
+	return v
 }

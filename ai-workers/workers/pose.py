@@ -22,10 +22,12 @@ class PoseWorker(BaseWorker):
         video_key = job.get("video_key", "")
         logger.info("[%s] Processing pose for video_key=%s", evaluation_id, video_key)
 
-        # Stub: return synthetic pose metrics.
+        # Stub: return synthetic pose metrics with realistic variance (0.1 to 1.0)
         return {
-            "posture_score": round(random.uniform(0.6, 1.0), 3),
-            "eye_contact_ratio": round(random.uniform(0.5, 0.95), 3),
-            "gesture_frequency": round(random.uniform(0.1, 0.5), 3),
-            "stillness_score": round(random.uniform(0.7, 1.0), 3),
+            "posture_score": round(random.uniform(0.15, 0.98), 3),
+            "eye_contact_ratio": round(random.uniform(0.1, 0.95), 3),
+            "gesture_frequency": round(random.uniform(0.02, 0.75), 3),
+            "stillness_score": round(random.uniform(0.05, 0.95), 3),
+            "shoulder_alignment": round(random.uniform(0.2, 0.95), 3),
+            "head_orientation_variability": round(random.uniform(0.05, 0.6), 3),
         }

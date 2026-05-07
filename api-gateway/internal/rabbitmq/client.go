@@ -11,16 +11,21 @@ import (
 )
 
 const (
-	QueuePose    = "jupiter.pose"
-	QueueWhisper = "jupiter.whisper"
-	QueueProsody = "jupiter.prosody"
-	QueueScoring = "jupiter.scoring"
+	QueuePose    = "pose.jobs"
+	QueueWhisper = "whisper.jobs"
+	QueueProsody = "prosody.jobs"
+	QueueScoring = "scoring.jobs"
 )
 
+var AllQueues = []string{QueuePose, QueueWhisper, QueueProsody, QueueScoring, "scoring.jobs"}
+
 type JobMessage struct {
+	JobID        string `json:"job_id"`
 	EvaluationID string `json:"evaluation_id"`
 	TenantID     string `json:"tenant_id"`
 	VideoKey     string `json:"video_key"`
+	VideoURL     string `json:"video_url"`
+	AudioURL     string `json:"audio_url"`
 	JobType      string `json:"job_type"`
 	IssuedAt     string `json:"issued_at"`
 }
@@ -57,7 +62,7 @@ func NewClient() (*Client, error) {
 }
 
 func (c *Client) declareQueues() error {
-	for _, q := range []string{QueuePose, QueueWhisper, QueueProsody, QueueScoring} {
+	for _, q := range AllQueues {
 		_, err := c.channel.QueueDeclare(q, true, false, false, false, nil)
 		if err != nil {
 			return fmt.Errorf("declare queue %s: %w", q, err)

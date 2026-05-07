@@ -8,7 +8,7 @@ up:
 	@echo "Services available:"
 	@echo "  Gateway   → http://localhost:$${GATEWAY_PORT:-8080}"
 	@echo "  API Docs  → http://localhost:$${GATEWAY_PORT:-8080}/docs"
-	@echo "  Frontend  → http://localhost:$${FRONTEND_PORT:-5173}"
+	@echo "  Frontend  → http://localhost:$${FRONTEND_PORT:-5173}/Apex%20Vision%20Vendedor.html"
 	@echo "  RabbitMQ  → http://localhost:15672  (guest / guest)"
 	@echo "  MinIO     → http://localhost:9001   (minioadmin / minioadmin)"
 
@@ -29,11 +29,8 @@ ps:
 # ── Data ──────────────────────────────────────────────────────────────────────
 
 seed:
-	docker compose run --rm migrate \
-		sh -c "pip install -q -r requirements.txt && python -c \
-		\"import os, sys; sys.path.insert(0, '.'); \
-		from versions.seed import run; run(os.environ.get('SEED_TENANT_ID'))\""
-	@echo "Seed complete."
+	docker compose run --rm gateway ./seed
+	@echo "Seed complete (tenant + users + questions)."
 
 # ── Build & pull ──────────────────────────────────────────────────────────────
 

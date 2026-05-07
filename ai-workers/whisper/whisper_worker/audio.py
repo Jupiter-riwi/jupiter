@@ -73,30 +73,34 @@ class AudioExtractor:
             self.cleanup(path)
 
     def probe_duration_seconds(self, media_path: Path) -> float:
+        raw = self._probe_field(media_path, "format=duration")
+        if raw and raw != "N/A":
+            try:
+                return float(raw)
+            except ValueError:
+                pass
+        raw = self._probe_field(media_path, "stream=duration")
+        if raw and raw != "N/A":
+            try:
+                vals = [float(v) for v in raw.split("\n") if v and v != "N/A"]
+                if vals:
+                    return max(vals)
+            except ValueError:
+                pass
+        return 0.0
+
+    def _probe_field(self, media_path: Path, entry: str) -> str:
         command = [
-            self.config.ffprobe_bin,
-            "-v",
-            "error",
-            "-show_entries",
-            "format=duration",
-            "-of",
-            "default=noprint_wrappers=1:nokey=1",
+            self.config.ffprobe_bin, "-v", "error",
+            "-show_entries", entry,
+            "-of", "default=noprint_wrappers=1:nokey=1",
             str(media_path),
         ]
         try:
-            result = subprocess.run(
-                command,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-            raw = result.stdout.strip()
-            if not raw:
-                raise ValueError("empty duration")
-            return float(raw)
-        except Exception as exc:
-            raise AudioExtractionError("ffprobe failed to read media duration") from exc
+            result = subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            return result.stdout.strip()
+        except Exception:
+            return ""
 
     def split_audio(self, audio_path: Path, *, chunk_seconds: int, duration_seconds: float) -> list[AudioChunk]:
         if chunk_seconds <= 0:
