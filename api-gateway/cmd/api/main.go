@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
+	"net/http"
 	"os"
 
+	"github.com/Jupiter-riwi/jupiter/api-gateway/internal/apidocs"
 	"github.com/Jupiter-riwi/jupiter/api-gateway/internal/auth"
 	"github.com/Jupiter-riwi/jupiter/api-gateway/internal/database"
 	"github.com/Jupiter-riwi/jupiter/api-gateway/internal/handlers"
@@ -25,6 +28,15 @@ func setupRouter(
 
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
+	})
+
+	r.GET("/docs", func(c *gin.Context) {
+		var spec any
+		if err := json.Unmarshal(apidocs.OpenAPISpec, &spec); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse OpenAPI spec"})
+			return
+		}
+		c.JSON(http.StatusOK, spec)
 	})
 
 	authGroup := r.Group("/auth")
