@@ -185,12 +185,13 @@ class MediaPipePoseAnalyzer:
         return self._signal_from_landmarks(landmarks)
 
     def _signal_from_landmarks(self, landmarks: list[Any]) -> FrameSignal | None:
-        point = self._vision.PoseLandmark
-        left_shoulder = landmarks[point.LEFT_SHOULDER]
-        right_shoulder = landmarks[point.RIGHT_SHOULDER]
-        left_hip = landmarks[point.LEFT_HIP]
-        right_hip = landmarks[point.RIGHT_HIP]
-        nose = landmarks[point.NOSE]
+        # MediaPipe Pose landmark indices (33-point model)
+        NOSE, LEFT_SHOULDER, RIGHT_SHOULDER, LEFT_HIP, RIGHT_HIP = 0, 11, 12, 23, 24
+        left_shoulder = landmarks[LEFT_SHOULDER]
+        right_shoulder = landmarks[RIGHT_SHOULDER]
+        left_hip = landmarks[LEFT_HIP]
+        right_hip = landmarks[RIGHT_HIP]
+        nose = landmarks[NOSE]
 
         min_visibility = min(
             left_shoulder.visibility,
@@ -272,14 +273,14 @@ class MediaPipePoseAnalyzer:
         )
 
     def _wrist_center(self, landmarks: list[Any]) -> tuple[float, float] | None:
-        point = self._vision.PoseLandmark
+        LEFT_WRIST, RIGHT_WRIST = 15, 16
         wrists = []
 
-        left_wrist = landmarks[point.LEFT_WRIST]
+        left_wrist = landmarks[LEFT_WRIST]
         if left_wrist.visibility >= self.config.detection_confidence:
             wrists.append((left_wrist.x, left_wrist.y))
 
-        right_wrist = landmarks[point.RIGHT_WRIST]
+        right_wrist = landmarks[RIGHT_WRIST]
         if right_wrist.visibility >= self.config.detection_confidence:
             wrists.append((right_wrist.x, right_wrist.y))
 
