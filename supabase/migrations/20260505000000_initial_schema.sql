@@ -1,6 +1,6 @@
 -- ============================================================
 -- Jupiter Sales Evaluator — Schema inicial
--- Proyecto Supabase: bnnwbmdtmbqgpuuaqwjv
+-- Proyecto Supabase: YOUR_SUPABASE_PROJECT_REF
 -- ============================================================
 
 -- ── Extensiones ──────────────────────────────────────────────

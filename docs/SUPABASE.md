@@ -1,8 +1,8 @@
 # Despliegue en Supabase
 
 Proyecto: **Jupiter Sales Evaluator**
-Supabase project ref: `bnnwbmdtmbqgpuuaqwjv`
-URL: `https://bnnwbmdtmbqgpuuaqwjv.supabase.co`
+Supabase project ref: `YOUR_SUPABASE_PROJECT_REF`
+URL: `https://YOUR_SUPABASE_PROJECT_REF.supabase.co`
 
 ---
 
@@ -27,7 +27,7 @@ El MCP de Supabase está configurado en `.mcp.json` a nivel de proyecto:
   "mcpServers": {
     "supabase": {
       "type": "http",
-      "url": "https://mcp.supabase.com/mcp?project_ref=bnnwbmdtmbqgpuuaqwjv"
+      "url": "https://mcp.supabase.com/mcp?project_ref=YOUR_SUPABASE_PROJECT_REF"
     }
   }
 }
@@ -50,7 +50,7 @@ Una vez que el MCP esté cargado, pedirle a Claude:
 
 ### Opción B — Desde el dashboard de Supabase
 
-1. Ir a [supabase.com/dashboard](https://supabase.com/dashboard) → proyecto `bnnwbmdtmbqgpuuaqwjv`
+1. Ir a [supabase.com/dashboard](https://supabase.com/dashboard) → proyecto `YOUR_SUPABASE_PROJECT_REF`
 2. **SQL Editor** → New query
 3. Pegar el contenido de `supabase/migrations/20260505000000_initial_schema.sql`
 4. Ejecutar
@@ -65,7 +65,7 @@ brew install supabase/tap/supabase
 supabase login
 
 # Linkear al proyecto remoto
-supabase link --project-ref bnnwbmdtmbqgpuuaqwjv
+supabase link --project-ref YOUR_SUPABASE_PROJECT_REF
 
 # Aplicar migraciones
 supabase db push
