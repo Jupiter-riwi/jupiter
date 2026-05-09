@@ -22,6 +22,15 @@ function ApexApp() {
   useEffect(() => {
     window.ApexAPI.logout();
     setAuthChecked(true);
+    const onExpired = () => {
+      setLoginError('Tu sesion expiro. Volve a iniciar sesion.');
+      setPage('login');
+      setScenario(null);
+      setRecording(false);
+      setEvalData(null);
+    };
+    window.addEventListener('apex:session-expired', onExpired);
+    return () => window.removeEventListener('apex:session-expired', onExpired);
   }, []);
 
   // ── login ─────────────────────────────────────────────────────────────────
@@ -41,6 +50,25 @@ function ApexApp() {
 
   // ── navigation ────────────────────────────────────────────────────────────
   const goLanding   = () => { setPage('landing'); setScenario(null); setEvalData(null); };
+  const goSection   = (id) => {
+    setPage('landing'); setScenario(null); setEvalData(null);
+    setTimeout(() => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      let parent = el.parentElement;
+      while (parent && parent !== document.body) {
+        const cs = getComputedStyle(parent);
+        if (/(auto|scroll)/.test(cs.overflowY)) break;
+        parent = parent.parentElement;
+      }
+      if (parent && parent !== document.body) {
+        const offset = el.getBoundingClientRect().top - parent.getBoundingClientRect().top + parent.scrollTop - 20;
+        parent.scrollTo({ top: offset, behavior: 'smooth' });
+      } else {
+        window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 20, behavior: 'smooth' });
+      }
+    }, 50);
+  };
   const goScenario  = () =>  setPage('scenario');
   const handleLogout = () => { window.ApexAPI.logout(); setPage('login'); };
 
@@ -88,7 +116,7 @@ function ApexApp() {
                   {loginError && <div className="mono" style={{fontSize:10.5,color:'#fca5a5',lineHeight:1.5,marginTop:4}}>{loginError}</div>}
                 </form>
                 <div className="mono" style={{marginTop:20,fontSize:10,color:'var(--ink-30)',letterSpacing:'0.15em'}}>
-                  API Gateway: localhost:8081
+                  API Gateway: localhost:8080
                 </div>
               </div>
             </div>
@@ -102,7 +130,7 @@ function ApexApp() {
   return (
     <div id="app">
       <div className="s-shell">
-        <PublicTopBar onHome={goLanding} />
+        <PublicTopBar onHome={goLanding} onSection={goSection} />
         <div style={{position:'absolute',top:12,right:24,zIndex:10}}>
           <button className="btn" onClick={handleLogout} style={{fontSize:10,opacity:0.6}}>Salir</button>
         </div>

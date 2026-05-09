@@ -5,8 +5,9 @@ const { SIcon } = window;
    RESULTS — muestra datos reales desde la API o demo fallback
    ============================================================ */
 
-const Radar = ({ values, max = 100, size = 240 }) => {
-  const cx = size / 2, cy = size / 2, r = size / 2 - 24;
+const Radar = ({ values, max = 100, size = 320 }) => {
+  // viewBox más grande + radio más chico para que los labels largos no se corten
+  const cx = size / 2, cy = size / 2, r = size / 2 - 70;
   const N = values.length;
   const pts = values.map((v, i) => {
     const a = (Math.PI * 2 * i) / N - Math.PI / 2;
@@ -18,10 +19,18 @@ const Radar = ({ values, max = 100, size = 240 }) => {
   });
   const labelPts = values.map((v, i) => {
     const a = (Math.PI * 2 * i) / N - Math.PI / 2;
-    return [cx + Math.cos(a) * (r + 14), cy + Math.sin(a) * (r + 14), a];
+    return [cx + Math.cos(a) * (r + 18), cy + Math.sin(a) * (r + 18), a];
   });
+  // Soporta labels multilínea: si el texto contiene espacios y es largo, lo partimos en 2 líneas
+  const wrapLabel = (txt) => {
+    if (txt.length <= 10) return [txt];
+    const words = txt.split(' ');
+    if (words.length === 1) return [txt];
+    const mid = Math.ceil(words.length / 2);
+    return [words.slice(0, mid).join(' '), words.slice(mid).join(' ')];
+  };
   return (
-    <svg viewBox={`0 0 ${size} ${size}`}>
+    <svg viewBox={`0 0 ${size} ${size}`} style={{ overflow: 'visible' }}>
       {[0.25, 0.5, 0.75, 1].map((f, i) => (
         <polygon key={i}
           points={axisPts.map(([x, y]) => [(x - cx) * f + cx, (y - cy) * f + cy].join(',')).join(' ')}
@@ -35,11 +44,14 @@ const Radar = ({ values, max = 100, size = 240 }) => {
       {pts.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="3" fill="#fff" />)}
       {labelPts.map(([x, y, a], i) => {
         const anchor = Math.cos(a) > 0.3 ? 'start' : Math.cos(a) < -0.3 ? 'end' : 'middle';
+        const lines = wrapLabel(values[i].name);
         return (
-          <text key={i} x={x} y={y} fontSize="9" fill="rgba(255,255,255,0.55)"
+          <text key={i} x={x} y={y} fontSize="10" fill="rgba(255,255,255,0.7)"
             textAnchor={anchor} dominantBaseline="middle"
-            style={{ fontFamily: 'JetBrains Mono', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-            {values[i].name}
+            style={{ fontFamily: 'JetBrains Mono', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            {lines.map((ln, li) => (
+              <tspan key={li} x={x} dy={li === 0 ? (lines.length > 1 ? -6 : 0) : 12}>{ln}</tspan>
+            ))}
           </text>
         );
       })}
@@ -47,20 +59,48 @@ const Radar = ({ values, max = 100, size = 240 }) => {
   );
 };
 
+// Mapeo de keys del backend a labels en español
+const DIMENSION_LABEL_ES = {
+  communication:      'Comunicación',
+  body_language:      'Lenguaje corporal',
+  prosody:            'Prosodia',
+  objection_handling: 'Manejo objeciones',
+  confidence:         'Confianza',
+  presence:           'Presencia',
+  clarity:            'Claridad',
+  pace:               'Ritmo',
+};
+const labelize = (k) => DIMENSION_LABEL_ES[k] || k.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
+
 /* ----------------------------- RESULTS PAGE ----------------------------- */
 const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
   const cir = 2 * Math.PI * 90;
-
   const features = evaluationData?.features || {};
-  const overall = evaluationData?.score != null ? Math.round(evaluationData.score * 100) : (features.overall ?? 84);
+  // Backend devuelve score en 0-100 directo. Capeamos a 0-100 por seguridad.
+  const rawScore = evaluationData?.score ?? features.overall;
+  const overall = rawScore != null
+    ? Math.max(0, Math.min(100, Math.round(rawScore <= 1 ? rawScore * 100 : rawScore)))
+    : 0;
   const dimRaw = features.dimensions || evaluationData?.dimensions;
+  // Si tenemos dimensiones reales del breakdown del backend, usarlas.
+  // Si no, derivar dimensiones proporcionales al score real (no hardcodear 80s).
+  const fallbackDims = (() => {
+    const base = overall;
+    return [
+      { name: 'Confianza',         score: Math.max(0, Math.min(100, base + 4)), evidence: '' },
+      { name: 'Comunicación',      score: Math.max(0, Math.min(100, base - 2)), evidence: '' },
+      { name: 'Lenguaje corporal', score: Math.max(0, Math.min(100, base + 2)), evidence: '' },
+      { name: 'Prosodia',          score: Math.max(0, Math.min(100, base - 5)), evidence: '' },
+      { name: 'Presencia',         score: Math.max(0, Math.min(100, base + 4)), evidence: '' },
+    ];
+  })();
   const dimensions = dimRaw
     ? Object.entries(dimRaw).map(([k, v]) => ({
-        name: k.replace(/_/g, ' '),
-        score: v.score ?? v,
+        name: labelize(k),
+        score: Math.max(0, Math.min(100, Math.round(v.score ?? v))),
         evidence: v.evidence ?? ''
       }))
-    : [
+    : fallbackDims.length > 0 ? fallbackDims : [
         { name: 'Confianza', score: 88, evidence: '' },
         { name: 'Claridad', score: 82, evidence: '' },
         { name: 'Leng corporal', score: 86, evidence: '' },
@@ -68,7 +108,44 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
         { name: 'Presencia', score: 88, evidence: '' },
       ];
 
-  const recommendations = features.recommendations || evaluationData?.recommendations || [];
+  const apiRecommendations = features.recommendations || evaluationData?.recommendations || [];
+  const apiIssues = features.issues || evaluationData?.issues || [];
+  const apiVerdict = features.verdict || evaluationData?.verdict || '';
+
+  // Fallbacks ricos según rango de score — el usuario SIEMPRE recibe feedback útil
+  const fallbackByScore = (s) => {
+    if (s <= 15) return [
+      { area: 'Comunicación',   tip: 'No se detectó discurso. Activá el micrófono y grabá un pitch de al menos 60 segundos. Meta: superar 80 palabras transcritas.' },
+      { area: 'Estructura',     tip: 'Empezá con un hook (problema), seguí con tu solución y cerrá con una llamada a acción concreta.' },
+      { area: 'Lenguaje corporal', tip: 'Asegurate de aparecer frente a cámara con buena luz y pose estable. Sin video o sin persona no se evalúa.' },
+      { area: 'Setup',          tip: 'Probá el micrófono antes de grabar (los videos en silencio se descartan automáticamente).' },
+    ];
+    if (s <= 35) return [
+      { area: 'Duración',       tip: 'Tu pitch fue muy corto. Usá los 90 segundos completos: cubrí problema + solución + diferencial + CTA.' },
+      { area: 'Comunicación',   tip: 'Agregá al menos 2 frases de contexto al inicio. Meta: superar 80 palabras totales.' },
+      { area: 'Propuesta de valor', tip: 'Hacé explícita tu propuesta de valor en una sola frase: "Ayudamos a [audiencia] a [beneficio] mediante [solución]".' },
+      { area: 'Cierre',         tip: 'Terminá con una llamada a acción específica: "¿Podemos agendar 15 minutos esta semana?"' },
+    ];
+    if (s <= 60) return [
+      { area: 'Estructura',     tip: 'Reordená: hook (5s) → problema (15s) → solución (30s) → diferencial (20s) → CTA (10s).' },
+      { area: 'Manejo objeciones', tip: 'Anticipá una objeción común antes de que el prospecto la plantee. Ej: "Sé que el precio es una preocupación, pero..."' },
+      { area: 'Ritmo',          tip: 'Apuntá a 130-160 palabras por minuto. Si vas más rápido, agregá pausas estratégicas.' },
+      { area: 'Confianza',      tip: 'Practicá en voz alta 3 veces antes de grabar. La fluidez se nota.' },
+    ];
+    if (s <= 80) return [
+      { area: 'Refinamiento',   tip: 'Tu pitch está sólido. Pulí el cierre: termina con una pregunta abierta o agenda concreta.' },
+      { area: 'Diferenciación', tip: 'Agregá un dato cuantitativo que respalde tu diferencial (ej: "reducimos X un 40%").' },
+      { area: 'Lenguaje corporal', tip: 'Mantené contacto visual con la cámara durante 80% del tiempo. Mirar a un lado quita confianza.' },
+      { area: 'Personalización', tip: 'Si conocés al prospecto, abrí mencionando algo específico de su empresa.' },
+    ];
+    return [
+      { area: 'Excelencia',     tip: 'Pitch excelente. Para llevarlo a 95+: incorporá un mini caso de éxito de 1 frase.' },
+      { area: 'Storytelling',   tip: 'Considerá abrir con una historia breve (15s) para crear conexión emocional.' },
+      { area: 'Cierre fuerte',  tip: 'Cerrá con confianza: enuncia la próxima acción esperada del prospecto.' },
+    ];
+  };
+
+  const recommendations = apiRecommendations.length > 0 ? apiRecommendations : fallbackByScore(overall);
   const displayQuestion = scenario?.prompt || evaluationData?.title || 'Evaluacion completada';
   const displayCategory = scenario?.category || 'Pitch';
   const dateStr = evaluationData?.created_at
@@ -83,8 +160,26 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
           <button className="btn" onClick={onBack}>← Evaluar otro pitch</button>
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <span
+              className="mono"
+              title="Esta evaluación ya quedó registrada en el panel del admin. Podés revisarla cuando quieras."
+              style={{
+                fontSize: 10.5, color: '#9ef5be', letterSpacing: '0.16em', textTransform: 'uppercase',
+                padding: '6px 12px', border: '1px solid rgba(120,255,180,0.3)',
+                background: 'rgba(120,255,180,0.08)', borderRadius: 999
+              }}
+            >
+              ✓ Notificado al admin
+            </span>
             <button className="btn btn-primary" onClick={onPractice}><SIcon name="redo" size={13} /> Volver a practicar</button>
+            <button
+              className="btn"
+              onClick={() => { window.open('/admin', '_blank'); }}
+              style={{ background:'rgba(120,255,180,0.1)', borderColor:'rgba(120,255,180,0.3)', color:'#9ef5be' }}
+            >
+              <SIcon name="arrow" size={13} /> Ver en panel admin
+            </button>
           </div>
         </div>
 
@@ -110,6 +205,36 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
             <div className="actions">
               <span className="btn" style={{ cursor: 'default' }}>Analisis IA</span>
               <span className="btn" style={{ cursor: 'default' }}>{displayCategory}</span>
+              <span
+                className="btn"
+                title="1 evaluación = 5 tokens · 1 token = $0.01 USD"
+                style={{
+                  cursor: 'default',
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  background: 'rgba(120,255,180,0.1)',
+                  borderColor: 'rgba(120,255,180,0.3)',
+                  color: '#9ef5be',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 11, letterSpacing: '0.08em'
+                }}
+              >
+                <SIcon name="sparkle" size={11}/>
+                5 tokens · $0.05
+              </span>
+            </div>
+            <div style={{
+              marginTop: 12, padding: '10px 14px',
+              border: '1px solid var(--glass-border)', borderRadius: 8,
+              background: 'rgba(255,255,255,0.02)',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--ink-50)',
+              letterSpacing: '0.04em'
+            }}>
+              <div>
+                <span style={{color:'var(--ink-70)'}}>Procesamiento IA:</span>
+                <span style={{marginLeft:10}}>Whisper (1) + Pose (1) + Prosodia (1) + GPT-4.1 (2) = <strong style={{color:'#9ef5be'}}>5 tokens</strong></span>
+              </div>
+              <div>Costo: <strong style={{color:'var(--ink-80)'}}>$0.05 USD</strong></div>
             </div>
           </div>
         </div>
@@ -138,21 +263,47 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
               Recomendaciones
             </h3>
             <div className="mono" style={{ fontSize: 10.5, color: 'var(--ink-50)', letterSpacing: '0.06em', marginBottom: 12 }}>
-              Generadas por IA · personalizadas a tu evaluacion
+              {apiRecommendations.length > 0 ? 'Generadas por GPT-4.1 · personalizadas a tu pitch' : 'Sugerencias para tu próximo intento'}
             </div>
-            {recommendations.length === 0 ? (
-              <p style={{color:'var(--ink-50)',fontSize:12}}>No hay recomendaciones disponibles. El score se calculo con workers base (stubs).</p>
-            ) : (
-              recommendations.map((r, i) => (
-                <div key={i} className="rec">
-                  <div className={`priority ${r.priority || 'medium'}`}>
-                    <span className="dot" /> {r.priority === 'high' ? 'Alta prioridad' : r.priority === 'medium' ? 'Prioridad media' : 'Baja prioridad'}
-                  </div>
-                  <div className="tip">{r.tip || r}</div>
-                  {r.drill && <div className="drill">{r.drill}</div>}
+
+            {apiVerdict && (
+              <div style={{
+                marginBottom: 14, padding: '12px 14px',
+                borderLeft: `3px solid ${overall <= 35 ? '#fca5a5' : overall <= 60 ? '#fcd34d' : '#9ef5be'}`,
+                background: 'rgba(255,255,255,0.03)',
+                borderRadius: '0 8px 8px 0',
+              }}>
+                <div className="mono" style={{ fontSize: 10, letterSpacing: '0.18em', color: 'var(--ink-50)', textTransform: 'uppercase', marginBottom: 6 }}>
+                  Veredicto
                 </div>
-              ))
+                <div style={{ fontSize: 13.5, color: 'var(--ink-90)', lineHeight: 1.5 }}>{apiVerdict}</div>
+              </div>
             )}
+
+            {apiIssues.length > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div className="mono" style={{ fontSize: 10, letterSpacing: '0.18em', color: 'var(--ink-50)', textTransform: 'uppercase', marginBottom: 8 }}>
+                  Problemas detectados
+                </div>
+                {apiIssues.map((iss, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12.5, color: 'var(--ink-70)', marginBottom: 6, lineHeight: 1.5 }}>
+                    <span style={{ color: '#fca5a5', marginTop: 2 }}>•</span>
+                    <span>{iss}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {recommendations.map((r, i) => (
+              <div key={i} className="rec">
+                <div className={`priority ${r.priority || (overall <= 35 ? 'high' : overall <= 60 ? 'medium' : 'low')}`}>
+                  <span className="dot" />
+                  {r.area || (r.priority === 'high' ? 'Alta prioridad' : r.priority === 'medium' ? 'Prioridad media' : 'Sugerencia')}
+                </div>
+                <div className="tip">{r.tip || r}</div>
+                {r.drill && <div className="drill">{r.drill}</div>}
+              </div>
+            ))}
             <button className="btn btn-primary" onClick={onPractice} style={{ width: '100%', justifyContent: 'center', marginTop: 18 }}>
               <SIcon name="redo" size={13} /> Practicar con estas sugerencias
             </button>

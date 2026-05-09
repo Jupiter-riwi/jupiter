@@ -64,10 +64,32 @@ const ApexLogo = ({ size = 36 }) => {
    ============================================================ */
 const scrollToSection = (id) => {
   const el = document.getElementById(id);
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (!el) return;
+  // Encontrar el contenedor scrollable (s-stage suele tener overflow:auto)
+  let parent = el.parentElement;
+  while (parent && parent !== document.body) {
+    const cs = getComputedStyle(parent);
+    if (/(auto|scroll)/.test(cs.overflowY)) break;
+    parent = parent.parentElement;
+  }
+  if (parent && parent !== document.body) {
+    const offset = el.getBoundingClientRect().top - parent.getBoundingClientRect().top + parent.scrollTop - 20;
+    parent.scrollTo({ top: offset, behavior: 'smooth' });
+  } else {
+    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 20, behavior: 'smooth' });
+  }
 };
 
-const PublicTopBar = ({ onHome }) => (
+const PublicTopBar = ({ onHome, onSection }) => {
+  const goSection = (id) => {
+    if (typeof onSection === 'function') {
+      onSection(id);
+    } else {
+      scrollToSection(id);
+    }
+  };
+  const linkStyle = { padding: '8px 16px', fontSize: 12.5, color: 'var(--ink-60)', borderRadius: 999, letterSpacing: '0.04em', cursor: 'pointer', transition: 'color 150ms' };
+  return (
   <div className="s-topbar">
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={onHome}>
       <ApexLogo size={38} />
@@ -77,26 +99,20 @@ const PublicTopBar = ({ onHome }) => (
       </div>
     </div>
     <div style={{ display: 'flex', gap: 4 }}>
-      <a
-        onClick={() => scrollToSection('how-it-works')}
-        style={{ padding: '8px 16px', fontSize: 12.5, color: 'var(--ink-60)', borderRadius: 999, letterSpacing: '0.04em', cursor: 'pointer', transition: 'color 150ms' }}
+      <a onClick={() => goSection('how-it-works')} style={linkStyle}
         onMouseEnter={e => e.target.style.color = 'var(--ink-90)'}
-        onMouseLeave={e => e.target.style.color = 'var(--ink-60)'}
-      >
-        Cómo funciona
-      </a>
-      <a
-        onClick={() => scrollToSection('para-empresas')}
-        style={{ padding: '8px 16px', fontSize: 12.5, color: 'var(--ink-60)', borderRadius: 999, letterSpacing: '0.04em', cursor: 'pointer', transition: 'color 150ms' }}
+        onMouseLeave={e => e.target.style.color = 'var(--ink-60)'}>Cómo funciona</a>
+      <a onClick={() => goSection('para-empresas')} style={linkStyle}
         onMouseEnter={e => e.target.style.color = 'var(--ink-90)'}
-        onMouseLeave={e => e.target.style.color = 'var(--ink-60)'}
-      >
-        Para empresas
-      </a>
+        onMouseLeave={e => e.target.style.color = 'var(--ink-60)'}>Para empresas</a>
+      <a onClick={() => goSection('precios')} style={linkStyle}
+        onMouseEnter={e => e.target.style.color = 'var(--ink-90)'}
+        onMouseLeave={e => e.target.style.color = 'var(--ink-60)'}>Precios</a>
     </div>
     <div style={{ width: 120 }} />
   </div>
-);
+  );
+};
 
 /* ============================================================
    LANDING — hero público
@@ -219,6 +235,165 @@ const PublicLanding = ({ onStart }) => (
               <div style={{ fontSize: 11, color: 'var(--ink-40)', marginTop: 6, fontFamily: 'var(--font-mono)', letterSpacing: '0.06em' }}>{delta}</div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* PRECIOS */}
+      <div id="precios" style={{ marginBottom: 80 }}>
+        <div style={{ textAlign: 'center', marginBottom: 36 }}>
+          <div className="mono" style={{ fontSize: 10.5, letterSpacing: '0.28em', color: 'var(--ink-40)', textTransform: 'uppercase', marginBottom: 14 }}>
+            Precios
+          </div>
+          <h2 style={{ fontSize: 32, fontWeight: 200, letterSpacing: '-0.02em', marginBottom: 12 }}>
+            Planes que escalan con tu equipo
+          </h2>
+          <p style={{ fontSize: 13.5, color: 'var(--ink-50)', maxWidth: 540, margin: '0 auto', lineHeight: 1.65 }}>
+            Sin contratos largos. Cancelá cuando quieras. Margen real para invertir en tus vendedores.
+          </p>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18 }}>
+          {/* STARTER */}
+          <div className="glass" style={{ padding: '32px 28px', display: 'flex', flexDirection: 'column' }}>
+            <div className="mono" style={{ fontSize: 10.5, letterSpacing: '0.22em', color: 'var(--ink-50)', textTransform: 'uppercase', marginBottom: 8 }}>
+              Starter
+            </div>
+            <div style={{ marginBottom: 6 }}>
+              <span style={{ fontSize: 44, fontWeight: 200, letterSpacing: '-0.02em' }}>$39</span>
+              <span style={{ fontSize: 13, color: 'var(--ink-50)', marginLeft: 6 }}>USD / usuario / mes</span>
+            </div>
+            <div className="mono" style={{ fontSize: 11, color: '#9ef5be', letterSpacing: '0.12em', marginBottom: 18 }}>
+              ✦ 600 tokens incluidos / mes
+            </div>
+            <p style={{ fontSize: 12.5, color: 'var(--ink-50)', lineHeight: 1.6, marginBottom: 20 }}>
+              Para equipos pequeños que arrancan a medir el desempeño comercial.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24, flex: 1 }}>
+              {[
+                '~120 evaluaciones / mes (5 tokens c/u)',
+                'Análisis de voz, lenguaje corporal y ritmo',
+                'Score con recomendaciones de IA',
+                'Historial individual y exportación CSV',
+                'Recarga +500 tokens por $5 USD',
+                'Soporte por email',
+              ].map((f, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--ink-70)' }}>
+                  <SIcon name="check" size={13} /> {f}
+                </div>
+              ))}
+            </div>
+            <button className="btn" style={{ width: '100%', justifyContent: 'center', padding: '12px' }}>
+              Empezar gratis · 50 tokens
+            </button>
+          </div>
+
+          {/* GROWTH (highlighted) */}
+          <div className="glass" style={{
+            padding: '32px 28px', display: 'flex', flexDirection: 'column',
+            border: '1px solid rgba(120,255,180,0.35)',
+            background: 'linear-gradient(180deg, rgba(120,255,180,0.06), rgba(255,255,255,0.02))',
+            position: 'relative',
+          }}>
+            <div style={{
+              position: 'absolute', top: -10, right: 18,
+              fontSize: 9.5, letterSpacing: '0.22em', textTransform: 'uppercase', fontWeight: 600,
+              padding: '4px 10px', borderRadius: 999,
+              background: 'rgba(120,255,180,0.18)', color: '#9ef5be',
+              border: '1px solid rgba(120,255,180,0.4)',
+            }}>
+              Más elegido
+            </div>
+            <div className="mono" style={{ fontSize: 10.5, letterSpacing: '0.22em', color: 'var(--ink-50)', textTransform: 'uppercase', marginBottom: 8 }}>
+              Growth
+            </div>
+            <div style={{ marginBottom: 6 }}>
+              <span style={{ fontSize: 44, fontWeight: 200, letterSpacing: '-0.02em' }}>$89</span>
+              <span style={{ fontSize: 13, color: 'var(--ink-50)', marginLeft: 6 }}>USD / usuario / mes</span>
+            </div>
+            <div className="mono" style={{ fontSize: 11, color: '#9ef5be', letterSpacing: '0.12em', marginBottom: 18 }}>
+              ✦ 2,000 tokens incluidos / mes
+            </div>
+            <p style={{ fontSize: 12.5, color: 'var(--ink-50)', lineHeight: 1.6, marginBottom: 20 }}>
+              Para equipos en crecimiento que necesitan coaching personalizado y reportes profundos.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24, flex: 1 }}>
+              {[
+                '~400 evaluaciones / mes',
+                'Plan de coaching IA por vendedor (20 tokens)',
+                'Dashboard de equipo con tendencias',
+                'Reportes PDF/CSV automáticos',
+                'Análisis con GPT-4.1 (modelo premium)',
+                'Tokens no usados se acumulan',
+                'Soporte prioritario',
+              ].map((f, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--ink-70)' }}>
+                  <SIcon name="check" size={13} /> {f}
+                </div>
+              ))}
+            </div>
+            <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '12px' }}>
+              Empezar prueba · 200 tokens
+            </button>
+          </div>
+
+          {/* ENTERPRISE */}
+          <div className="glass" style={{ padding: '32px 28px', display: 'flex', flexDirection: 'column' }}>
+            <div className="mono" style={{ fontSize: 10.5, letterSpacing: '0.22em', color: 'var(--ink-50)', textTransform: 'uppercase', marginBottom: 8 }}>
+              Enterprise
+            </div>
+            <div style={{ marginBottom: 6 }}>
+              <span style={{ fontSize: 32, fontWeight: 200, letterSpacing: '-0.02em' }}>A medida</span>
+              <div style={{ fontSize: 12, color: 'var(--ink-50)', marginTop: 4 }}>desde 50+ usuarios</div>
+            </div>
+            <div className="mono" style={{ fontSize: 11, color: '#9ef5be', letterSpacing: '0.12em', marginBottom: 18 }}>
+              ✦ Pool de tokens compartido
+            </div>
+            <p style={{ fontSize: 12.5, color: 'var(--ink-50)', lineHeight: 1.6, marginBottom: 20 }}>
+              Para organizaciones grandes con requerimientos de compliance e integraciones.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24, flex: 1 }}>
+              {[
+                'Tokens ilimitados o pool dedicado',
+                'Multi-tenant con roles avanzados',
+                'SSO (Google, Azure AD, Okta)',
+                'Retención de datos personalizada',
+                'Integraciones (Salesforce, HubSpot)',
+                'SLA 99.9% y soporte dedicado',
+                'Onboarding del equipo incluido',
+              ].map((f, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--ink-70)' }}>
+                  <SIcon name="check" size={13} /> {f}
+                </div>
+              ))}
+            </div>
+            <button className="btn" style={{ width: '100%', justifyContent: 'center', padding: '12px' }}>
+              Contactar ventas
+            </button>
+          </div>
+        </div>
+
+        {/* Tabla de costos por token */}
+        <div className="glass" style={{ marginTop: 28, padding: '28px 32px' }}>
+          <div className="mono" style={{ fontSize: 10.5, letterSpacing: '0.22em', color: 'var(--ink-50)', textTransform: 'uppercase', marginBottom: 18, textAlign: 'center' }}>
+            Cómo se consumen los tokens
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24 }}>
+            {[
+              { label: 'Evaluación de pitch',     value: '5 tokens',  desc: '$0.05 USD por video analizado' },
+              { label: 'Plan de coaching IA',     value: '20 tokens', desc: '$0.20 USD análisis del equipo con GPT-4.1' },
+              { label: 'Reporte PDF / CSV',       value: 'Gratis',    desc: 'sin costo en tokens' },
+              { label: 'Recarga adicional',       value: '$10 / 1k',  desc: '+1.000 tokens por $10 USD (sin vencimiento)' },
+            ].map(({ label, value, desc }) => (
+              <div key={label}>
+                <div className="mono" style={{ fontSize: 10, letterSpacing: '0.18em', color: 'var(--ink-50)', textTransform: 'uppercase', marginBottom: 8 }}>{label}</div>
+                <div style={{ fontSize: 20, fontWeight: 300, letterSpacing: '-0.01em', marginBottom: 4 }}>{value}</div>
+                <div style={{ fontSize: 11, color: 'var(--ink-40)', lineHeight: 1.5 }}>{desc}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: 22, paddingTop: 18, borderTop: '1px solid var(--glass-border)', textAlign: 'center', fontSize: 12, color: 'var(--ink-50)' }}>
+            <strong style={{ color: 'var(--ink-80)' }}>1 token = $0.01 USD</strong> · Pagás solo por lo que usás · Margen bruto del producto: 85%
+          </div>
         </div>
       </div>
 

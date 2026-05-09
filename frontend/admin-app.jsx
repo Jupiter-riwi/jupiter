@@ -44,36 +44,91 @@ const Kpi = ({ label, value, unit, delta, sparkId, data }) => {
 const NAV_ITEMS = ['equipo', 'preguntas', 'reportes', 'ajustes'];
 const NAV_LABELS = { equipo: 'Equipo', preguntas: 'Preguntas', reportes: 'Reportes', ajustes: 'Ajustes' };
 
-const AdminTop = ({ user, page, onNav }) => (
-  <div className="s-topbar">
-    <div style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}} onClick={() => onNav('equipo')}>
-      <ApexLogo size={34}/>
-      <div style={{lineHeight:1}}>
-        <div style={{fontSize:13,fontWeight:500,letterSpacing:'0.18em',color:'var(--ink-90)'}}>APEX</div>
-        <div style={{fontSize:9,letterSpacing:'0.28em',color:'var(--ink-50)',marginTop:1}}>VISION</div>
+const AdminTop = ({ user, page, onNav, onLogout, onProfile }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [open]);
+
+  return (
+    <div className="s-topbar">
+      <div style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}} onClick={() => onNav('equipo')}>
+        <ApexLogo size={34}/>
+        <div style={{lineHeight:1}}>
+          <div style={{fontSize:13,fontWeight:500,letterSpacing:'0.18em',color:'var(--ink-90)'}}>APEX</div>
+          <div style={{fontSize:9,letterSpacing:'0.28em',color:'var(--ink-50)',marginTop:1}}>VISION</div>
+        </div>
+      </div>
+      <div style={{display:'flex',gap:4}}>
+        {NAV_ITEMS.map(id => (
+          <a key={id} onClick={() => onNav(id)} style={{
+            padding:'8px 16px', fontSize:12.5, borderRadius:999, letterSpacing:'0.04em', cursor:'pointer',
+            color: page === id ? 'var(--ink-100)' : 'var(--ink-60)',
+            background: page === id ? 'rgba(255,255,255,0.08)' : 'transparent',
+            transition: 'background 150ms, color 150ms',
+          }}>
+            {NAV_LABELS[id]}
+          </a>
+        ))}
+      </div>
+      <div ref={ref} style={{display:'flex',alignItems:'center',gap:14,position:'relative'}}>
+        <div className="mono" style={{fontSize:10.5,color:'var(--ink-50)',letterSpacing:'0.12em',textAlign:'right',textTransform:'uppercase'}}>
+          {user.tenant}<br/>
+          <span style={{color:'var(--ink-30)'}}>{user.role}</span>
+        </div>
+        <div
+          className="avatar"
+          style={{cursor:'pointer'}}
+          onClick={() => setOpen(o => !o)}
+          title="Abrir menú de perfil"
+        >{user.initials}</div>
+        {open && (
+          <div
+            className="glass"
+            style={{
+              position:'absolute', top:'calc(100% + 10px)', right:0, minWidth:230,
+              padding:6, zIndex:50, boxShadow:'0 18px 40px rgba(0,0,0,0.4)'
+            }}
+          >
+            <div style={{padding:'12px 14px',borderBottom:'1px solid var(--glass-border)'}}>
+              <div style={{fontSize:13,fontWeight:500}}>{user.name}</div>
+              <div className="mono" style={{fontSize:10.5,color:'var(--ink-50)',letterSpacing:'0.08em',marginTop:3}}>{user.email}</div>
+            </div>
+            <button
+              onClick={() => { setOpen(false); onProfile(); }}
+              style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'10px 14px',background:'transparent',border:0,color:'var(--ink-80)',fontSize:13,cursor:'pointer',textAlign:'left',borderRadius:6}}
+              onMouseOver={(e) => e.currentTarget.style.background='rgba(255,255,255,0.05)'}
+              onMouseOut={(e) => e.currentTarget.style.background='transparent'}
+            >
+              <SIcon name="sparkle" size={13}/> Mi perfil
+            </button>
+            <button
+              onClick={() => { setOpen(false); onNav('ajustes'); }}
+              style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'10px 14px',background:'transparent',border:0,color:'var(--ink-80)',fontSize:13,cursor:'pointer',textAlign:'left',borderRadius:6}}
+              onMouseOver={(e) => e.currentTarget.style.background='rgba(255,255,255,0.05)'}
+              onMouseOut={(e) => e.currentTarget.style.background='transparent'}
+            >
+              <SIcon name="download" size={13}/> Configuración
+            </button>
+            <div style={{height:1,background:'var(--glass-border)',margin:'4px 0'}}/>
+            <button
+              onClick={() => { setOpen(false); onLogout(); }}
+              style={{display:'flex',alignItems:'center',gap:10,width:'100%',padding:'10px 14px',background:'transparent',border:0,color:'rgba(255,80,80,0.8)',fontSize:13,cursor:'pointer',textAlign:'left',borderRadius:6}}
+              onMouseOver={(e) => e.currentTarget.style.background='rgba(255,80,80,0.08)'}
+              onMouseOut={(e) => e.currentTarget.style.background='transparent'}
+            >
+              <SIcon name="close" size={13}/> Cerrar sesión
+            </button>
+          </div>
+        )}
       </div>
     </div>
-    <div style={{display:'flex',gap:4}}>
-      {NAV_ITEMS.map(id => (
-        <a key={id} onClick={() => onNav(id)} style={{
-          padding:'8px 16px', fontSize:12.5, borderRadius:999, letterSpacing:'0.04em', cursor:'pointer',
-          color: page === id ? 'var(--ink-100)' : 'var(--ink-60)',
-          background: page === id ? 'rgba(255,255,255,0.08)' : 'transparent',
-          transition: 'background 150ms, color 150ms',
-        }}>
-          {NAV_LABELS[id]}
-        </a>
-      ))}
-    </div>
-    <div style={{display:'flex',alignItems:'center',gap:14}}>
-      <div className="mono" style={{fontSize:10.5,color:'var(--ink-50)',letterSpacing:'0.12em',textAlign:'right',textTransform:'uppercase'}}>
-        {user.tenant}<br/>
-        <span style={{color:'var(--ink-30)'}}>{user.role}</span>
-      </div>
-      <div className="avatar">{user.initials}</div>
-    </div>
-  </div>
-);
+  );
+};
 
 /* ----------------------------- TEAM ROW ----------------------------- */
 const TeamRow = ({ p, onOpen }) => (
@@ -224,34 +279,361 @@ const PersonDrawer = ({ person, onClose }) => {
 };
 
 /* ----------------------------- VISTA PREGUNTAS ----------------------------- */
+const DEFAULT_QUESTIONS = [
+  { id:1, title:'Pitch de producto 90s', category:'Pitch · Producto', uses:47, avgScore:78, difficulty:'Media' },
+  { id:2, title:'Apertura en frío', category:'Apertura', uses:38, avgScore:72, difficulty:'Alta' },
+  { id:3, title:'Presentación ejecutiva', category:'Ejecutivo', uses:22, avgScore:80, difficulty:'Alta' },
+  { id:4, title:'Manejo de objeciones · precio', category:'Objeciones', uses:41, avgScore:69, difficulty:'Alta' },
+  { id:5, title:'Cierre consultivo', category:'Cierre', uses:29, avgScore:74, difficulty:'Media' },
+  { id:6, title:'Discovery: detectar dolor', category:'Discovery', uses:33, avgScore:81, difficulty:'Media' },
+];
+
+const QuestionEditor = ({ question, onSave, onClose }) => {
+  const [title, setTitle] = useState(question?.title || '');
+  const [category, setCategory] = useState(question?.category || 'Pitch · Producto');
+  const [difficulty, setDifficulty] = useState(question?.difficulty || 'Media');
+
+  const submit = (e) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    onSave({ title: title.trim(), category: category.trim() || 'General', difficulty });
+  };
+
+  return (
+    <div className="drawer-back" onClick={onClose}>
+      <form
+        className="glass"
+        onSubmit={submit}
+        onClick={(e) => e.stopPropagation()}
+        style={{maxWidth:520,margin:'10vh auto',padding:30}}
+      >
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:18}}>
+          <div>
+            <div className="mono" style={{fontSize:10.5,letterSpacing:'0.22em',color:'var(--ink-50)',textTransform:'uppercase',marginBottom:6}}>
+              {question ? 'Editar pregunta' : 'Nueva pregunta'}
+            </div>
+            <h2 style={{fontSize:22,fontWeight:300,letterSpacing:'-0.01em',margin:0}}>
+              {question ? 'Modificar escenario' : 'Crear escenario de evaluación'}
+            </h2>
+          </div>
+          <div className="close" onClick={onClose} style={{cursor:'pointer'}}><SIcon name="close" size={14}/></div>
+        </div>
+
+        <div style={{display:'flex',flexDirection:'column',gap:14}}>
+          <div>
+            <label className="mono" style={{fontSize:10,letterSpacing:'0.18em',color:'var(--ink-50)',textTransform:'uppercase',display:'block',marginBottom:6}}>Título</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              autoFocus
+              required
+              style={{width:'100%',padding:'10px 12px',background:'rgba(255,255,255,0.04)',border:'1px solid var(--ink-20)',borderRadius:8,color:'inherit',fontSize:13.5,fontFamily:'inherit'}}
+              placeholder="Ej: Manejo de objeción · ROI no claro"
+            />
+          </div>
+          <div>
+            <label className="mono" style={{fontSize:10,letterSpacing:'0.18em',color:'var(--ink-50)',textTransform:'uppercase',display:'block',marginBottom:6}}>Categoría</label>
+            <input
+              type="text"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              style={{width:'100%',padding:'10px 12px',background:'rgba(255,255,255,0.04)',border:'1px solid var(--ink-20)',borderRadius:8,color:'inherit',fontSize:13.5,fontFamily:'inherit'}}
+              placeholder="Pitch · Producto / Apertura / Cierre..."
+            />
+          </div>
+          <div>
+            <label className="mono" style={{fontSize:10,letterSpacing:'0.18em',color:'var(--ink-50)',textTransform:'uppercase',display:'block',marginBottom:6}}>Dificultad</label>
+            <div className="pillbar">
+              {['Baja','Media','Alta'].map(d => (
+                <button type="button" key={d} className={difficulty===d?'on':''} onClick={() => setDifficulty(d)}>{d}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div style={{display:'flex',gap:10,marginTop:24}}>
+          <button type="button" className="btn" style={{flex:1,justifyContent:'center'}} onClick={onClose}>Cancelar</button>
+          <button type="submit" className="btn btn-primary" style={{flex:1,justifyContent:'center'}}>
+            {question ? 'Guardar cambios' : 'Crear pregunta'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
 const PreguntasView = () => {
-  const QUESTIONS = [
-    { id:1, title:'Pitch de producto 90s', category:'Pitch · Producto', uses:47, avgScore:78, difficulty:'Media' },
-    { id:2, title:'Apertura en frío', category:'Apertura', uses:38, avgScore:72, difficulty:'Alta' },
-    { id:3, title:'Presentación ejecutiva', category:'Ejecutivo', uses:22, avgScore:80, difficulty:'Alta' },
-    { id:4, title:'Manejo de objeciones · precio', category:'Objeciones', uses:41, avgScore:69, difficulty:'Alta' },
-    { id:5, title:'Cierre consultivo', category:'Cierre', uses:29, avgScore:74, difficulty:'Media' },
-    { id:6, title:'Discovery: detectar dolor', category:'Discovery', uses:33, avgScore:81, difficulty:'Media' },
-  ];
+  const [questions, setQuestions] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('apex_questions') || 'null');
+      return Array.isArray(saved) && saved.length ? saved : DEFAULT_QUESTIONS;
+    } catch { return DEFAULT_QUESTIONS; }
+  });
+  const [editing, setEditing] = useState(null); // null | 'new' | { ...question }
+
+  const persist = (next) => {
+    setQuestions(next);
+    localStorage.setItem('apex_questions', JSON.stringify(next));
+  };
+  const handleSave = (data) => {
+    if (editing === 'new') {
+      const id = Math.max(0, ...questions.map(q => q.id)) + 1;
+      persist([...questions, { id, uses: 0, avgScore: 0, ...data }]);
+    } else {
+      persist(questions.map(q => q.id === editing.id ? { ...q, ...data } : q));
+    }
+    setEditing(null);
+  };
+  const handleDelete = (id) => {
+    if (!confirm('¿Eliminar esta pregunta? Esta acción no se puede deshacer.')) return;
+    persist(questions.filter(q => q.id !== id));
+  };
+
   return (
     <div className="s-stage"><div className="s-wrap" style={{maxWidth:1280}}>
       <div className="s-greet">
         <h1><small>Banco de preguntas</small>Escenarios de evaluación</h1>
-        <button className="btn btn-primary"><SIcon name="sparkle" size={13}/> Nueva pregunta</button>
+        <button className="btn btn-primary" onClick={() => setEditing('new')}>
+          <SIcon name="sparkle" size={13}/> Nueva pregunta
+        </button>
       </div>
       <div className="glass" style={{padding:0}}>
-        <div className="section-head"><h3>Todos los escenarios</h3><span className="label">{QUESTIONS.length} ACTIVOS</span></div>
-        {QUESTIONS.map((q,i) => (
+        <div className="section-head"><h3>Todos los escenarios</h3><span className="label">{questions.length} ACTIVOS</span></div>
+        {questions.length === 0 ? (
+          <div style={{padding:40,textAlign:'center',color:'var(--ink-50)',fontSize:13}}>
+            No hay preguntas · crea la primera con "Nueva pregunta"
+          </div>
+        ) : questions.map((q,i) => (
           <div key={q.id} style={{display:'grid',gridTemplateColumns:'1fr 140px 80px 80px 100px 40px',gap:16,alignItems:'center',padding:'14px 22px',borderTop:i>0?'1px solid var(--glass-border)':'none'}}>
             <div>
               <div style={{fontSize:13.5,fontWeight:500,marginBottom:3}}>{q.title}</div>
               <div className="mono" style={{fontSize:10.5,color:'var(--ink-50)',letterSpacing:'0.08em'}}>{q.category}</div>
             </div>
             <div className="mono" style={{fontSize:11,color:'var(--ink-50)',letterSpacing:'0.06em'}}>{q.uses} usos</div>
-            <div className={`t-score ${q.avgScore>=80?'high':''}`}>{q.avgScore}</div>
+            <div className={`t-score ${q.avgScore>=80?'high':''}`}>{q.avgScore || '—'}</div>
             <div className="mono" style={{fontSize:10.5,color:'var(--ink-50)',letterSpacing:'0.06em'}}>{q.difficulty}</div>
-            <button className="btn" style={{padding:'6px 12px',fontSize:11}}>Editar</button>
-            <div style={{color:'var(--ink-40)',cursor:'pointer'}}><SIcon name="close" size={13}/></div>
+            <button className="btn" style={{padding:'6px 12px',fontSize:11}} onClick={() => setEditing(q)}>Editar</button>
+            <div
+              style={{color:'var(--ink-40)',cursor:'pointer',display:'flex',justifyContent:'center'}}
+              onClick={() => handleDelete(q.id)}
+              title="Eliminar pregunta"
+            ><SIcon name="close" size={13}/></div>
+          </div>
+        ))}
+      </div>
+      {editing && (
+        <QuestionEditor
+          question={editing === 'new' ? null : editing}
+          onSave={handleSave}
+          onClose={() => setEditing(null)}
+        />
+      )}
+    </div></div>
+  );
+};
+
+/* ----------------------------- VISTA REPORTES ----------------------------- */
+const ReportesView = () => {
+  const [period, setPeriod] = useState('30d');
+  const [busy, setBusy] = useState(null); // null | report key
+  const [history, setHistory] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('apex_reports_history') || 'null');
+      return Array.isArray(saved) && saved.length ? saved : [
+        { name:'Reporte equipo · Abril 2026', type:'PDF', date:'hace 3 días', size:'2.4 MB' },
+        { name:'Detalle vendedores · Abril 2026', type:'CSV', date:'hace 3 días', size:'180 KB' },
+        { name:'Plan de coaching · Q1 2026', type:'PDF', date:'hace 32 días', size:'1.1 MB' },
+      ];
+    } catch { return []; }
+  });
+
+  const persistHistory = (next) => {
+    setHistory(next);
+    localStorage.setItem('apex_reports_history', JSON.stringify(next));
+  };
+
+  const downloadCSV = (filename, content) => {
+    const blob = new Blob([content], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const SELLERS_CSV =
+    'name,role,evaluations,score,trend,status\n' +
+    'Mariana Aimar,Senior,24,84,+6,on-track\n' +
+    'Federico Lozada,Senior,22,81,+3,on-track\n' +
+    'Carolina Méndez,Mid,18,78,+8,improving\n' +
+    'Diego Sosa,Senior,26,76,-2,watch\n' +
+    'Lucía Fernández,Mid,14,72,+4,on-track\n' +
+    'Tomás Iriarte,Junior,9,68,+11,improving\n' +
+    'Sofía Bertinat,Mid,16,64,-4,needs-coaching\n' +
+    'Ricardo Pena,Junior,7,58,-6,needs-coaching\n';
+
+  const printPDF = (title, bodyHTML) => {
+    const w = window.open('', '_blank', 'width=900,height=700');
+    if (!w) { alert('Permite ventanas emergentes para descargar el PDF.'); return false; }
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${title}</title>
+      <style>
+        @page { size: A4; margin: 18mm; }
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; color: #1a1a1a; margin:0; padding:24px; }
+        h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: 0.18em; }
+        h2 { font-size: 15px; font-weight: 400; margin: 0 0 18px; color: #555; }
+        h3 { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #777; margin: 22px 0 10px; }
+        .meta { font-size: 11px; color: #888; margin-bottom: 18px; font-family: 'JetBrains Mono', monospace; }
+        hr { border: 0; border-top: 1px solid #ddd; margin: 12px 0 18px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        td { padding: 8px 0; }
+        td.label { color: #666; }
+        td.value { text-align: right; font-weight: 500; }
+        .row { padding: 12px 14px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 10px; }
+        .row.high { border-left: 3px solid #e57373; }
+        .row.med { border-left: 3px solid #fbbf24; }
+        .row-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+        .name { font-size: 14px; font-weight: 500; }
+        .role { font-size: 11px; color: #777; font-family: 'JetBrains Mono', monospace; }
+        .badge { font-size: 9px; padding: 3px 8px; border-radius: 4px; font-weight: 600; letter-spacing: 0.1em; }
+        .badge.high { background: #fee2e2; color: #b91c1c; }
+        .badge.med { background: #fef3c7; color: #92400e; }
+        .field { font-size: 12px; color: #444; margin-top: 4px; }
+        .field strong { color: #111; }
+        .footer { margin-top: 30px; padding-top: 12px; border-top: 1px solid #ddd; font-size: 10px; color: #999; font-family: 'JetBrains Mono', monospace; }
+      </style></head><body>${bodyHTML}<script>window.onload=()=>{setTimeout(()=>{window.print();},200);};</script></body></html>`);
+    w.document.close();
+    return true;
+  };
+
+  const generatePDF = (kind) => {
+    const date = new Date().toLocaleString('es-AR');
+    if (kind === 'team-pdf') {
+      const body = `
+        <h1>APEX VISION</h1>
+        <h2>Reporte de Equipo</h2>
+        <hr/>
+        <div class="meta">Generado: ${date} · Periodo: ${period.toUpperCase()}</div>
+        <h3>Métricas generales</h3>
+        <table>
+          ${[
+            ['Score promedio del equipo','75 / 100'],
+            ['Vendedores activos','8'],
+            ['Evaluaciones realizadas','135'],
+            ['Top performer','Mariana Aimar (84)'],
+            ['Mayor mejora','Tomás Iriarte (+11)'],
+            ['Requieren coaching','2'],
+          ].map(([k,v]) => `<tr><td class="label">${k}</td><td class="value">${v}</td></tr>`).join('')}
+        </table>
+        <h3>Tendencia</h3>
+        <p style="font-size:12px;color:#444">Score: 68 → 70 → 73 → 75 (+10% vs mes anterior)</p>
+        <div class="footer">Apex Vision · Sales Evaluator</div>`;
+      return printPDF('Reporte de Equipo', body);
+    }
+    const items = [
+      { name:'Sofía Bertinat',  meta:'Mid · score 64/100',    pri:'high', focus:'Manejo de objeciones', action:'Sesión 1:1 semanal · revisar grabaciones de top performers' },
+      { name:'Ricardo Pena',    meta:'Junior · score 58/100', pri:'high', focus:'Apertura',             action:'Práctica con top performer · 3 evaluaciones esta semana' },
+      { name:'Diego Sosa',      meta:'Senior · score 76/100', pri:'med',  focus:'Ritmo de voz',         action:'Plan de práctica con 3 evaluaciones esta semana' },
+    ];
+    const body = `
+      <h1>APEX VISION</h1>
+      <h2>Plan de Coaching · IA</h2>
+      <hr/>
+      <div class="meta">Generado: ${date} · Periodo: ${period.toUpperCase()}</div>
+      <h3>Recomendaciones priorizadas</h3>
+      ${items.map((it,i) => `
+        <div class="row ${it.pri}">
+          <div class="row-head">
+            <div><span class="name">${i+1}. ${it.name}</span> &nbsp;<span class="role">${it.meta}</span></div>
+            <span class="badge ${it.pri}">PRIORIDAD ${it.pri === 'high' ? 'ALTA' : 'MEDIA'}</span>
+          </div>
+          <div class="field"><strong>Foco:</strong> ${it.focus}</div>
+          <div class="field"><strong>Acción sugerida:</strong> ${it.action}</div>
+        </div>`).join('')}
+      <div class="footer">Apex Vision · Sales Evaluator · Generado por IA</div>`;
+    return printPDF('Plan de Coaching', body);
+  };
+
+  const reports = [
+    { key:'team-pdf',    title:'Reporte de equipo · PDF',     desc:'Score general, dimensiones y tendencia del periodo seleccionado.',         icon:'download', type:'PDF' },
+    { key:'sellers-csv', title:'Detalle por vendedor · CSV',  desc:'Todas las evaluaciones con timestamps, scores y dimensiones.',              icon:'download', type:'CSV' },
+    { key:'coaching',    title:'Plan de coaching · PDF',      desc:'Sugerencias de IA personalizadas por vendedor priorizadas por impacto.',  icon:'sparkle',  type:'PDF' },
+  ];
+
+  const generate = async (r) => {
+    setBusy(r.key);
+    await new Promise(res => setTimeout(res, 600));
+    let ok = false;
+    if (r.key === 'sellers-csv') {
+      downloadCSV(`detalle-vendedores-${period}.csv`, SELLERS_CSV);
+      ok = true;
+    } else {
+      ok = generatePDF(r.key);
+    }
+    if (ok) {
+      persistHistory([
+        { name: r.title.replace(' · PDF','').replace(' · CSV',''), type: r.type, date: 'recién', size: r.type === 'CSV' ? '180 KB' : '24 KB' },
+        ...history,
+      ].slice(0, 12));
+    }
+    setBusy(null);
+  };
+
+  const downloadHistory = (item) => {
+    if (item.type === 'CSV') {
+      downloadCSV(`${item.name}.csv`, SELLERS_CSV);
+    } else {
+      generatePDF(item.name.toLowerCase().includes('coaching') ? 'coaching' : 'team-pdf');
+    }
+  };
+
+  return (
+    <div className="s-stage"><div className="s-wrap" style={{maxWidth:1280}}>
+      <div className="s-greet">
+        <h1><small>Reportes</small>Exportar datos del equipo</h1>
+        <div className="pillbar">
+          {['30d','90d','todo'].map(p => (
+            <button key={p} className={period===p?'on':''} onClick={() => setPeriod(p)}>
+              {p === 'todo' ? 'Todo' : p.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,marginBottom:18}}>
+        {reports.map(r => (
+          <div key={r.key} className="glass" style={{padding:24,display:'flex',flexDirection:'column'}}>
+            <div style={{marginBottom:14,color:'var(--ink-60)'}}><SIcon name={r.icon} size={22} stroke={1.2}/></div>
+            <div style={{fontSize:14,fontWeight:500,marginBottom:8}}>{r.title}</div>
+            <div style={{fontSize:12.5,color:'var(--ink-50)',lineHeight:1.6,marginBottom:18,flex:1}}>{r.desc}</div>
+            <button
+              className="btn btn-primary"
+              style={{width:'100%',justifyContent:'center',padding:'10px',display:'inline-flex',alignItems:'center',gap:6}}
+              onClick={() => generate(r)}
+              disabled={busy === r.key}
+            >
+              <SIcon name="download" size={12}/>
+              {busy === r.key ? 'Generando...' : 'Generar'}
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="glass" style={{padding:0}}>
+        <div className="section-head"><h3>Historial de reportes</h3></div>
+        {history.length === 0 ? (
+          <div style={{padding:30,textAlign:'center',color:'var(--ink-50)',fontSize:13}}>Sin reportes generados</div>
+        ) : history.map((item,i) => (
+          <div key={i} style={{display:'grid',gridTemplateColumns:'1fr 60px 120px 80px 110px',gap:16,alignItems:'center',padding:'14px 22px',borderTop:i>0?'1px solid var(--glass-border)':'none'}}>
+            <div style={{fontSize:13}}>{item.name}</div>
+            <div className="mono" style={{fontSize:10.5,color:'var(--ink-50)'}}>{item.type}</div>
+            <div className="mono" style={{fontSize:10.5,color:'var(--ink-50)'}}>{item.date}</div>
+            <div className="mono" style={{fontSize:10.5,color:'var(--ink-50)'}}>{item.size}</div>
+            <button
+              className="btn"
+              style={{padding:'6px 12px',fontSize:11,display:'inline-flex',alignItems:'center',justifyContent:'center',gap:6}}
+              onClick={() => downloadHistory(item)}
+            >
+              <SIcon name="download" size={11}/> Descargar
+            </button>
           </div>
         ))}
       </div>
@@ -259,72 +641,165 @@ const PreguntasView = () => {
   );
 };
 
-/* ----------------------------- VISTA REPORTES ----------------------------- */
-const ReportesView = () => (
-  <div className="s-stage"><div className="s-wrap" style={{maxWidth:1280}}>
-    <div className="s-greet">
-      <h1><small>Reportes</small>Exportar datos del equipo</h1>
-      <div className="pillbar">
-        <button className="on">30D</button><button>90D</button><button>Todo</button>
-      </div>
-    </div>
-    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,marginBottom:18}}>
-      {[
-        { title:'Reporte de equipo · PDF', desc:'Score general, dimensiones y tendencia de los últimos 30 días.', icon:'download' },
-        { title:'Detalle por vendedor · CSV', desc:'Todas las evaluaciones con timestamps, scores y dimensiones.', icon:'download' },
-        { title:'Plan de coaching · PDF', desc:'Sugerencias de IA personalizadas por vendedor priorizadas por impacto.', icon:'sparkle' },
-      ].map(r => (
-        <div key={r.title} className="glass" style={{padding:24}}>
-          <div style={{marginBottom:14,color:'var(--ink-60)'}}><SIcon name={r.icon} size={22} stroke={1.2}/></div>
-          <div style={{fontSize:14,fontWeight:500,marginBottom:8}}>{r.title}</div>
-          <div style={{fontSize:12.5,color:'var(--ink-50)',lineHeight:1.6,marginBottom:18}}>{r.desc}</div>
-          <button className="btn btn-primary" style={{width:'100%',justifyContent:'center',padding:'10px'}}><SIcon name="download" size={12}/> Generar</button>
-        </div>
-      ))}
-    </div>
-    <div className="glass" style={{padding:0}}>
-      <div className="section-head"><h3>Historial de reportes</h3></div>
-      {[
-        ['Reporte equipo · Abril 2026','PDF','hace 3 días','2.4 MB'],
-        ['Detalle vendedores · Abril 2026','CSV','hace 3 días','180 KB'],
-        ['Plan de coaching · Q1 2026','PDF','hace 32 días','1.1 MB'],
-      ].map(([name,type,date,size],i) => (
-        <div key={i} style={{display:'grid',gridTemplateColumns:'1fr 60px 120px 80px 80px',gap:16,alignItems:'center',padding:'14px 22px',borderTop:i>0?'1px solid var(--glass-border)':'none'}}>
-          <div style={{fontSize:13}}>{name}</div>
-          <div className="mono" style={{fontSize:10.5,color:'var(--ink-50)'}}>{type}</div>
-          <div className="mono" style={{fontSize:10.5,color:'var(--ink-50)'}}>{date}</div>
-          <div className="mono" style={{fontSize:10.5,color:'var(--ink-50)'}}>{size}</div>
-          <button className="btn" style={{padding:'6px 12px',fontSize:11}}><SIcon name="download" size={11}/> Descargar</button>
-        </div>
-      ))}
-    </div>
-  </div></div>
-);
-
 /* ----------------------------- VISTA AJUSTES ----------------------------- */
-const AjustesView = () => (
-  <div className="s-stage"><div className="s-wrap" style={{maxWidth:820}}>
-    <div className="s-greet"><h1><small>Ajustes</small>Configuración de cuenta</h1></div>
-    <div style={{display:'grid',gap:14}}>
-      {[
-        { section:'Empresa', fields:[['Nombre de la empresa','Northwind Sales'],['Industria','Tecnología B2B'],['País','Argentina']] },
-        { section:'Evaluaciones', fields:[['Duración máxima de grabación','3 minutos'],['Retención de videos','30 días'],['Idioma de evaluación','Español']] },
-        { section:'Notificaciones', fields:[['Resumen semanal por email','Activado'],['Alertas de bajo rendimiento','Activado'],['Nuevas evaluaciones','Desactivado']] },
-      ].map(({ section, fields }) => (
-        <div key={section} className="glass" style={{padding:'24px 28px'}}>
-          <div className="mono" style={{fontSize:10.5,letterSpacing:'0.22em',color:'var(--ink-50)',textTransform:'uppercase',marginBottom:18}}>{section}</div>
-          {fields.map(([label, val], i) => (
-            <div key={label} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 0',borderTop:i>0?'1px solid var(--glass-border)':'none'}}>
-              <div style={{fontSize:13,color:'var(--ink-80)'}}>{label}</div>
-              <div style={{fontSize:13,color:'var(--ink-50)',fontFamily:'var(--font-mono)',letterSpacing:'0.04em'}}>{val}</div>
-            </div>
-          ))}
-        </div>
-      ))}
-      <button className="btn" style={{color:'rgba(255,80,80,0.7)',borderColor:'rgba(255,80,80,0.2)',alignSelf:'flex-start'}}>Cerrar sesión</button>
+const DEFAULT_SETTINGS = {
+  company:        { name: 'Northwind Sales', industry: 'Tecnología B2B', country: 'Argentina' },
+  evaluations:    { maxDuration: '3 minutos', retention: '30 días', language: 'Español' },
+  notifications:  { weekly: true, lowPerformance: true, newEvaluations: false },
+};
+
+const AjustesView = ({ onLogout }) => {
+  const [settings, setSettings] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('apex_settings') || 'null');
+      return saved && typeof saved === 'object' ? { ...DEFAULT_SETTINGS, ...saved } : DEFAULT_SETTINGS;
+    } catch { return DEFAULT_SETTINGS; }
+  });
+  const [savedAt, setSavedAt] = useState(null);
+  const [dirty, setDirty] = useState(false);
+
+  const update = (section, key, value) => {
+    setSettings(s => ({ ...s, [section]: { ...s[section], [key]: value } }));
+    setDirty(true);
+  };
+
+  const save = () => {
+    localStorage.setItem('apex_settings', JSON.stringify(settings));
+    setSavedAt(new Date().toLocaleTimeString('es-AR'));
+    setDirty(false);
+  };
+
+  const reset = () => {
+    setSettings(DEFAULT_SETTINGS);
+    localStorage.setItem('apex_settings', JSON.stringify(DEFAULT_SETTINGS));
+    setDirty(false);
+    setSavedAt(new Date().toLocaleTimeString('es-AR'));
+  };
+
+  const inputStyle = {
+    fontSize:13,padding:'7px 10px',background:'rgba(255,255,255,0.04)',
+    border:'1px solid var(--ink-20)',borderRadius:6,color:'inherit',
+    fontFamily:'var(--font-mono)',letterSpacing:'0.04em',minWidth:200,textAlign:'right',
+  };
+
+  const Toggle = ({ checked, onChange }) => (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      style={{
+        width:42,height:24,padding:2,borderRadius:999,
+        background: checked ? 'rgba(120,255,180,0.25)' : 'rgba(255,255,255,0.08)',
+        border: '1px solid ' + (checked ? 'rgba(120,255,180,0.4)' : 'var(--ink-20)'),
+        cursor:'pointer',transition:'all 150ms',display:'flex',alignItems:'center',
+      }}
+    >
+      <span style={{
+        display:'block',width:18,height:18,borderRadius:'50%',
+        background: checked ? '#9ef5be' : 'var(--ink-50)',
+        transform: checked ? 'translateX(18px)' : 'translateX(0)',
+        transition:'transform 150ms',
+      }}/>
+    </button>
+  );
+
+  const Row = ({ label, children, top }) => (
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 0',borderTop:top?'1px solid var(--glass-border)':'none'}}>
+      <div style={{fontSize:13,color:'var(--ink-80)'}}>{label}</div>
+      {children}
     </div>
-  </div></div>
-);
+  );
+
+  return (
+    <div className="s-stage"><div className="s-wrap" style={{maxWidth:820}}>
+      <div className="s-greet">
+        <h1><small>Ajustes</small>Configuración de cuenta</h1>
+        {savedAt && !dirty && (
+          <div className="mono" style={{fontSize:10.5,color:'rgba(120,255,180,0.7)',letterSpacing:'0.18em',textTransform:'uppercase'}}>
+            ✓ Guardado · {savedAt}
+          </div>
+        )}
+      </div>
+
+      <div style={{display:'grid',gap:14}}>
+        {/* EMPRESA */}
+        <div className="glass" style={{padding:'24px 28px'}}>
+          <div className="mono" style={{fontSize:10.5,letterSpacing:'0.22em',color:'var(--ink-50)',textTransform:'uppercase',marginBottom:14}}>Empresa</div>
+          <Row label="Nombre de la empresa">
+            <input style={inputStyle} value={settings.company.name} onChange={e => update('company','name',e.target.value)}/>
+          </Row>
+          <Row label="Industria" top>
+            <input style={inputStyle} value={settings.company.industry} onChange={e => update('company','industry',e.target.value)}/>
+          </Row>
+          <Row label="País" top>
+            <select style={inputStyle} value={settings.company.country} onChange={e => update('company','country',e.target.value)}>
+              {['Argentina','Chile','Colombia','México','España','Uruguay','Perú'].map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </Row>
+        </div>
+
+        {/* EVALUACIONES */}
+        <div className="glass" style={{padding:'24px 28px'}}>
+          <div className="mono" style={{fontSize:10.5,letterSpacing:'0.22em',color:'var(--ink-50)',textTransform:'uppercase',marginBottom:14}}>Evaluaciones</div>
+          <Row label="Duración máxima de grabación">
+            <select style={inputStyle} value={settings.evaluations.maxDuration} onChange={e => update('evaluations','maxDuration',e.target.value)}>
+              {['1 minuto','2 minutos','3 minutos','5 minutos','10 minutos'].map(o => <option key={o}>{o}</option>)}
+            </select>
+          </Row>
+          <Row label="Retención de videos" top>
+            <select style={inputStyle} value={settings.evaluations.retention} onChange={e => update('evaluations','retention',e.target.value)}>
+              {['7 días','15 días','30 días','60 días','90 días'].map(o => <option key={o}>{o}</option>)}
+            </select>
+          </Row>
+          <Row label="Idioma de evaluación" top>
+            <select style={inputStyle} value={settings.evaluations.language} onChange={e => update('evaluations','language',e.target.value)}>
+              {['Español','Inglés','Portugués'].map(o => <option key={o}>{o}</option>)}
+            </select>
+          </Row>
+        </div>
+
+        {/* NOTIFICACIONES */}
+        <div className="glass" style={{padding:'24px 28px'}}>
+          <div className="mono" style={{fontSize:10.5,letterSpacing:'0.22em',color:'var(--ink-50)',textTransform:'uppercase',marginBottom:14}}>Notificaciones</div>
+          <Row label="Resumen semanal por email">
+            <Toggle checked={settings.notifications.weekly} onChange={v => update('notifications','weekly',v)}/>
+          </Row>
+          <Row label="Alertas de bajo rendimiento" top>
+            <Toggle checked={settings.notifications.lowPerformance} onChange={v => update('notifications','lowPerformance',v)}/>
+          </Row>
+          <Row label="Nuevas evaluaciones" top>
+            <Toggle checked={settings.notifications.newEvaluations} onChange={v => update('notifications','newEvaluations',v)}/>
+          </Row>
+        </div>
+
+        {/* SAVE BAR */}
+        <div style={{display:'flex',gap:10,alignItems:'center'}}>
+          <button
+            className="btn btn-primary"
+            onClick={save}
+            disabled={!dirty}
+            style={{opacity: dirty ? 1 : 0.5}}
+          >
+            <SIcon name="download" size={13}/> Guardar cambios
+          </button>
+          <button className="btn" onClick={reset}>Restablecer</button>
+          {dirty && (
+            <span className="mono" style={{fontSize:10.5,color:'#fcd34d',letterSpacing:'0.18em',textTransform:'uppercase'}}>
+              · Cambios sin guardar
+            </span>
+          )}
+          <div style={{flex:1}}/>
+          <button
+            className="btn"
+            onClick={onLogout}
+            style={{color:'rgba(255,80,80,0.7)',borderColor:'rgba(255,80,80,0.2)'}}
+          >
+            <SIcon name="close" size={13}/> Cerrar sesión
+          </button>
+        </div>
+      </div>
+    </div></div>
+  );
+};
 
 /* ----------------------------- MAIN VIEW ----------------------------- */
 const AdminApp = () => {
@@ -332,7 +807,113 @@ const AdminApp = () => {
   const [drawer, setDrawer] = useState(null);
   const [period, setPeriod] = useState('30d');
   const [page, setPage] = useState('equipo');
-  const user = { tenant: 'NORTHWIND', role: 'ADMIN', initials: 'JL' };
+  const [roleFilter, setRoleFilter] = useState('Todos');
+
+  // ── Token system (basado en plan financiero: $0.01/token) ─────────────────
+  // Costos: 5 tokens/evaluación ($0.05) · 20 tokens/plan coaching IA ($0.20)
+  const TOKEN_COSTS = { evaluation: 5, coachingPlan: 20 };
+  const [tokens, setTokens] = useState(() => {
+    const saved = parseInt(localStorage.getItem('apex_tokens') || '500', 10);
+    return Number.isFinite(saved) ? saved : 500;
+  });
+  const consumeTokens = (cost) => {
+    if (tokens < cost) return false;
+    const next = tokens - cost;
+    setTokens(next);
+    localStorage.setItem('apex_tokens', String(next));
+    return true;
+  };
+  const recharge = (amount) => {
+    const next = tokens + amount;
+    setTokens(next);
+    localStorage.setItem('apex_tokens', String(next));
+  };
+
+  const [coachingPlan, setCoachingPlan] = useState(null);
+  const [coachingBusy, setCoachingBusy] = useState(false);
+  const [tokenError, setTokenError] = useState('');
+
+  const generateCoachingPlan = async () => {
+    setTokenError('');
+    if (tokens < TOKEN_COSTS.coachingPlan) {
+      setTokenError(`Saldo insuficiente. Necesitas ${TOKEN_COSTS.coachingPlan} tokens (tienes ${tokens}).`);
+      return;
+    }
+    setCoachingBusy(true);
+    consumeTokens(TOKEN_COSTS.coachingPlan);
+
+    // Análisis basado en datos reales del equipo (mismo criterio del scorer crítico):
+    // Cada recomendación se ancla en una métrica concreta detectada en el desempeño.
+    await new Promise(r => setTimeout(r, 800));
+
+    const teamAvg = Math.round(TEAM.reduce((s,p) => s + p.score, 0) / TEAM.length);
+    const skillNames = ['Confianza','Claridad','Manejo objeciones','Ritmo de voz','Lenguaje corporal'];
+
+    const buildItem = (p) => {
+      // Identificar la dimensión más débil con su métrica
+      let worstIdx = 0;
+      let worstScore = p.skills[0];
+      p.skills.forEach((s, i) => { if (s < worstScore) { worstScore = s; worstIdx = i; } });
+      const weakness = skillNames[worstIdx];
+
+      // Acción específica + métrica de éxito
+      const actionMap = {
+        'Confianza': `Practica 3 grabaciones esta semana enfocadas en apertura. Meta: subir confianza de ${worstScore} a ${Math.min(85, worstScore + 12)} en 30 días.`,
+        'Claridad': `Estructura cada pitch con problema-solución-CTA. Meta: claridad ≥ 75 en próximas 2 evaluaciones (actual ${worstScore}).`,
+        'Manejo objeciones': `Sesión 1:1 semanal · revisar 3 objeciones reales. Meta: manejo objeciones ${worstScore} → ${Math.min(80, worstScore + 15)} en 4 semanas.`,
+        'Ritmo de voz': `Si pace > 170 WPM o < 100, ajustar pausas. Meta: ritmo entre 130-160 WPM y score ≥ 75 (actual ${worstScore}).`,
+        'Lenguaje corporal': `Practicar postura abierta y contacto visual frente a cámara. Meta: leng. corporal ${worstScore} → 75+ en 3 evaluaciones.`,
+      };
+
+      const priority = p.score < 65 ? 'alta' : (p.score < 75 ? 'media' : 'baja');
+      return {
+        person: p.name,
+        role: p.role,
+        score: p.score,
+        weakness: `${weakness} (${worstScore}/100)`,
+        action: actionMap[weakness],
+        evidence: `Score global ${p.score} · ${p.evals} evals · trend ${p.trend} · ${p.status}`,
+        priority,
+      };
+    };
+
+    const targets = TEAM.filter(p => p.status === 'needs-coaching' || p.status === 'watch' || p.score < 75);
+
+    const plan = {
+      generatedAt: new Date().toLocaleString('es-AR'),
+      summary: `Equipo ${TEAM.length} vendedores · score promedio ${teamAvg}/100 · ${targets.length} requieren intervención (criterio: score<75 o status watch/needs-coaching)`,
+      items: targets.sort((a,b) => a.score - b.score).map(buildItem),
+      methodology: 'Cada recomendación se ancla en la dimensión más débil del vendedor con métricas concretas y meta de mejora medible.',
+    };
+    setCoachingPlan(plan);
+    setCoachingBusy(false);
+  };
+  const baseUser = { tenant: 'NORTHWIND', role: 'ADMIN', initials: 'JL', name: 'Juliana López', email: 'juliana@northwind.com', phone: '+54 11 5555-1234', position: 'Sales Director' };
+  const [profile, setProfile] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('apex_profile') || 'null');
+      return saved && typeof saved === 'object' ? { ...baseUser, ...saved } : baseUser;
+    } catch { return baseUser; }
+  });
+  const user = profile;
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileDraft, setProfileDraft] = useState(profile);
+  const [profileSaved, setProfileSaved] = useState(false);
+  const openProfile = () => { setProfileDraft(profile); setProfileSaved(false); setProfileOpen(true); };
+  const saveProfile = () => {
+    const initials = profileDraft.name.split(' ').filter(Boolean).map(s => s[0]).slice(0,2).join('').toUpperCase() || 'JL';
+    const next = { ...profileDraft, initials };
+    setProfile(next);
+    localStorage.setItem('apex_profile', JSON.stringify(next));
+    setProfileSaved(true);
+    setTimeout(() => setProfileOpen(false), 700);
+  };
+  const handleLogout = () => {
+    if (window.ApexAPI) window.ApexAPI.logout();
+    localStorage.removeItem('apex_access_token');
+    localStorage.removeItem('apex_refresh_token');
+    window.location.href = '/seller';
+  };
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000);
@@ -346,10 +927,10 @@ const AdminApp = () => {
   return (
     <div id="app">
       <div className="s-shell">
-        <AdminTop user={user} page={page} onNav={setPage}/>
+        <AdminTop user={user} page={page} onNav={setPage} onLogout={handleLogout} onProfile={openProfile}/>
         {page === 'preguntas' && <PreguntasView/>}
         {page === 'reportes'  && <ReportesView/>}
-        {page === 'ajustes'   && <AjustesView/>}
+        {page === 'ajustes'   && <AjustesView onLogout={handleLogout}/>}
         {page === 'equipo' && <div className="s-stage">
           <div className="s-wrap" style={{maxWidth:1280}}>
             <div className="s-greet">
@@ -362,6 +943,26 @@ const AdminApp = () => {
                   <button className={period==='7d'?'on':''} onClick={()=>setPeriod('7d')}>7D</button>
                   <button className={period==='30d'?'on':''} onClick={()=>setPeriod('30d')}>30D</button>
                   <button className={period==='90d'?'on':''} onClick={()=>setPeriod('90d')}>90D</button>
+                </div>
+                <div
+                  title={`1 evaluación = ${TOKEN_COSTS.evaluation} tokens · 1 plan coaching IA = ${TOKEN_COSTS.coachingPlan} tokens · 1 token = $0.01`}
+                  style={{
+                    display:'flex',alignItems:'center',gap:8,padding:'8px 14px',
+                    border:'1px solid var(--ink-20)',borderRadius:10,
+                    background:'rgba(255,255,255,0.03)',cursor:'help'
+                  }}
+                >
+                  <SIcon name="sparkle" size={13}/>
+                  <div style={{display:'flex',flexDirection:'column',lineHeight:1}}>
+                    <span className="mono" style={{fontSize:9,letterSpacing:'0.18em',color:'var(--ink-50)',textTransform:'uppercase'}}>Saldo IA</span>
+                    <span style={{fontSize:14,fontWeight:500,fontVariantNumeric:'tabular-nums',marginTop:3}}>{tokens.toLocaleString('es-AR')} <small style={{fontSize:10,color:'var(--ink-50)'}}>tokens</small></span>
+                  </div>
+                  <button
+                    className="btn"
+                    style={{padding:'4px 10px',fontSize:11,marginLeft:4}}
+                    onClick={() => recharge(500)}
+                    title="Recargar 500 tokens ($5.00)"
+                  >+500</button>
                 </div>
                 <button className="btn"><SIcon name="download" size={13}/> Exportar reporte</button>
               </div>
@@ -381,12 +982,19 @@ const AdminApp = () => {
                   <h3>Tu equipo</h3>
                   <div style={{display:'flex',gap:6,alignItems:'center'}}>
                     <div className="pillbar">
-                      <button className="on">Todos</button><button>Senior</button><button>Mid</button><button>Junior</button>
+                      {['Todos','Senior','Mid','Junior'].map(r => (
+                        <button
+                          key={r}
+                          className={roleFilter === r ? 'on' : ''}
+                          onClick={() => setRoleFilter(r)}
+                        >{r}</button>
+                      ))}
                     </div>
                   </div>
                 </div>
                 <div className="t-list">
-                  {TEAM.map(p => <TeamRow key={p.id} p={p} onOpen={setDrawer}/>)}
+                  {TEAM.filter(p => roleFilter === 'Todos' || p.role === roleFilter)
+                       .map(p => <TeamRow key={p.id} p={p} onOpen={setDrawer}/>)}
                 </div>
               </div>
 
@@ -415,9 +1023,20 @@ const AdminApp = () => {
                   <div className="insight-meta">+11 puntos · de Junior a borde de Mid</div>
                 </div>
 
-                <button className="btn" style={{width:'100%',justifyContent:'center',marginTop:18}}>
-                  <SIcon name="sparkle" size={13}/> Generar plan de coaching con IA
+                <button
+                  className="btn btn-primary"
+                  style={{width:'100%',justifyContent:'center',marginTop:18}}
+                  onClick={generateCoachingPlan}
+                  disabled={coachingBusy || tokens < TOKEN_COSTS.coachingPlan}
+                >
+                  <SIcon name="sparkle" size={13}/>
+                  {coachingBusy ? 'Generando con IA...' : `Generar plan de coaching con IA · ${TOKEN_COSTS.coachingPlan} tokens`}
                 </button>
+                {tokenError && (
+                  <div className="mono" style={{fontSize:10.5,color:'#fca5a5',marginTop:8,lineHeight:1.5}}>
+                    {tokenError}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -479,6 +1098,203 @@ const AdminApp = () => {
         </div>}
       </div>
       <PersonDrawer person={drawer} onClose={() => setDrawer(null)}/>
+      {profileOpen && (
+        <div className="drawer-back" onClick={() => setProfileOpen(false)}>
+          <form
+            className="glass"
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={(e) => { e.preventDefault(); saveProfile(); }}
+            style={{maxWidth:520,margin:'8vh auto',padding:30}}
+          >
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:18}}>
+              <div>
+                <div className="mono" style={{fontSize:10.5,letterSpacing:'0.22em',color:'var(--ink-50)',textTransform:'uppercase',marginBottom:6}}>Mi perfil</div>
+                <h2 style={{fontSize:22,fontWeight:300,letterSpacing:'-0.01em',margin:0}}>Información personal</h2>
+              </div>
+              <div className="close" onClick={() => setProfileOpen(false)} style={{cursor:'pointer'}}><SIcon name="close" size={14}/></div>
+            </div>
+
+            <div style={{display:'flex',alignItems:'center',gap:18,marginBottom:22,padding:'14px 0',borderTop:'1px solid var(--glass-border)',borderBottom:'1px solid var(--glass-border)'}}>
+              <div className="avatar" style={{width:64,height:64,fontSize:22}}>
+                {(profileDraft.name.split(' ').filter(Boolean).map(s => s[0]).slice(0,2).join('').toUpperCase()) || 'JL'}
+              </div>
+              <div>
+                <div style={{fontSize:15,fontWeight:500}}>{profileDraft.name}</div>
+                <div className="mono" style={{fontSize:11,color:'var(--ink-50)',letterSpacing:'0.08em',marginTop:4}}>{profileDraft.role} · {profileDraft.tenant}</div>
+              </div>
+            </div>
+
+            {[
+              ['name', 'Nombre completo'],
+              ['email', 'Email'],
+              ['phone', 'Teléfono'],
+              ['position', 'Cargo'],
+            ].map(([key, label]) => (
+              <div key={key} style={{marginBottom:12}}>
+                <label className="mono" style={{fontSize:10,letterSpacing:'0.18em',color:'var(--ink-50)',textTransform:'uppercase',display:'block',marginBottom:6}}>{label}</label>
+                <input
+                  type={key === 'email' ? 'email' : 'text'}
+                  value={profileDraft[key] || ''}
+                  onChange={(e) => setProfileDraft(d => ({ ...d, [key]: e.target.value }))}
+                  required={key === 'name' || key === 'email'}
+                  style={{width:'100%',padding:'10px 12px',background:'rgba(255,255,255,0.04)',border:'1px solid var(--ink-20)',borderRadius:8,color:'inherit',fontSize:13.5,fontFamily:'inherit'}}
+                />
+              </div>
+            ))}
+
+            {profileSaved && (
+              <div className="mono" style={{fontSize:10.5,color:'rgba(120,255,180,0.8)',marginTop:10,letterSpacing:'0.18em',textTransform:'uppercase'}}>
+                ✓ Perfil actualizado
+              </div>
+            )}
+
+            <div style={{display:'flex',gap:10,marginTop:22}}>
+              <button type="button" className="btn" style={{flex:1,justifyContent:'center'}} onClick={() => setProfileOpen(false)}>Cancelar</button>
+              <button type="submit" className="btn btn-primary" style={{flex:1,justifyContent:'center'}}>
+                <SIcon name="download" size={13}/> Guardar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+      {coachingPlan && (
+        <div className="drawer-back" onClick={() => setCoachingPlan(null)}>
+          <div
+            className="glass"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth:680,margin:'5vh auto',padding:32,maxHeight:'90vh',overflowY:'auto'
+            }}
+          >
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:18}}>
+              <div>
+                <div className="mono" style={{fontSize:10.5,letterSpacing:'0.22em',color:'var(--ink-50)',textTransform:'uppercase',marginBottom:6}}>
+                  Plan de coaching · IA
+                </div>
+                <h2 style={{fontSize:24,fontWeight:300,letterSpacing:'-0.01em',margin:0}}>Recomendaciones priorizadas</h2>
+                <div className="mono" style={{fontSize:11,color:'var(--ink-50)',marginTop:8}}>
+                  Generado: {coachingPlan.generatedAt} · Costo: {TOKEN_COSTS.coachingPlan} tokens · Saldo restante: {tokens}
+                </div>
+              </div>
+              <div className="close" onClick={() => setCoachingPlan(null)} style={{cursor:'pointer'}}>
+                <SIcon name="close" size={14}/>
+              </div>
+            </div>
+
+            <div className="insight-block" style={{marginBottom:18}}>
+              <div className="insight-label">Resumen del análisis</div>
+              <div className="insight-value" style={{fontSize:16}}>{coachingPlan.summary}</div>
+            </div>
+
+            {coachingPlan.items.length === 0 ? (
+              <div className="mono" style={{fontSize:13,color:'var(--ink-50)',padding:24,textAlign:'center'}}>
+                Tu equipo está en buena forma · ningún vendedor requiere intervención urgente.
+              </div>
+            ) : (
+              <div style={{display:'flex',flexDirection:'column',gap:12}}>
+                {coachingPlan.items.map((it, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding:16,
+                      border:'1px solid var(--ink-20)',
+                      borderRadius:10,
+                      borderLeft: it.priority === 'alta' ? '3px solid #fca5a5' : '3px solid #fcd34d',
+                    }}
+                  >
+                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+                      <div>
+                        <div style={{fontSize:15,fontWeight:500}}>{it.person}</div>
+                        <div className="mono" style={{fontSize:10,color:'var(--ink-50)',letterSpacing:'0.18em',textTransform:'uppercase',marginTop:2}}>
+                          {it.role} · score {it.score}/100
+                        </div>
+                      </div>
+                      <span
+                        className="mono"
+                        style={{
+                          fontSize:10,padding:'4px 9px',borderRadius:6,height:'fit-content',
+                          background: it.priority === 'alta' ? 'rgba(252,165,165,0.12)' : 'rgba(252,211,77,0.12)',
+                          color: it.priority === 'alta' ? '#fca5a5' : '#fcd34d',
+                          letterSpacing:'0.18em',textTransform:'uppercase',
+                        }}
+                      >Prioridad {it.priority}</span>
+                    </div>
+                    <div style={{fontSize:13,color:'var(--ink-70)',marginTop:6}}>
+                      <strong style={{color:'var(--ink-90)'}}>Foco:</strong> {it.weakness}
+                    </div>
+                    <div style={{fontSize:13,color:'var(--ink-70)',marginTop:4}}>
+                      <strong style={{color:'var(--ink-90)'}}>Acción sugerida:</strong> {it.action}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{display:'flex',gap:10,marginTop:24}}>
+              <button className="btn" style={{flex:1,justifyContent:'center'}} onClick={() => setCoachingPlan(null)}>
+                Cerrar
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{flex:1,justifyContent:'center'}}
+                onClick={() => {
+                  const css = `
+                    @page { size: A4; margin: 18mm; }
+                    body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; color:#1a1a1a; margin:0; padding:24px; }
+                    h1 { font-size:22px; margin:0 0 4px; letter-spacing:0.18em; }
+                    h2 { font-size:15px; font-weight:400; margin:0 0 18px; color:#555; }
+                    h3 { font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:#777; margin:22px 0 10px; }
+                    .meta { font-size:11px; color:#888; margin-bottom:18px; font-family:'JetBrains Mono',monospace; }
+                    hr { border:0; border-top:1px solid #ddd; margin:12px 0 18px; }
+                    .row { padding:12px 14px; border:1px solid #e0e0e0; border-radius:8px; margin-bottom:10px; }
+                    .row.high { border-left:3px solid #e57373; }
+                    .row.med { border-left:3px solid #fbbf24; }
+                    .row-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+                    .name { font-size:14px; font-weight:500; }
+                    .role { font-size:11px; color:#777; font-family:'JetBrains Mono',monospace; }
+                    .badge { font-size:9px; padding:3px 8px; border-radius:4px; font-weight:600; letter-spacing:0.1em; }
+                    .badge.high { background:#fee2e2; color:#b91c1c; }
+                    .badge.med { background:#fef3c7; color:#92400e; }
+                    .field { font-size:12px; color:#444; margin-top:4px; }
+                    .field strong { color:#111; }
+                    .summary { padding:14px 18px; border:1px solid #e0e0e0; border-radius:8px; background:#fafafa; font-size:13px; }
+                    .footer { margin-top:30px; padding-top:12px; border-top:1px solid #ddd; font-size:10px; color:#999; font-family:'JetBrains Mono',monospace; }`;
+
+                  const items = coachingPlan.items.map((it,i) => `
+                    <div class="row ${it.priority === 'alta' ? 'high' : 'med'}">
+                      <div class="row-head">
+                        <div><span class="name">${i+1}. ${it.person}</span> &nbsp;<span class="role">${it.role} · score ${it.score}/100</span></div>
+                        <span class="badge ${it.priority === 'alta' ? 'high' : 'med'}">PRIORIDAD ${it.priority.toUpperCase()}</span>
+                      </div>
+                      <div class="field"><strong>Foco:</strong> ${it.weakness}</div>
+                      <div class="field"><strong>Acción sugerida:</strong> ${it.action}</div>
+                    </div>`).join('');
+
+                  const body = `
+                    <h1>APEX VISION</h1>
+                    <h2>Plan de Coaching · IA</h2>
+                    <hr/>
+                    <div class="meta">Generado: ${coachingPlan.generatedAt} · Costo: ${TOKEN_COSTS.coachingPlan} tokens · Saldo restante: ${tokens}</div>
+                    <h3>Resumen del análisis</h3>
+                    <div class="summary">${coachingPlan.summary}</div>
+                    <h3>Recomendaciones priorizadas</h3>
+                    ${coachingPlan.items.length === 0
+                      ? '<p style="font-size:12px;color:#666;font-style:italic">Tu equipo está en buena forma. Ningún vendedor requiere intervención urgente.</p>'
+                      : items}
+                    <div class="footer">Apex Vision · Sales Evaluator · Generado por IA</div>`;
+
+                  const w = window.open('', '_blank', 'width=900,height=700');
+                  if (!w) { alert('Permite ventanas emergentes para descargar el PDF.'); return; }
+                  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Plan de Coaching</title><style>${css}</style></head><body>${body}<script>window.onload=()=>{setTimeout(()=>{window.print();},200);};</script></body></html>`);
+                  w.document.close();
+                }}
+              >
+                <SIcon name="download" size={13}/> Exportar PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
