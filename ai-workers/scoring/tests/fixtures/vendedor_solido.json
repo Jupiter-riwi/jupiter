@@ -1,0 +1,74 @@
+{
+  "evaluation_id": "fixture-eval-001",
+  "tenant_id": "fixture-tenant-demo",
+  "scenario": "Vendedor con desempeño sólido — buen ritmo, buena postura, pocas muletillas",
+  "expected_overall_range": [75, 90],
+
+  "pose": {
+    "segments": [
+      {
+        "start_seconds": 0,
+        "end_seconds": 10,
+        "posture_openness": 0.85,
+        "shoulder_alignment": 0.92,
+        "head_orientation": {"yaw": 5.2, "pitch": -3.1},
+        "hand_gesture_frequency": 12,
+        "hand_gesture_amplitude": 0.45,
+        "pose_variability": 0.38
+      },
+      {
+        "start_seconds": 10,
+        "end_seconds": 20,
+        "posture_openness": 0.82,
+        "shoulder_alignment": 0.90,
+        "head_orientation": {"yaw": 3.8, "pitch": -2.5},
+        "hand_gesture_frequency": 15,
+        "hand_gesture_amplitude": 0.52,
+        "pose_variability": 0.41
+      },
+      {
+        "start_seconds": 20,
+        "end_seconds": 30,
+        "posture_openness": 0.88,
+        "shoulder_alignment": 0.93,
+        "head_orientation": {"yaw": -2.1, "pitch": -1.8},
+        "hand_gesture_frequency": 10,
+        "hand_gesture_amplitude": 0.38,
+        "pose_variability": 0.35
+      }
+    ],
+    "summary": {
+      "avg_posture_openness": 0.85,
+      "avg_shoulder_alignment": 0.92,
+      "avg_hand_gesture_frequency": 12.3,
+      "avg_hand_gesture_amplitude": 0.45,
+      "eye_contact_ratio": 0.78,
+      "pose_variability_avg": 0.38
+    }
+  },
+
+  "transcript": {
+    "full_text": "Muy buenos días. Hoy quiero presentarles nuestro producto estrella, el software de gestión que está transformando la forma en que las empresas manejan sus operaciones diarias. Imaginen por un momento poder reducir el tiempo administrativo en un 40 por ciento. Eso es exactamente lo que logramos con nuestra plataforma. ¿Han tenido problemas con la coordinación entre departamentos? Nuestro módulo de comunicación interna resuelve eso de inmediato. Permítanme mostrarles tres casos de éxito reales. El primero, una empresa de logística que redujo sus costos operativos en un 25 por ciento en solo tres meses. ¿Qué les parece? Me encantaría escuchar sus preguntas.",
+    "segments": [
+      {"start": 0.0, "end": 5.2, "text": "Muy buenos días. Hoy quiero presentarles nuestro producto estrella, el software de gestión que está transformando la forma en que las empresas manejan sus operaciones diarias."},
+      {"start": 5.2, "end": 11.8, "text": "Imaginen por un momento poder reducir el tiempo administrativo en un 40 por ciento. Eso es exactamente lo que logramos con nuestra plataforma."},
+      {"start": 11.8, "end": 16.5, "text": "¿Han tenido problemas con la coordinación entre departamentos? Nuestro módulo de comunicación interna resuelve eso de inmediato."},
+      {"start": 16.5, "end": 23.0, "text": "Permítanme mostrarles tres casos de éxito reales. El primero, una empresa de logística que redujo sus costos operativos en un 25 por ciento en solo tres meses."},
+      {"start": 23.0, "end": 28.0, "text": "¿Qué les parece? Me encantaría escuchar sus preguntas."}
+    ],
+    "word_count": 137,
+    "language": "es",
+    "questions_asked": 3
+  },
+
+  "prosody": {
+    "pitch": {"median": 185.4, "variance": 1250.3},
+    "energy": {"median": 0.028, "peak": 0.098},
+    "words_per_minute": 142.5,
+    "pause_ratio": 0.06,
+    "filler_words": {"count": 2, "words": ["bueno", "eh"]},
+    "duration_seconds": 28.0,
+    "transcript_word_count": 137,
+    "sample_rate": 22050
+  }
+}

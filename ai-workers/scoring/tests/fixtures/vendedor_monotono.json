@@ -1,0 +1,73 @@
+{
+  "evaluation_id": "fixture-eval-003",
+  "tenant_id": "fixture-tenant-demo",
+  "scenario": "Vendedor monótono — sin gestos, voz plana, discurso largo sin interacción",
+  "expected_overall_range": [40, 60],
+
+  "pose": {
+    "segments": [
+      {
+        "start_seconds": 0,
+        "end_seconds": 15,
+        "posture_openness": 0.55,
+        "shoulder_alignment": 0.78,
+        "head_orientation": {"yaw": 1.2, "pitch": -2.0},
+        "hand_gesture_frequency": 2,
+        "hand_gesture_amplitude": 0.08,
+        "pose_variability": 0.08
+      },
+      {
+        "start_seconds": 15,
+        "end_seconds": 30,
+        "posture_openness": 0.53,
+        "shoulder_alignment": 0.76,
+        "head_orientation": {"yaw": 0.8, "pitch": -1.5},
+        "hand_gesture_frequency": 1,
+        "hand_gesture_amplitude": 0.05,
+        "pose_variability": 0.06
+      },
+      {
+        "start_seconds": 30,
+        "end_seconds": 45,
+        "posture_openness": 0.52,
+        "shoulder_alignment": 0.75,
+        "head_orientation": {"yaw": -0.5, "pitch": -2.2},
+        "hand_gesture_frequency": 1,
+        "hand_gesture_amplitude": 0.06,
+        "pose_variability": 0.05
+      }
+    ],
+    "summary": {
+      "avg_posture_openness": 0.53,
+      "avg_shoulder_alignment": 0.76,
+      "avg_hand_gesture_frequency": 1.3,
+      "avg_hand_gesture_amplitude": 0.06,
+      "eye_contact_ratio": 0.60,
+      "pose_variability_avg": 0.06
+    }
+  },
+
+  "transcript": {
+    "full_text": "Buenos días. El producto que presentamos hoy es una solución integral de software empresarial que abarca módulos de contabilidad, inventario, recursos humanos y gestión de proyectos de manera unificada. La implementación toma aproximadamente tres meses y requiere capacitación del personal. El retorno de inversión se estima en dieciocho meses según nuestros estudios de caso previos con empresas del sector manufacturero y retail. El soporte técnico está disponible veinticuatro horas los siete días de la semana a través de nuestro portal de ayuda y línea telefónica dedicada. El costo de licenciamiento es por usuario con descuentos por volumen a partir de cincuenta licencias. Eso es todo, gracias.",
+    "segments": [
+      {"start": 0.0, "end": 15.5, "text": "Buenos días. El producto que presentamos hoy es una solución integral de software empresarial que abarca módulos de contabilidad, inventario, recursos humanos y gestión de proyectos de manera unificada."},
+      {"start": 15.5, "end": 28.0, "text": "La implementación toma aproximadamente tres meses y requiere capacitación del personal. El retorno de inversión se estima en dieciocho meses según nuestros estudios de caso previos con empresas del sector manufacturero y retail."},
+      {"start": 28.0, "end": 40.0, "text": "El soporte técnico está disponible veinticuatro horas los siete días de la semana a través de nuestro portal de ayuda y línea telefónica dedicada."},
+      {"start": 40.0, "end": 50.0, "text": "El costo de licenciamiento es por usuario con descuentos por volumen a partir de cincuenta licencias. Eso es todo, gracias."}
+    ],
+    "word_count": 124,
+    "language": "es",
+    "questions_asked": 0
+  },
+
+  "prosody": {
+    "pitch": {"median": 150.2, "variance": 280.0},
+    "energy": {"median": 0.022, "peak": 0.045},
+    "words_per_minute": 148.8,
+    "pause_ratio": 0.03,
+    "filler_words": {"count": 0, "words": []},
+    "duration_seconds": 50.0,
+    "transcript_word_count": 124,
+    "sample_rate": 22050
+  }
+}

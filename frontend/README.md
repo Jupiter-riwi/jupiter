@@ -1,4 +1,4 @@
-# 🪐 Júpiter - Portal Multimodal (React + Vite)
+# Apex Vision - Portal Multimodal (React + Vite)
 
 Interfaz de usuario para la evaluación de oradores, visualización de métricas de IA en tiempo real y gestión de perfiles de Riwers.
 

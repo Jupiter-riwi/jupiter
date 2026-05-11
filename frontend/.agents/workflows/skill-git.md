@@ -1,10 +1,10 @@
 ---
-description: Júpiter - Políticas de Control de Versiones (skill-git)
+description: Apex Vision - Políticas de Control de Versiones (skill-git)
 ---
 
-# 🪐 Júpiter - Políticas de Control de Versiones (skill-git)
+# Apex Vision - Políticas de Control de Versiones (skill-git)
 
-Este documento define el estándar oficial de colaboración para el proyecto Júpiter. Todo el equipo debe adherirse a estas reglas para garantizar la estabilidad del ecosistema.
+Este documento define el estándar oficial de colaboración para el proyecto Apex Vision. Todo el equipo debe adherirse a estas reglas para garantizar la estabilidad del ecosistema.
 
 ## 1. Estrategia de Ramificación
 * Utilizamos **GitHub Flow**.

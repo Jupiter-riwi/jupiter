@@ -1,4 +1,3 @@
-import React from 'react';
 import { User, Activity, Shield } from 'lucide-react';
 
 export default function Dashboard() {
@@ -8,7 +7,7 @@ export default function Dashboard() {
         <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">
           Perfil del Riwer
         </h1>
-        <p className="text-slate-400 mt-2">Visión general del estado del sistema Júpiter</p>
+        <p className="text-slate-400 mt-2">Visión general del estado del sistema Apex Vision</p>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
