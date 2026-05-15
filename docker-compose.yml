@@ -179,8 +179,8 @@ services:
       AWS_REGION: us-east-1
       WHISPER_JOBS_QUEUE: whisper.jobs
       FEATURES_RESULTS_QUEUE: features.results
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      WHISPER_MODEL: whisper-1
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      WHISPER_MODEL: whisper-large-v3
       WHISPER_MAX_VIDEO_SECONDS: 480
       WHISPER_CHUNK_SECONDS: 120
     depends_on:
@@ -249,7 +249,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       DB_NAME: ${DB_NAME:-jupiter}
       SCORING_QUEUE: scoring.jobs
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY}
     depends_on:
       rabbitmq:
         condition: service_healthy

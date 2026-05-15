@@ -2,7 +2,7 @@
 Whisper worker — consumes from jupiter.whisper.
 
 Transcribes audio from the uploaded video and extracts speech features.
-In production, replaces the stub with an actual OpenAI Whisper pipeline.
+In production, replaces the stub with an actual Groq Whisper (whisper-large-v3) pipeline.
 """
 
 import logging

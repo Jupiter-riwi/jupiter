@@ -14,6 +14,10 @@ RETRY_BACKOFF_SECONDS = 2
 
 PROMPT_DIR = Path(__file__).parent / "prompts"
 
+# Groq model for scoring (llama-3.3-70b is the most capable Groq model)
+GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+
 
 def load_prompt(version: str = "v1") -> str:
     path = PROMPT_DIR / f"{version}.md"
@@ -36,16 +40,16 @@ def build_prompt(
     )
 
 
-def call_gpt4o(prompt: str, api_key: Optional[str] = None) -> ScoreResult:
-    api_key = api_key or os.getenv("OPENAI_API_KEY", "")
+def call_llm(prompt: str, api_key: Optional[str] = None) -> ScoreResult:
+    api_key = api_key or os.getenv("GROQ_API_KEY", "")
     if not api_key:
-        raise ValueError("OPENAI_API_KEY no configurada")
+        raise ValueError("GROQ_API_KEY no configurada")
 
     last_error: Optional[Exception] = None
 
     for attempt in range(1, MAX_RETRIES + 2):
         try:
-            result = _call_openai_json(prompt, api_key)
+            result = _call_groq_json(prompt, api_key)
             score = ScoreResult.model_validate(result)
             logger.info(
                 "Scoring completado | overall=%d | tokens_in=%d | tokens_out=%d",
@@ -68,12 +72,12 @@ def call_gpt4o(prompt: str, api_key: Optional[str] = None) -> ScoreResult:
     raise last_error  # type: ignore[misc]
 
 
-def _call_openai_json(prompt: str, api_key: str) -> dict:
+def _call_groq_json(prompt: str, api_key: str) -> dict:
     import urllib.request
     import urllib.error
 
     body = json.dumps({
-        "model": "gpt-4.1",
+        "model": GROQ_MODEL,
         "messages": [
             {"role": "system", "content": "Eres un coach de ventas. Responde solo con JSON válido."},
             {"role": "user", "content": prompt},
@@ -84,7 +88,7 @@ def _call_openai_json(prompt: str, api_key: str) -> dict:
     }).encode("utf-8")
 
     req = urllib.request.Request(
-        "https://api.openai.com/v1/chat/completions",
+        GROQ_API_URL,
         data=body,
         headers={
             "Content-Type": "application/json",
@@ -97,7 +101,7 @@ def _call_openai_json(prompt: str, api_key: str) -> dict:
             data = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         error_body = exc.read().decode("utf-8")
-        raise RuntimeError(f"OpenAI API error {exc.code}: {error_body}")
+        raise RuntimeError(f"Groq API error {exc.code}: {error_body}")
 
     content = data["choices"][0]["message"]["content"]
     parsed = json.loads(content)

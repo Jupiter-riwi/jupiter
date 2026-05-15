@@ -13,11 +13,63 @@ from scoring.rabbitmq import (
     get_connection,
     get_channel,
 )
-from scoring.llm import call_gpt4o, load_prompt, build_prompt
+from scoring.llm import call_llm, load_prompt, build_prompt
 from scoring.models import ScoreResult, ScoringJob
-from shared.db import fetch_features_by_evaluation, all_features_ready, insert_score, update_evaluation_status
+from shared.db import (
+    fetch_features_by_evaluation,
+    all_features_ready,
+    get_evaluation_status,
+    insert_score,
+    update_evaluation_status,
+    mark_evaluation_failed,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _classify_scoring_error(exc: Exception) -> tuple[str, str, str]:
+    detail = str(exc)
+    text = detail.lower()
+
+    if "groq_api_key no configurada" in text:
+        return (
+            "GROQ_CONFIG_ERROR",
+            "GROQ_API_KEY no esta configurada en el worker de scoring.",
+            detail,
+        )
+
+    if "groq" in text or "api" in text:
+        if (
+            "insufficient_quota" in text
+            or "billing_hard_limit_reached" in text
+            or "insufficient quota" in text
+            or "rate_limit" in text
+            or "rate limit" in text
+        ):
+            return (
+                "GROQ_RATE_LIMIT",
+                "Limite de tasa o saldo insuficiente en Groq.",
+                detail,
+            )
+
+        if "invalid_api_key" in text or "incorrect api key" in text or "api key" in text or "authentication" in text:
+            return (
+                "GROQ_AUTH_ERROR",
+                "La API key de Groq es invalida o expiro.",
+                detail,
+            )
+
+        return (
+            "GROQ_ERROR",
+            "Error llamando a Groq durante el scoring.",
+            detail,
+        )
+
+    return (
+        "SCORING_ERROR",
+        "Error interno durante el calculo del score.",
+        detail,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -126,19 +178,25 @@ def on_scoring_job(channel, method, properties, body: bytes) -> None:
             channel.basic_ack(delivery_tag=delivery_tag)
             return
 
-        score = call_gpt4o(
+        score = call_llm(
             prompt=build_prompt(
                 pose_features=features.get("pose", {}),
                 transcript_features=features.get("transcript", {}),
                 prosody_features=features.get("prosody", {}),
             ),
         )
-    except ValueError as exc:
-        logger.error("OPENAI_API_KEY no configurada — descartando job | %s", exc)
-        channel.basic_nack(delivery_tag=delivery_tag, requeue=False)
-        return
     except Exception as exc:
         logger.exception("Error en scoring | job_id=%s", job.job_id)
+        error_code, error_message, error_detail = _classify_scoring_error(exc)
+        try:
+            mark_evaluation_failed(
+                evaluation_id=job.evaluation_id,
+                error_code=error_code,
+                error_message=error_message,
+                error_detail=error_detail[:1200],
+            )
+        except Exception:
+            logger.exception("No se pudo marcar evaluation como failed | evaluation_id=%s", job.evaluation_id)
         channel.basic_nack(delivery_tag=delivery_tag, requeue=False)
         return
 

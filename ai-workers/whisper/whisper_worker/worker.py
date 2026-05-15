@@ -15,7 +15,7 @@ from pydantic import ValidationError
 from whisper_worker.audio import AudioChunk, AudioConfig, AudioExtractionError, AudioExtractor
 from whisper_worker.config import Settings
 from whisper_worker.contracts import WhisperJob, parse_whisper_job
-from whisper_worker.openai_client import WhisperClient, WhisperTranscriptionError
+from whisper_worker.groq_client import GroqWhisperClient, WhisperTranscriptionError
 from whisper_worker.rabbitmq import create_connection, declare_queues, publish_json
 from whisper_worker.repository import DatabaseConfig, FeatureRepository, RepositoryError
 from whisper_worker.storage import DownloadError, StorageConfig, VideoDownloader
@@ -46,9 +46,9 @@ class WhisperWorker:
             )
         )
         self.repository = FeatureRepository(DatabaseConfig.from_settings(settings))
-        self.transcriber = WhisperClient(
-            api_key=settings.openai_api_key,
-            api_base=settings.openai_api_base,
+        self.transcriber = GroqWhisperClient(
+            api_key=settings.groq_api_key,
+            api_base=settings.groq_api_base,
             model=settings.whisper_model,
             temperature=settings.whisper_temperature,
             default_language=settings.whisper_language,

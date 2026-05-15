@@ -264,7 +264,7 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
             }}>
               <div>
                 <span style={{color:'var(--ink-70)'}}>Procesamiento IA:</span>
-                <span style={{marginLeft:10}}>Whisper (1) + Pose (1) + Prosodia (1) + GPT-4.1 (2) = <strong style={{color:'#9ef5be'}}>5 tokens</strong></span>
+                <span style={{marginLeft:10}}>Whisper (1) + Pose (1) + Prosodia (1) + LLaMA 3.3 70B (2) = <strong style={{color:'#9ef5be'}}>5 tokens</strong></span>
               </div>
               <div>Costo: <strong style={{color:'var(--ink-80)'}}>$0.05 USD</strong></div>
             </div>
@@ -295,7 +295,7 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
               Recomendaciones
             </h3>
             <div className="mono" style={{ fontSize: 10.5, color: 'var(--ink-50)', letterSpacing: '0.06em', marginBottom: 12 }}>
-              {apiRecommendations.length > 0 ? 'Generadas por GPT-4.1 · personalizadas a tu pitch' : 'Sugerencias para tu próximo intento'}
+              {apiRecommendations.length > 0 ? 'Generadas por Groq (LLaMA 3.3 70B) · personalizadas a tu pitch' : 'Sugerencias para tu proximo intento'}
             </div>
 
             {apiVerdict && (

@@ -1,12 +1,12 @@
 """
-Script de evaluación de prompts para el Scoring Worker.
+Script de evaluacion de prompts para el Scoring Worker.
 
 Uso:
     python scripts/prompt_eval.py                              # usa fixture por defecto
-    python scripts/prompt_eval.py --fixture vendedor_solido    # fixture específico
+    python scripts/prompt_eval.py --fixture vendedor_solido    # fixture especifico
     python scripts/prompt_eval.py --fixture vendedor_nervioso --output result.json
 
-Requiere: OPENAI_API_KEY en entorno o .env
+Requiere: GROQ_API_KEY en entorno o .env
 """
 
 import argparse
@@ -17,7 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from scoring.llm import call_gpt4o, build_prompt
+from scoring.llm import call_llm, build_prompt
 from scoring.models import ScoreResult
 
 FIXTURES_DIR = Path(__file__).parent.parent / "scoring" / "tests" / "fixtures"
@@ -32,10 +32,10 @@ def load_fixture(name: str) -> dict:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Evalúa el prompt de scoring con GPT-4o")
+    parser = argparse.ArgumentParser(description="Evalua el prompt de scoring con Groq (LLaMA 3.3 70B)")
     parser.add_argument(
         "--fixture", default="vendedor_solido",
-        help="Nombre del fixture sin extensión (default: vendedor_solido)",
+        help="Nombre del fixture sin extension (default: vendedor_solido)",
     )
     parser.add_argument(
         "--output", "-o",
@@ -43,12 +43,12 @@ def main():
     )
     args = parser.parse_args()
 
-    if not os.getenv("OPENAI_API_KEY"):
-        print("ERROR: OPENAI_API_KEY no configurada. Configúrala en el entorno o .env")
+    if not os.getenv("GROQ_API_KEY"):
+        print("ERROR: GROQ_API_KEY no configurada. Configurala en el entorno o .env")
         sys.exit(1)
 
     data = load_fixture(args.fixture)
-    print(f"Fixture: {args.fixture} — {data.get('scenario', 'sin descripción')}")
+    print(f"Fixture: {args.fixture} — {data.get('scenario', 'sin descripcion')}")
     print(f"Rango esperado de overall: {data.get('expected_overall_range', 'no definido')}")
     print()
 
@@ -59,11 +59,11 @@ def main():
     )
 
     print(f"Prompt construido: {len(prompt)} caracteres")
-    print("Llamando a GPT-4o...")
+    print("Llamando a Groq (LLaMA 3.3 70B)...")
     print()
 
     try:
-        score = call_gpt4o(prompt)
+        score = call_llm(prompt)
     except Exception as exc:
         print(f"ERROR: {exc}")
         sys.exit(1)

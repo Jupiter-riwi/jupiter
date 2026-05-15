@@ -1,6 +1,6 @@
 # Whisper Worker (`ai-workers/whisper`)
 
-Worker responsable de transcribir videos usando OpenAI Whisper.
+Worker responsable de transcribir videos usando Groq Whisper (whisper-large-v3).
 
 ## Flujo
 
@@ -9,7 +9,7 @@ Worker responsable de transcribir videos usando OpenAI Whisper.
 3. Valida duracion maxima (8 minutos por defecto).
 4. Extrae el audio con `ffmpeg` a WAV 16 kHz mono.
 5. Si el audio supera `WHISPER_CHUNK_SECONDS`, lo divide en chunks y transcribe en paralelo.
-6. Llama a OpenAI Whisper (`whisper-1`) con `response_format=verbose_json`.
+6. Llama a Groq Whisper (`whisper-large-v3`) con `response_format=verbose_json`.
 7. Publica el resultado en `features.results` (`kind='transcript'`).
 8. Persiste el JSON en la tabla `public.features` (`kind='transcript'`).
 
@@ -76,9 +76,9 @@ Codigos de error relevantes:
 
 ## Variables de entorno
 
-- `OPENAI_API_KEY` (obligatoria)
-- `OPENAI_API_BASE` (opcional, para proxies)
-- `WHISPER_MODEL` (`whisper-1` por defecto)
+- `GROQ_API_KEY` (obligatoria)
+- `GROQ_API_BASE` (opcional, para proxies)
+- `WHISPER_MODEL` (`whisper-large-v3` por defecto)
 - `WHISPER_LANGUAGE` (default: detecta automaticamente)
 - `WHISPER_TEMPERATURE` (default: 0.0)
 - `FFMPEG_BIN` (default: `ffmpeg` en el PATH)
@@ -97,7 +97,7 @@ cd ai-workers/whisper
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-export OPENAI_API_KEY=tu_key
+export GROQ_API_KEY=tu_key
 python scripts/run_local_whisper.py --video /ruta/video.mp4 --output transcript.json
 ```
 

@@ -37,7 +37,7 @@ Write-Host "[info] Docker detectado correctamente." -ForegroundColor Cyan
 if (-not (Test-Path -LiteralPath ".env")) {
     Write-Host "[info] Copiando .env.example → .env" -ForegroundColor Cyan
     Copy-Item -LiteralPath ".env.example" -Destination ".env"
-    Write-Host "[WARN] Edita .env y pone tu OPENAI_API_KEY antes de continuar." -ForegroundColor Yellow
+    Write-Host "[WARN] Edita .env y pone tu GROQ_API_KEY antes de continuar." -ForegroundColor Yellow
     Write-Host "       Sin la key, Whisper y Scoring no funcionaran." -ForegroundColor Yellow
     Write-Host "       Presiona ENTER cuando este listo, o Ctrl+C para salir." -ForegroundColor Yellow
     Read-Host
