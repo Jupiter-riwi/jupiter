@@ -90,12 +90,40 @@ def on_scoring_job(channel, method, properties, body: bytes) -> None:
         if not all_features_ready(job.evaluation_id):
             required = {"pose", "transcript", "prosody"}
             missing = sorted(required - set(features.keys()))
+
+            headers = properties.headers or {} if properties else {}
+            retry_count = headers.get("x-retry-count", 0) if isinstance(headers, dict) else 0
+
+            if retry_count >= 30:
+                logger.error(
+                    "Max retries alcanzado para evaluation_id=%s — marcando como failed | "
+                    "faltantes=%s", job.evaluation_id, missing,
+                )
+                try:
+                    update_evaluation_status(job.evaluation_id, status="failed")
+                except Exception as exc:
+                    logger.error("No se pudo actualizar status a failed: %s", exc)
+                channel.basic_nack(delivery_tag=delivery_tag, requeue=False)
+                return
+
             logger.warning(
-                "Features incompletos para evaluation_id=%s — reintentando | "
-                "encontrados=%s | faltantes=%s",
-                job.evaluation_id, list(features.keys()), missing,
+                "Features incompletos — reintentando (%d/30) | faltantes=%s",
+                retry_count + 1, missing,
             )
-            channel.basic_nack(delivery_tag=delivery_tag, requeue=True)
+            time.sleep(5)
+            # Republish with incremented retry count, then ack original
+            from scoring.rabbitmq import SCORING_QUEUE
+            channel.basic_publish(
+                exchange="",
+                routing_key=SCORING_QUEUE,
+                body=body,
+                properties=pika.BasicProperties(
+                    delivery_mode=2,
+                    content_type="application/json",
+                    headers={"x-retry-count": retry_count + 1},
+                ),
+            )
+            channel.basic_ack(delivery_tag=delivery_tag)
             return
 
         score = call_gpt4o(

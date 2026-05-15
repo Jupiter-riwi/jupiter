@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 import psycopg
 
@@ -48,3 +49,31 @@ class FeatureRepository:
                 connection.commit()
         except Exception as exc:  # pragma: no cover
             raise RepositoryError("Failed to insert transcript payload") from exc
+
+    def mark_evaluation_failed(
+        self,
+        *,
+        evaluation_id: str,
+        reason: str,
+    ) -> None:
+        query = """
+            update public.evaluations
+            set status = 'failed',
+                features = coalesce(features, '{}'::jsonb) || %s::jsonb,
+                updated_at = %s
+            where id = %s::uuid
+        """
+        failure_info = json.dumps(
+            {"error": "whisper_failed", "reason": reason},
+            separators=(",", ":"),
+        )
+        try:
+            with psycopg.connect(self.database_url) as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        query,
+                        (failure_info, datetime.now(timezone.utc), evaluation_id),
+                    )
+                connection.commit()
+        except Exception as exc:  # pragma: no cover
+            raise RepositoryError(f"Failed to mark evaluation as failed: {exc}") from exc

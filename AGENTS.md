@@ -5,7 +5,7 @@
 | Dir | Language | Role | Status |
 |-----|----------|------|--------|
 | `ai-workers/` | Python 3.12 + FastAPI + pika | Pose, Whisper, Prosody & Scoring workers | Prosody & Scoring built; Pose & Whisper pending |
-| `api-gateway/` | ~~Go~~ → **migrating to FastAPI** | Auth, multi-tenant, REST + WebSocket, presigned URLs | Bare `/health` only; go.mod has 0 deps |
+| `api-gateway/` | **Python 3.12 + FastAPI** | Auth, multi-tenant, REST + WebSocket, presigned URLs | Base FastAPI + `/health` |
 | `frontend/` | React 18 + Vite + TypeScript + Tailwind | Login, grabación, dashboard | Vite+React scaffold |
 | `infra/` | — | Docker Compose, scripts | **Empty** (only `.gitkeep`) |
 
@@ -36,8 +36,8 @@ python -m pytest prosody/tests/ scoring/tests/ -v
 # Prompt evaluation (usa fixtures, requiere OPENAI_API_KEY)
 python scripts/prompt_eval.py --fixture vendedor_solido
 
-# API Gateway — current Go (will be replaced by FastAPI)
-go run cmd/api/main.go   # port 8080, only /health
+# API Gateway (FastAPI)
+uvicorn app.main:app --reload --port 8080   # /health
 
 # Docker (3 services: rabbitmq + prosody + scoring)
 # from ai-workers/:  docker compose up --build
@@ -45,7 +45,7 @@ go run cmd/api/main.go   # port 8080, only /health
 
 ## Architecture decisions (read before coding)
 
-- **API Gateway is migrating from Go to FastAPI** — decided in ARCHITECTURE.md. The Go code is ~20 lines of `net/http`; do not extend it. New endpoints go in a Python/FastAPI gateway.
+- **API Gateway is FastAPI** — all new endpoints go in `api-gateway/app/`.
 - **`ai-workers/` template vs real workers** — the old code (`telemetry_queue` consumer in `app/`) is legacy. Real workers live in `prosody/` and `scoring/` (built by Dev 2). Pose and Whisper workers (Dev 1) go in `pose/` and `whisper/`. Each worker has its own FastAPI app on a unique port.
 - **Shared persistence at `shared/db.py`** — uses `psycopg2` with `DATABASE_URL` env var. Provides `insert_features()`, `fetch_features_by_evaluation()`, `insert_score()`. Both workers import from `shared.db`.
 - **Scoring prompts versioned** at `scoring/prompts/v1.md` — changes to the prompt require PR review. Placeholders `{{pose_features}}`, `{{transcript_features}}`, `{{prosody_features}}` are replaced at runtime.

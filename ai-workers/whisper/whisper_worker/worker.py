@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any
 
 import pika
-from openai import APIError
 from pydantic import ValidationError
 
 from whisper_worker.audio import AudioChunk, AudioConfig, AudioExtractionError, AudioExtractor
@@ -22,6 +21,8 @@ from whisper_worker.repository import DatabaseConfig, FeatureRepository, Reposit
 from whisper_worker.storage import DownloadError, StorageConfig, VideoDownloader
 
 logger = logging.getLogger(__name__)
+
+_MAX_RETRY_COUNT = 10
 
 
 class SilentAudioError(RuntimeError):
@@ -90,12 +91,12 @@ class WhisperWorker:
         properties: pika.spec.BasicProperties,
         body: bytes,
     ) -> None:
-        del properties
-
+        delivery_tag = method.delivery_tag
         video_path: Path | None = None
         audio_path: Path | None = None
         job_hint = self._extract_job_hint(body)
 
+        # ── Step 1: Parse job payload ──
         try:
             job = parse_whisper_job(body)
             job_hint = {
@@ -103,28 +104,42 @@ class WhisperWorker:
                 "evaluation_id": job.evaluation_id,
                 "tenant_id": job.tenant_id,
             }
+        except (json.JSONDecodeError, ValidationError) as exc:
+            self._fail_step(channel, delivery_tag, job_hint, exc, requeue=False)
+            return
 
-            logger.info(
-                "Processing whisper job job_id=%s evaluation_id=%s",
-                job.job_id,
-                job.evaluation_id,
-            )
+        logger.info(
+            "Processing whisper job job_id=%s evaluation_id=%s",
+            job.job_id,
+            job.evaluation_id,
+        )
 
+        # ── Step 2: Download video ──
+        try:
             video_path = self.downloader.download(job.video_url)
+        except DownloadError as exc:
+            self._fail_step(channel, delivery_tag, job_hint, exc, requeue=False)
+            return
+
+        # ── Step 3: Extract audio & validate ──
+        try:
             video_duration = self.audio.probe_duration_seconds(video_path)
             if video_duration > self.settings.whisper_max_video_seconds:
                 raise VideoTooLongError(
-                    "Video duration "
-                    f"{video_duration:.2f}s exceeds max of "
+                    f"Video duration {video_duration:.2f}s exceeds max of "
                     f"{self.settings.whisper_max_video_seconds}s"
                 )
-
             audio_path = self.audio.extract(video_path)
             audio_duration = self.audio.probe_duration_seconds(audio_path)
-
             if self.audio.is_silent(audio_path):
                 raise SilentAudioError("Audio is silent or below energy threshold")
+        except Exception as exc:
+            self._cleanup(audio_path, video_path)
+            self._fail_step(channel, delivery_tag, job_hint, exc, requeue=False)
+            return
 
+        # ── Step 4: Transcribe audio ──
+        try:
             language = job.language_override()
             prompt = job.prompt()
             if audio_duration > self.settings.whisper_chunk_seconds:
@@ -143,39 +158,157 @@ class WhisperWorker:
 
             if not str(transcript.get("text", "")).strip():
                 raise SilentAudioError("Audio is silent or contains no speech")
+        except WhisperTranscriptionError as exc:
+            self._cleanup(audio_path, video_path)
+            if exc.retryable:
+                self._retry_or_fail(channel, delivery_tag, job, properties, body, exc)
+            else:
+                self._try_mark_failed(job.evaluation_id, str(exc))
+                self._publish_error(channel, job_hint, "OPENAI_ERROR", str(exc))
+                channel.basic_nack(delivery_tag=delivery_tag, requeue=False)
+            return
+        except SilentAudioError as exc:
+            self._cleanup(audio_path, video_path)
+            self._fail_step(channel, delivery_tag, job_hint, exc, requeue=False)
+            return
+        except Exception as exc:
+            self._cleanup(audio_path, video_path)
+            self._fail_step(channel, delivery_tag, job_hint, exc, requeue=False)
+            return
 
+        # ── Step 5: Persist to DB ──
+        try:
             payload = self._build_payload(job, transcript)
-
             self.repository.save_transcript(
                 evaluation_id=job.evaluation_id,
                 tenant_id=job.tenant_id,
                 payload=payload,
             )
+        except RepositoryError as exc:
+            self._cleanup(audio_path, video_path)
+            self._fail_step(channel, delivery_tag, job_hint, exc, requeue=True)
+            return
+        except Exception as exc:
+            self._cleanup(audio_path, video_path)
+            self._fail_step(channel, delivery_tag, job_hint, exc, requeue=False)
+            return
 
+        # ── Step 6: Publish success event (best-effort) ──
+        try:
             event = self._build_ready_event(job, payload)
             publish_json(
                 channel,
                 queue_name=self.settings.features_results_queue,
                 payload=event,
             )
+        except Exception as publish_exc:
+            logger.error("Could not publish success event: %s", publish_exc)
 
-            logger.info("Job job_id=%s completed", job.job_id)
+        self._cleanup(audio_path, video_path)
+        channel.basic_ack(delivery_tag=delivery_tag)
+        logger.info("Job job_id=%s completed", job.job_id)
+
+    # ── Error handling helpers ──────────────────────────────────────────────────
+
+    def _fail_step(
+        self,
+        channel: pika.adapters.blocking_connection.BlockingChannel,
+        delivery_tag: int,
+        job_hint: dict[str, str],
+        exc: Exception,
+        *,
+        requeue: bool,
+    ) -> None:
+        code, message = self._map_error(exc)
+        logger.error("Whisper job failed code=%s message=%s", code, message)
+        self._publish_error(channel, job_hint, code, message)
+        channel.basic_nack(delivery_tag=delivery_tag, requeue=requeue)
+
+    def _retry_or_fail(
+        self,
+        channel: pika.adapters.blocking_connection.BlockingChannel,
+        delivery_tag: int,
+        job: WhisperJob,
+        properties: pika.spec.BasicProperties,
+        body: bytes,
+        exc: WhisperTranscriptionError,
+    ) -> None:
+        retry_count = self._get_retry_count(properties)
+        if retry_count >= _MAX_RETRY_COUNT:
+            logger.error(
+                "Max retries (%d) exhausted for evaluation_id=%s — marking as failed",
+                _MAX_RETRY_COUNT,
+                job.evaluation_id,
+            )
+            self._try_mark_failed(job.evaluation_id, str(exc))
+            channel.basic_nack(delivery_tag=delivery_tag, requeue=False)
+        else:
+            logger.warning(
+                "Transient OpenAI error — retrying (%d/%d): %s",
+                retry_count + 1,
+                _MAX_RETRY_COUNT,
+                exc,
+            )
+            self._republish_with_retry(channel, body, retry_count + 1)
+            channel.basic_ack(delivery_tag=delivery_tag)
+
+    def _try_mark_failed(self, evaluation_id: str, reason: str) -> None:
+        try:
+            self.repository.mark_evaluation_failed(
+                evaluation_id=evaluation_id,
+                reason=reason,
+            )
         except Exception as exc:
-            code, message = self._map_error(exc)
-            logger.error("Whisper job failed code=%s message=%s", code, message)
-            event = self._build_error_event(job_hint, code, message)
-            try:
-                publish_json(
-                    channel,
-                    queue_name=self.settings.features_results_queue,
-                    payload=event,
-                )
-            except Exception as publish_exc:  # pragma: no cover
-                logger.error("Could not publish error event: %s", publish_exc)
-        finally:
-            self.audio.cleanup(audio_path)
-            self.downloader.cleanup(video_path)
-            channel.basic_ack(delivery_tag=method.delivery_tag)
+            logger.error("Could not mark evaluation %s as failed: %s", evaluation_id, exc)
+
+    def _publish_error(
+        self,
+        channel: pika.adapters.blocking_connection.BlockingChannel,
+        job_hint: dict[str, str],
+        code: str,
+        message: str,
+    ) -> None:
+        event = self._build_error_event(job_hint, code, message)
+        try:
+            publish_json(
+                channel,
+                queue_name=self.settings.features_results_queue,
+                payload=event,
+            )
+        except Exception as publish_exc:  # pragma: no cover
+            logger.error("Could not publish error event: %s", publish_exc)
+
+    @staticmethod
+    def _get_retry_count(properties: pika.spec.BasicProperties) -> int:
+        headers = getattr(properties, "headers", None) or {}
+        count = headers.get("x-retry-count", 0) if isinstance(headers, dict) else 0
+        try:
+            return int(count)
+        except (TypeError, ValueError):
+            return 0
+
+    def _republish_with_retry(
+        self,
+        channel: pika.adapters.blocking_connection.BlockingChannel,
+        body: bytes,
+        retry_count: int,
+    ) -> None:
+        channel.basic_publish(
+            exchange="",
+            routing_key=self.settings.whisper_jobs_queue,
+            body=body,
+            properties=pika.BasicProperties(
+                delivery_mode=2,
+                content_type="application/json",
+                headers={"x-retry-count": retry_count},
+            ),
+        )
+
+    def _cleanup(self, audio_path: Path | None, video_path: Path | None) -> None:
+        self.audio.cleanup(audio_path)
+        self.downloader.cleanup(video_path)
+
+    # ── Payload builders ───────────────────────────────────────────────────────
 
     def _build_payload(self, job: WhisperJob, transcript: dict[str, Any]) -> dict[str, Any]:
         segments = []
@@ -414,8 +547,6 @@ class WhisperWorker:
             return "OPENAI_ERROR", str(exc)
         if isinstance(exc, RepositoryError):
             return "DB_WRITE_ERROR", str(exc)
-        if isinstance(exc, APIError):
-            return "OPENAI_ERROR", str(exc)
         return "INTERNAL_ERROR", str(exc)
 
     @staticmethod

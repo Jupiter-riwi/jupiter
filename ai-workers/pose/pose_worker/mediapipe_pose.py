@@ -83,6 +83,8 @@ class MediaPipePoseAnalyzer:
 
         self._mp = mp
         self._vision = vision
+        self._base_options_cls = BaseOptions
+        self._video_mode = VisionTaskRunningMode.VIDEO
         self._pose = vision.PoseLandmarker.create_from_options(options)
 
     @staticmethod
@@ -103,6 +105,20 @@ class MediaPipePoseAnalyzer:
             close_fn()
 
     def process_video(self, video_path: Path, *, segment_seconds: int | None = None) -> dict[str, Any]:
+        # Reset MediaPipe instance so timestamps restart at 0 for each video.
+        # In VIDEO mode, detect_for_video() requires monotonically increasing
+        # timestamps across ALL calls, not just within a single video.
+        options = self._vision.PoseLandmarkerOptions(
+            base_options=self._base_options_cls(
+                model_asset_path=str(self.config.model_path),
+            ),
+            running_mode=self._video_mode,
+            min_pose_detection_confidence=self.config.detection_confidence,
+            min_tracking_confidence=self.config.tracking_confidence,
+            num_poses=self.config.max_people,
+        )
+        self._pose = self._vision.PoseLandmarker.create_from_options(options)
+
         capture = cv2.VideoCapture(str(video_path))
         if not capture.isOpened():
             raise InvalidVideoError(f"No se pudo abrir el video: {video_path}")

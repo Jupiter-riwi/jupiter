@@ -4,11 +4,21 @@ import json
 from pathlib import Path
 from typing import Any
 
-from openai import APIError, OpenAI
+from openai import (
+    APIError,
+    AuthenticationError,
+    PermissionDeniedError,
+    RateLimitError,
+    OpenAI,
+)
 
 
 class WhisperTranscriptionError(RuntimeError):
     """Raised when the Whisper API call fails."""
+
+    def __init__(self, message: str, retryable: bool = False) -> None:
+        super().__init__(message)
+        self.retryable = retryable
 
 
 class WhisperClient:
@@ -23,7 +33,7 @@ class WhisperClient:
         include_word_timestamps: bool,
     ) -> None:
         if not api_key:
-            raise WhisperTranscriptionError("OPENAI_API_KEY is required")
+            raise WhisperTranscriptionError("OPENAI_API_KEY is required", retryable=False)
 
         self.client = OpenAI(api_key=api_key, base_url=api_base or None)
         self.model = model
@@ -66,7 +76,14 @@ class WhisperClient:
                 return result
 
             raise WhisperTranscriptionError("Unexpected Whisper API response type")
+        except AuthenticationError as exc:
+            raise WhisperTranscriptionError(str(exc), retryable=False) from exc
+        except PermissionDeniedError as exc:
+            raise WhisperTranscriptionError(str(exc), retryable=False) from exc
+        except RateLimitError as exc:
+            raise WhisperTranscriptionError(str(exc), retryable=True) from exc
         except APIError as exc:
-            raise WhisperTranscriptionError(str(exc)) from exc
+            retryable = 500 <= getattr(exc, "status_code", 0) < 600
+            raise WhisperTranscriptionError(str(exc), retryable=retryable) from exc
         except Exception as exc:  # pragma: no cover
             raise WhisperTranscriptionError("Whisper API call failed") from exc
