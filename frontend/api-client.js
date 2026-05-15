@@ -147,6 +147,15 @@
     if (!res.ok) throw new Error('Upload failed: ' + res.status);
     return res.json();
   },
+
+  async coachChat(evalId, message) {
+    const res = await this._fetchAuth(API_BASE + '/api/evaluations/' + evalId + '/coach/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    });
+    if (!res.ok) throw new Error('Coach chat failed: ' + res.status);
+    return res.json();
+  },
   };
 
   window.ApexAPI = ApexAPI;

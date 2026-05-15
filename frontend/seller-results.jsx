@@ -153,6 +153,38 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
     : new Date().toLocaleDateString('es', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
   const status = evaluationData?.status || 'completed';
   const evalId = evaluationData?.id || '';
+  const [coachInput, setCoachInput] = useState('');
+  const [coachBusy, setCoachBusy] = useState(false);
+  const [coachMessages, setCoachMessages] = useState([]);
+  const audioRef = useRef(null);
+
+  const sendCoachMessage = async () => {
+    const text = (coachInput || '').trim();
+    if (!text || !evalId || coachBusy) return;
+    setCoachBusy(true);
+    setCoachMessages(prev => [...prev, { role: 'user', content: text }]);
+    setCoachInput('');
+    try {
+      const data = await window.ApexAPI.coachChat(evalId, text);
+      const reply = data?.reply || 'No pude generar respuesta en este momento.';
+      const transcript = data?.transcript || '';
+      const fullReply = transcript
+        ? `Tu transcripción original:\n"${transcript}"\n\n---\n\n${reply}`
+        : reply;
+      setCoachMessages(prev => [...prev, { role: 'assistant', content: fullReply }]);
+      if (data?.audio_base64_mp3) {
+        const src = `data:audio/mpeg;base64,${data.audio_base64_mp3}`;
+        if (audioRef.current) {
+          audioRef.current.src = src;
+          audioRef.current.play().catch(() => {});
+        }
+      }
+    } catch (err) {
+      setCoachMessages(prev => [...prev, { role: 'assistant', content: 'No pude responder ahora. Reintentá en unos segundos.' }]);
+    } finally {
+      setCoachBusy(false);
+    }
+  };
 
   return (
     <div className="s-stage">
@@ -308,6 +340,47 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
               <SIcon name="redo" size={13} /> Practicar con estas sugerencias
             </button>
           </div>
+        </div>
+
+        <div className="glass" style={{ marginTop: 16, padding: 16 }}>
+          <h3 style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--ink-50)', marginBottom: 8, fontFamily: 'var(--font-mono)', fontWeight: 500 }}>
+            Voice Coach (Bilingüe Ejecutivo)
+          </h3>
+          <div className="mono" style={{ fontSize: 10.5, color: 'var(--ink-50)', marginBottom: 10 }}>
+            Escribí tu duda o pedí: "reescribí mi pitch y léelo con las correcciones".
+          </div>
+          <div style={{ maxHeight: 220, overflow: 'auto', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 10, background: 'rgba(255,255,255,0.02)' }}>
+            {coachMessages.length === 0 && (
+              <div style={{ color: 'var(--ink-50)', fontSize: 12 }}>Todavía no hay conversación.</div>
+            )}
+            {coachMessages.map((m, i) => (
+              <div key={i} style={{ marginBottom: 8 }}>
+                <div className="mono" style={{ fontSize: 10, color: 'var(--ink-50)', textTransform: 'uppercase' }}>{m.role === 'user' ? 'Tú' : 'Coach'}</div>
+                <div style={{ whiteSpace: 'pre-wrap', fontSize: 12.5, color: 'var(--ink-85)', lineHeight: 1.45 }}>{m.content}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <input
+              value={coachInput}
+              onChange={(e) => setCoachInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') sendCoachMessage(); }}
+              placeholder="Ej: Reescribe mi pitch para sonar más ejecutivo y convincente."
+              style={{
+                flex: 1,
+                padding: '10px 12px',
+                borderRadius: 8,
+                border: '1px solid var(--glass-border)',
+                background: 'rgba(255,255,255,0.03)',
+                color: 'var(--ink-90)',
+                fontSize: 12,
+              }}
+            />
+            <button className="btn btn-primary" onClick={sendCoachMessage} disabled={coachBusy || !evalId}>
+              {coachBusy ? 'Enviando...' : 'Chatear + voz'}
+            </button>
+          </div>
+          <audio ref={audioRef} controls style={{ width: '100%', marginTop: 10 }} />
         </div>
       </div>
     </div>

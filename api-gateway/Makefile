@@ -1,13 +1,13 @@
 .PHONY: run seed test build
 
 run:
-	go run cmd/api/main.go
+	uvicorn app.main:app --reload --port 8080
 
 seed:
-	go run cmd/seed/main.go
+	python seed.py
 
 test:
-	go test ./...
+	pytest -q
 
 build:
-	go build -o bin/api cmd/api/main.go
+	docker build -t jupiter-gateway .

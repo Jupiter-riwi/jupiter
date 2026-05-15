@@ -1,26 +1,17 @@
-FROM golang:1.21-alpine AS builder
-
-ENV GONOSUMCHECK=*
-ENV GONOSUMDB=*
-ENV GOINSECURE=*
+FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY go.mod ./
-RUN go mod download
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends wget \
+    && rm -rf /var/lib/apt/lists/*
 
-COPY . .
-RUN touch go.sum && CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=mod go build -o /gateway cmd/api/main.go
-RUN CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=mod go build -o /seed cmd/seed/main.go
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# ── Runtime ────────────────────────────────────────────────────────────────────
-FROM alpine:3.19
-
-RUN apk add --no-cache wget ca-certificates
-
-WORKDIR /app
-COPY --from=builder /gateway .
-COPY --from=builder /seed .
+COPY app ./app
+COPY seed.py ./seed.py
+COPY seed ./seed
 
 EXPOSE 8080
-CMD ["./gateway"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]

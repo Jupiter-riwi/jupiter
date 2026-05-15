@@ -8,3 +8,4 @@ audioread>=3.0
 pytest>=8.0
 pydantic>=2.0
 psycopg2-binary>=2.9
+boto3>=1.35
