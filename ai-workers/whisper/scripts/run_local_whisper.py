@@ -13,7 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from whisper_worker.audio import AudioConfig, AudioExtractor
 from whisper_worker.config import Settings
-from whisper_worker.openai_client import WhisperClient
+from whisper_worker.groq_client import GroqWhisperClient
 
 
 def _build_segments(transcript: dict) -> list[dict]:
@@ -69,9 +69,9 @@ def main() -> None:
             f"{settings.whisper_max_video_seconds}s"
         )
 
-    transcriber = WhisperClient(
-        api_key=settings.openai_api_key,
-        api_base=settings.openai_api_base,
+    transcriber = GroqWhisperClient(
+        api_key=settings.groq_api_key,
+        api_base=settings.groq_api_base,
         model=settings.whisper_model,
         temperature=settings.whisper_temperature,
         default_language=settings.whisper_language,

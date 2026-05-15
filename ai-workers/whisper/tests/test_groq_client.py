@@ -5,15 +5,15 @@ from typing import Any
 
 import pytest
 
-from whisper_worker.openai_client import WhisperClient, WhisperTranscriptionError
+from whisper_worker.groq_client import GroqWhisperClient, WhisperTranscriptionError
 
 
 def test_client_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(WhisperTranscriptionError):
-        WhisperClient(
+        GroqWhisperClient(
             api_key="",
             api_base="",
-            model="whisper-1",
+            model="whisper-large-v3",
             temperature=0.0,
             default_language=None,
             include_word_timestamps=False,
@@ -39,12 +39,12 @@ def test_transcribe_uses_model_dump(monkeypatch: pytest.MonkeyPatch, tmp_path: P
         def __init__(self, **kwargs):
             self.audio = type("Audio", (), {"transcriptions": FakeTranscriptions()})()
 
-    monkeypatch.setattr("whisper_worker.openai_client.OpenAI", FakeOpenAI)
+    monkeypatch.setattr("whisper_worker.groq_client.OpenAI", FakeOpenAI)
 
-    client = WhisperClient(
+    client = GroqWhisperClient(
         api_key="key",
         api_base="",
-        model="whisper-1",
+        model="whisper-large-v3",
         temperature=0.0,
         default_language=None,
         include_word_timestamps=False,

@@ -12,6 +12,8 @@ from openai import (
     OpenAI,
 )
 
+GROQ_BASE_URL = "https://api.groq.com/openai/v1"
+
 
 class WhisperTranscriptionError(RuntimeError):
     """Raised when the Whisper API call fails."""
@@ -21,7 +23,7 @@ class WhisperTranscriptionError(RuntimeError):
         self.retryable = retryable
 
 
-class WhisperClient:
+class GroqWhisperClient:
     def __init__(
         self,
         *,
@@ -33,9 +35,12 @@ class WhisperClient:
         include_word_timestamps: bool,
     ) -> None:
         if not api_key:
-            raise WhisperTranscriptionError("OPENAI_API_KEY is required", retryable=False)
+            raise WhisperTranscriptionError("GROQ_API_KEY is required", retryable=False)
 
-        self.client = OpenAI(api_key=api_key, base_url=api_base or None)
+        self.client = OpenAI(
+            api_key=api_key,
+            base_url=api_base or GROQ_BASE_URL,
+        )
         self.model = model
         self.temperature = temperature
         self.default_language = default_language

@@ -49,8 +49,8 @@ class Settings:
     whisper_chunk_seconds: int
     whisper_parallel_requests: int
     whisper_word_timestamps: bool
-    openai_api_key: str
-    openai_api_base: str
+    groq_api_key: str
+    groq_api_base: str
     whisper_model: str
     whisper_temperature: float
     whisper_language: str | None
@@ -81,9 +81,9 @@ class Settings:
             whisper_chunk_seconds=_get_int("WHISPER_CHUNK_SECONDS", 120),
             whisper_parallel_requests=_get_int("WHISPER_PARALLEL_REQUESTS", 2),
             whisper_word_timestamps=_get_bool("WHISPER_WORD_TIMESTAMPS", False),
-            openai_api_key=os.getenv("OPENAI_API_KEY", ""),
-            openai_api_base=os.getenv("OPENAI_API_BASE", ""),
-            whisper_model=os.getenv("WHISPER_MODEL", "whisper-1"),
+            groq_api_key=os.getenv("GROQ_API_KEY", ""),
+            groq_api_base=os.getenv("GROQ_API_BASE", ""),
+            whisper_model=os.getenv("WHISPER_MODEL", "whisper-large-v3"),
             whisper_temperature=_get_float("WHISPER_TEMPERATURE", 0.0),
             whisper_language=os.getenv("WHISPER_LANGUAGE"),
             log_level=os.getenv("LOG_LEVEL", "INFO").upper(),

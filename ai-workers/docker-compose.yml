@@ -62,7 +62,7 @@ services:
       RABBITMQ_USER: guest
       RABBITMQ_PASS: guest
       SCORING_QUEUE: scoring.jobs
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
     depends_on:
       rabbitmq:
         condition: service_healthy
