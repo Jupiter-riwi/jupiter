@@ -115,12 +115,19 @@ func main() {
 	if err != nil {
 		log.Fatal("failed to connect to minio:", err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	if err := minioClient.EnsureBucket(ctx); err != nil {
+	for i := 0; i < 10; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		err = minioClient.EnsureBucket(ctx)
 		cancel()
-		log.Fatal("failed to ensure minio bucket:", err)
+		if err == nil {
+			break
+		}
+		log.Printf("failed to ensure minio bucket (attempt %d/10): %v", i+1, err)
+		time.Sleep(time.Duration(i+1) * time.Second)
 	}
-	cancel()
+	if err != nil {
+		log.Fatal("failed to ensure minio bucket after retries:", err)
+	}
 
 	mqClient, err := rabbitmq.NewClient()
 	if err != nil {

@@ -18,6 +18,23 @@
     return h;
   },
 
+  async register(email, password, tenantId) {
+    const res = await fetch(API_BASE + '/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, tenant_id: tenantId }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || 'Register failed: ' + res.status);
+    }
+    const data = await res.json();
+    this.setToken(data.access_token);
+    localStorage.setItem('apex_access_token', data.access_token);
+    localStorage.setItem('apex_refresh_token', data.refresh_token);
+    return data;
+  },
+
   async login(email, password) {
     const res = await fetch(API_BASE + '/api/auth/login', {
       method: 'POST',
@@ -93,6 +110,12 @@
   async getMe() {
     const res = await fetch(API_BASE + '/api/me', { headers: this._headers() });
     if (!res.ok) throw new Error('Get me failed');
+    return res.json();
+  },
+
+  async getEvaluations(page = 1, limit = 10) {
+    const res = await this._fetchAuth(API_BASE + `/api/evaluations?page=${page}&limit=${limit}`, {});
+    if (!res.ok) throw new Error('Evaluations failed');
     return res.json();
   },
 

@@ -103,7 +103,7 @@ services:
       MINIO_BUCKET: ${MINIO_BUCKET:-jupiter-videos}
       MINIO_USE_SSL: "false"
       MINIO_PUBLIC_USE_SSL: "false"
-      CORS_ALLOW_ORIGIN: http://localhost:5173
+      CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN:-http://localhost:8090}
     depends_on:
       postgres:
         condition: service_healthy
@@ -269,3 +269,10 @@ volumes:
   postgres_data:
   rabbitmq_data:
   minio_data:
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
