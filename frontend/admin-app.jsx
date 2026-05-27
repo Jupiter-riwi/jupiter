@@ -7,8 +7,18 @@ const { SIcon, AVSpark, ApexLogo } = window;
    vendedores, identifica quién necesita coaching y en qué áreas.
    ============================================================ */
 
+const TEAM = [
+  { id: 1, name: 'Mariana Aimar',     role: 'Senior',     evals: 24, score: 84, trend: '+6', skills: [88,82,86,75,88], status: 'on-track', last: 'hoy 16:08' },
+  { id: 2, name: 'Federico Lozada',   role: 'Senior',     evals: 22, score: 81, trend: '+3', skills: [80,84,78,82,79], status: 'on-track', last: 'hoy 11:22' },
+  { id: 3, name: 'Carolina Méndez',   role: 'Mid',        evals: 18, score: 78, trend: '+8', skills: [82,76,72,80,80], status: 'improving', last: 'ayer 18:40' },
+  { id: 4, name: 'Diego Sosa',        role: 'Senior',     evals: 26, score: 76, trend: '−2', skills: [70,75,82,78,75], status: 'watch', last: 'ayer 14:05' },
+  { id: 5, name: 'Lucía Fernández',   role: 'Mid',        evals: 14, score: 72, trend: '+4', skills: [75,68,74,72,71], status: 'on-track', last: 'hoy 09:15' },
+  { id: 6, name: 'Tomás Iriarte',     role: 'Junior',     evals: 9,  score: 68, trend: '+11', skills: [70,65,72,66,67], status: 'improving', last: 'hoy 10:48' },
+  { id: 7, name: 'Sofía Bertinat',    role: 'Mid',        evals: 16, score: 64, trend: '−4', skills: [60,68,58,72,62], status: 'needs-coaching', last: '2 días' },
+  { id: 8, name: 'Ricardo Pena',      role: 'Junior',     evals: 7,  score: 58, trend: '−6', skills: [55,60,52,68,55], status: 'needs-coaching', last: '4 días' },
+];
+
 const DIMENSIONS = ['Confianza', 'Claridad', 'Lenguaje corporal', 'Ritmo de voz', 'Escucha activa'];
-const DIMENSION_KEYS = ['confianza', 'claridad', 'lenguaje_corporal', 'ritmo_voz', 'escucha_activa'];
 const STATUS_LABEL = {
   'on-track':       'En camino',
   'improving':      'Mejorando',
@@ -16,151 +26,17 @@ const STATUS_LABEL = {
   'needs-coaching': 'Requiere coaching',
 };
 
-const titleCaseEmail = (email, fallback = 'Vendedor') => {
-  const raw = String(email || fallback).split('@')[0].replace(/[._-]+/g, ' ').trim();
-  return raw
-    .split(/\s+/)
-    .filter(Boolean)
-    .map(s => s.charAt(0).toUpperCase() + s.slice(1))
-    .join(' ') || fallback;
-};
-
-const normalizeScore = (value) => {
-  if (typeof value !== 'number' || Number.isNaN(value)) return null;
-  const score = value <= 1 ? value * 100 : value;
-  return Math.max(0, Math.min(100, Math.round(score)));
-};
-
-const formatRelativeDate = (iso) => {
-  if (!iso) return 'sin fecha';
-  const then = new Date(iso);
-  if (Number.isNaN(then.getTime())) return 'sin fecha';
-  const diffMs = Date.now() - then.getTime();
-  const min = Math.floor(diffMs / 60000);
-  if (min < 1) return 'ahora';
-  if (min < 60) return `hace ${min} min`;
-  const hours = Math.floor(min / 60);
-  if (hours < 24) return `hace ${hours} h`;
-  const days = Math.floor(hours / 24);
-  if (days === 1) return 'ayer';
-  if (days < 7) return `hace ${days} días`;
-  return then.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
-};
-
-const extractDimensions = (evaluation) => {
-  const dims = evaluation?.features?.dimensions || evaluation?.dimensions || {};
-  return DIMENSION_KEYS.map(key => normalizeScore(dims?.[key]?.score ?? dims?.[key]));
-};
-
-const extractRecommendations = (evaluation) => (
-  evaluation?.features?.recommendations || evaluation?.recommendations || []
-);
-
-const normalizeTeamEvaluations = (evaluations) => {
-  const groups = new Map();
-  (evaluations || []).forEach(ev => {
-    const key = ev.user_id || ev.seller_email || 'unknown';
-    if (!groups.has(key)) {
-      groups.set(key, {
-        id: key,
-        name: titleCaseEmail(ev.seller_email, `Vendedor ${groups.size + 1}`),
-        email: ev.seller_email || '',
-        role: ev.seller_role === 'admin' ? 'Admin' : 'Seller',
-        evaluations: [],
-      });
-    }
-    groups.get(key).evaluations.push(ev);
-  });
-
-  return Array.from(groups.values()).map(person => {
-    const ordered = person.evaluations
-      .slice()
-      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-    const scored = ordered
-      .map(ev => ({ ev, score: normalizeScore(ev.score ?? ev.features?.overall) }))
-      .filter(item => item.score !== null);
-    const avgScore = scored.length
-      ? Math.round(scored.reduce((sum, item) => sum + item.score, 0) / scored.length)
-      : 0;
-    const latest = scored[0];
-    const previous = scored[1] || scored[scored.length - 1];
-    const delta = latest && previous ? latest.score - previous.score : 0;
-    const trend = delta > 0 ? `+${delta}` : delta < 0 ? String(delta) : '0';
-    const dimensionValues = DIMENSION_KEYS.map((_, index) => {
-      const values = ordered
-        .map(extractDimensions)
-        .map(arr => arr[index])
-        .filter(v => typeof v === 'number');
-      return values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : avgScore;
-    });
-    const status = avgScore < 65
-      ? 'needs-coaching'
-      : avgScore < 75
-        ? 'watch'
-        : delta > 3
-          ? 'improving'
-          : 'on-track';
-
-    return {
-      id: person.id,
-      name: person.name,
-      email: person.email,
-      role: person.role,
-      evals: ordered.length,
-      score: avgScore,
-      trend,
-      skills: dimensionValues,
-      status,
-      last: formatRelativeDate(ordered[0]?.created_at),
-      recent: ordered.slice(0, 5).map(ev => ({
-        title: ev.title || 'Evaluación',
-        date: formatRelativeDate(ev.created_at),
-        score: normalizeScore(ev.score ?? ev.features?.overall) || 0,
-        status: ev.status,
-      })),
-      recommendations: extractRecommendations(ordered.find(ev => extractRecommendations(ev).length) || {}),
-    };
-  }).sort((a, b) => b.score - a.score);
-};
-
-const buildTeamInsights = (team) => {
-  if (!team.length) {
-    return {
-      strongest: ['Sin datos', 'Completa evaluaciones desde /seller'],
-      weakest: ['Sin datos', 'Aún no hay dimensiones reales'],
-      top: ['Sin datos', 'No hay vendedores evaluados'],
-      improvement: ['Sin datos', 'Se calculará con al menos 2 evaluaciones'],
-    };
-  }
-  const dimAvgs = DIMENSIONS.map((name, i) => {
-    const values = team.map(p => p.skills[i]).filter(v => typeof v === 'number');
-    const avg = values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : 0;
-    return { name, avg };
-  });
-  const strongest = dimAvgs.reduce((best, item) => item.avg > best.avg ? item : best, dimAvgs[0]);
-  const weakest = dimAvgs.reduce((worst, item) => item.avg < worst.avg ? item : worst, dimAvgs[0]);
-  const top = team.slice().sort((a, b) => b.score - a.score)[0];
-  const improvement = team
-    .slice()
-    .sort((a, b) => parseInt(b.trend, 10) - parseInt(a.trend, 10))[0];
-  return {
-    strongest: [strongest.name, `${strongest.avg} promedio`],
-    weakest: [weakest.name, `${weakest.avg} promedio`],
-    top: [top.name, `${top.score} score · ${top.evals} evaluaciones`],
-    improvement: [improvement.name, `${improvement.trend} puntos · última ${improvement.last}`],
-  };
-};
-
 /* ----------------------------- KPI ----------------------------- */
-const Kpi = ({ label, value, unit, delta, sparkId, data }) => {
+const Kpi = ({ label, value, unit, delta, deltaDir, sparkId, data }) => {
   const ref = useRef(null);
   useEffect(() => { if (ref.current) AVSpark(ref.current, data, { id: sparkId }); }, []);
+  const deltaColor = deltaDir === 'up' ? 'rgba(158,245,190,0.85)' : deltaDir === 'down' ? 'rgba(252,165,165,0.85)' : deltaDir === 'warn' ? 'rgba(251,191,36,0.85)' : 'var(--ink-35)';
   return (
     <div className="glass kpi">
       <div className="kpi-label">{label}</div>
       <div className="kpi-value">{value}<span style={{fontSize:14,color:'var(--ink-50)',marginLeft:4}}>{unit}</span></div>
       <svg ref={ref} className="kpi-spark"/>
-      <div className="kpi-delta">{delta}</div>
+      <div className="kpi-delta" style={{color: deltaColor, fontSize:11}}>{delta}</div>
     </div>
   );
 };
@@ -169,7 +45,7 @@ const Kpi = ({ label, value, unit, delta, sparkId, data }) => {
 const NAV_ITEMS = ['equipo', 'preguntas', 'reportes', 'ajustes'];
 const NAV_LABELS = { equipo: 'Equipo', preguntas: 'Preguntas', reportes: 'Reportes', ajustes: 'Ajustes' };
 
-const AdminTop = ({ user, page, onNav, onLogout, onProfile }) => {
+const AdminTop = ({ user, page, onNav, onLogout, onProfile, tokens, onRecharge }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
@@ -180,37 +56,50 @@ const AdminTop = ({ user, page, onNav, onLogout, onProfile }) => {
   }, [open]);
 
   return (
-    <div className="s-topbar">
-      <div style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}} onClick={() => onNav('equipo')}>
-        <ApexLogo size={34}/>
-        <div style={{lineHeight:1}}>
-          <div style={{fontSize:13,fontWeight:500,letterSpacing:'0.18em',color:'var(--ink-90)'}}>APEX</div>
-          <div style={{fontSize:9,letterSpacing:'0.28em',color:'var(--ink-50)',marginTop:1}}>VISION</div>
+    <div style={{backdropFilter:'blur(20px) saturate(140%)', background:'rgba(10,10,12,0.55)', borderBottom:'1px solid rgba(255,255,255,0.07)', position:'relative', zIndex:5}}>
+      {/* fila logo + usuario */}
+      <div style={{display:'flex',alignItems:'center',height:56,padding:'0 28px'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}} onClick={() => onNav('equipo')}>
+          <ApexLogo size={36}/>
+          <div style={{lineHeight:1}}>
+            <div style={{fontSize:13,fontWeight:500,letterSpacing:'0.18em',color:'var(--ink-90)'}}>APEX</div>
+            <div style={{fontSize:9,letterSpacing:'0.28em',color:'var(--ink-50)',marginTop:1}}>VISION</div>
+          </div>
         </div>
-      </div>
-      <div style={{display:'flex',gap:4}}>
-        {NAV_ITEMS.map(id => (
-          <a key={id} onClick={() => onNav(id)} style={{
-            padding:'8px 16px', fontSize:12.5, borderRadius:999, letterSpacing:'0.04em', cursor:'pointer',
-            color: page === id ? 'var(--ink-100)' : 'var(--ink-60)',
-            background: page === id ? 'rgba(255,255,255,0.08)' : 'transparent',
-            transition: 'background 150ms, color 150ms',
-          }}>
-            {NAV_LABELS[id]}
-          </a>
-        ))}
-      </div>
-      <div ref={ref} style={{display:'flex',alignItems:'center',gap:14,position:'relative'}}>
-        <div className="mono" style={{fontSize:10.5,color:'var(--ink-50)',letterSpacing:'0.12em',textAlign:'right',textTransform:'uppercase'}}>
-          {user.tenant}<br/>
-          <span style={{color:'var(--ink-30)'}}>{user.role}</span>
-        </div>
-        <div
-          className="avatar"
-          style={{cursor:'pointer'}}
-          onClick={() => setOpen(o => !o)}
-          title="Abrir menú de perfil"
-        >{user.initials}</div>
+        <div style={{flex:1}}/>
+        <div ref={ref} style={{display:'flex',alignItems:'center',gap:10,position:'relative'}}>
+          <div
+            onClick={() => onNav('perfil')}
+            title="Ver perfil de la empresa"
+            style={{display:'flex',alignItems:'center',gap:7,padding:'6px 12px',borderRadius:999,
+              background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.08)',
+              cursor:'pointer',transition:'background 150ms,border-color 150ms'}}
+            onMouseEnter={e => { e.currentTarget.style.background='rgba(255,255,255,0.09)'; e.currentTarget.style.borderColor='rgba(255,255,255,0.15)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'; }}
+          >
+            <div className="mono" style={{fontSize:10,color:'var(--ink-50)',letterSpacing:'0.1em',textTransform:'uppercase'}}>{user.tenant}</div>
+          </div>
+          {tokens !== undefined && (
+            <div
+              title="Tokens disponibles · clic para recargar"
+              onClick={onRecharge}
+              style={{display:'flex',alignItems:'center',gap:6,padding:'5px 11px',borderRadius:999,
+                background:'rgba(158,245,190,0.06)',border:'1px solid rgba(158,245,190,0.15)',
+                cursor:'pointer',transition:'background 150ms'}}
+              onMouseEnter={e => e.currentTarget.style.background='rgba(158,245,190,0.11)'}
+              onMouseLeave={e => e.currentTarget.style.background='rgba(158,245,190,0.06)'}
+            >
+              <SIcon name="sparkle" size={11} style={{color:'rgba(158,245,190,0.7)'}}/>
+              <span className="mono" style={{fontSize:10.5,color:'rgba(158,245,190,0.85)',fontVariantNumeric:'tabular-nums'}}>{(tokens||0).toLocaleString('es-AR')}</span>
+              <span className="mono" style={{fontSize:9,color:'rgba(158,245,190,0.4)'}}>tk</span>
+            </div>
+          )}
+          <div
+            className="avatar"
+            style={{cursor:'pointer', width:32, height:32, fontSize:12}}
+            onClick={() => setOpen(o => !o)}
+            title="Abrir menú de perfil"
+          >{user.initials}</div>
         {open && (
           <div
             className="glass"
@@ -251,31 +140,79 @@ const AdminTop = ({ user, page, onNav, onLogout, onProfile }) => {
           </div>
         )}
       </div>
+      </div>
+      {/* fila tabs — centradas */}
+      <div style={{display:'flex',gap:2,padding:'0 24px',borderTop:'1px solid rgba(255,255,255,0.05)',justifyContent:'center'}}>
+        {NAV_ITEMS.map(id => (
+          <button key={id} onClick={() => onNav(id)} style={{
+            background:'none', border:'none', cursor:'pointer', padding:'10px 16px', fontSize:12.5,
+            color: page === id ? 'var(--ink-90)' : 'var(--ink-40)',
+            borderBottom: page === id ? '2px solid rgba(255,255,255,0.7)' : '2px solid transparent',
+            marginBottom:-1, letterSpacing:'0.02em', transition:'color 150ms',
+          }}>
+            {NAV_LABELS[id]}
+          </button>
+        ))}
+      </div>
     </div>
   );
 };
 
-/* ----------------------------- TEAM ROW ----------------------------- */
-const TeamRow = ({ p, onOpen }) => (
-  <div className="t-row" onClick={() => onOpen(p)}>
-    <div className="t-avatar">{p.name.split(' ').map(s=>s[0]).join('').slice(0,2)}</div>
-    <div>
-      <div className="t-name">{p.name}</div>
-      <div className="t-meta">{p.role} · {p.evals} evaluaciones · última {p.last}</div>
+/* ----------------------------- TEAM CARD ----------------------------- */
+const statusColor = { 'on-track':'#9ef5be', 'improving':'#60a5fa', 'watch':'#fbbf24', 'needs-coaching':'#fca5a5' };
+
+const TeamCard = ({ p, onOpen }) => {
+  const col = statusColor[p.status] || 'rgba(255,255,255,0.3)';
+  const scoreCol = p.score >= 80 ? '#9ef5be' : p.score >= 65 ? '#fbbf24' : '#fca5a5';
+  return (
+    <div onClick={() => onOpen(p)}
+      style={{ padding:'20px', borderRadius:12, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)',
+        cursor:'pointer', transition:'background 150ms, border-color 150ms', display:'flex', flexDirection:'column', gap:14 }}
+      onMouseEnter={e => { e.currentTarget.style.background='rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor='rgba(255,255,255,0.13)'; }}
+      onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor='rgba(255,255,255,0.07)'; }}>
+
+      {/* top row: avatar + score */}
+      <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between'}}>
+        <div style={{display:'flex', alignItems:'center', gap:10}}>
+          <div className="t-avatar" style={{width:36,height:36,fontSize:12,flexShrink:0}}>
+            {p.name.split(' ').map(s=>s[0]).join('').slice(0,2)}
+          </div>
+          <div>
+            <div style={{fontSize:13,fontWeight:400,color:'var(--ink-85)',lineHeight:1.2}}>{p.name}</div>
+            <div className="mono" style={{fontSize:9.5,color:'var(--ink-40)',marginTop:2}}>{p.role} · {p.evals} evals</div>
+          </div>
+        </div>
+        <div style={{textAlign:'right'}}>
+          <div style={{fontSize:26,fontWeight:200,color:scoreCol,lineHeight:1}}>{p.score}</div>
+          <div className="mono" style={{fontSize:9,color: parseInt(p.trend) > 0 ? '#9ef5be' : parseInt(p.trend) < 0 ? '#fca5a5' : 'var(--ink-35)', marginTop:2}}>
+            {p.trend}
+          </div>
+        </div>
+      </div>
+
+      {/* habilidades en mini barras */}
+      <div style={{display:'flex', flexDirection:'column', gap:5}}>
+        {DIMENSIONS.map((d, i) => (
+          <div key={d} style={{display:'flex', alignItems:'center', gap:8}}>
+            <div className="mono" style={{fontSize:8.5, color:'var(--ink-35)', width:80, letterSpacing:'0.06em', textOverflow:'ellipsis', overflow:'hidden', whiteSpace:'nowrap', flexShrink:0}}>{d}</div>
+            <div style={{flex:1, height:3, borderRadius:2, background:'rgba(255,255,255,0.06)'}}>
+              <div style={{width:`${p.skills[i]}%`, height:'100%', borderRadius:2, background: p.skills[i] >= 75 ? 'rgba(158,245,190,0.6)' : p.skills[i] >= 60 ? 'rgba(251,191,36,0.6)' : 'rgba(252,165,165,0.6)'}}/>
+            </div>
+            <div className="mono" style={{fontSize:9, color:'var(--ink-40)', width:20, textAlign:'right', flexShrink:0}}>{p.skills[i]}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* status badge */}
+      <div style={{display:'flex', alignItems:'center', gap:6}}>
+        <span style={{width:5, height:5, borderRadius:'50%', background:col, flexShrink:0}}/>
+        <span className="mono" style={{fontSize:9.5, color:col, letterSpacing:'0.1em', textTransform:'uppercase'}}>{STATUS_LABEL[p.status]}</span>
+        <div style={{flex:1}}/>
+        <SIcon name="arrow" size={11} stroke={1.5} style={{color:'var(--ink-30)'}}/>
+      </div>
     </div>
-    <div className="t-mini">
-      <MiniRadar values={p.skills}/>
-    </div>
-    <div className={`t-status s-${p.status}`}>
-      <span className="dot"/>{STATUS_LABEL[p.status]}
-    </div>
-    <div className="t-score-block">
-      <div className={`t-score ${p.score>=80?'high':''}`}>{p.score}</div>
-      <div className="t-trend">{p.trend}</div>
-    </div>
-    <div style={{color:'var(--ink-50)'}}><SIcon name="arrow" size={14}/></div>
-  </div>
-);
+  );
+};
 
 const MiniRadar = ({ values, size = 44 }) => {
   const cx = size/2, cy = size/2, r = size/2 - 4;
@@ -299,7 +236,7 @@ const MiniRadar = ({ values, size = 44 }) => {
 };
 
 /* ----------------------------- HEATMAP ----------------------------- */
-const Heatmap = ({ team }) => {
+const Heatmap = () => {
   // rows = vendedores, cols = dimensiones
   return (
     <div className="hmap">
@@ -308,7 +245,7 @@ const Heatmap = ({ team }) => {
         {DIMENSIONS.map(d => <div key={d} className="hmap-col-label">{d}</div>)}
         <div className="hmap-col-label">Global</div>
       </div>
-      {team.map(p => (
+      {TEAM.map(p => (
         <div key={p.id} className="hmap-row">
           <div className="hmap-name">{p.name}</div>
           {p.skills.map((v,i) => (
@@ -328,74 +265,108 @@ const Heatmap = ({ team }) => {
   );
 };
 
-/* ----------------------------- DRAWER (drill-down) ----------------------------- */
-const PersonDrawer = ({ person, onClose }) => {
+/* ----------------------------- PERSON MODAL ----------------------------- */
+const PersonModal = ({ person, onClose }) => {
   if (!person) return null;
+  const scoreCol = person.score >= 80 ? '#9ef5be' : person.score >= 65 ? '#fbbf24' : '#fca5a5';
+  const col = statusColor[person.status] || 'rgba(255,255,255,0.3)';
+  const trendNum = parseInt(person.trend);
+
   return (
-    <div className="drawer-back" onClick={onClose}>
-      <div className="drawer glass glass-strong" onClick={e => e.stopPropagation()}>
-        <div className="drawer-head">
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.72)',backdropFilter:'blur(8px)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:200,padding:'24px'}}
+      onClick={onClose}>
+      <div className="glass" onClick={e => e.stopPropagation()}
+        style={{width:'100%',maxWidth:680,maxHeight:'90vh',overflowY:'auto',borderRadius:16,padding:'28px 32px'}}>
+
+        {/* cabecera */}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:24}}>
           <div style={{display:'flex',alignItems:'center',gap:14}}>
-            <div className="t-avatar" style={{width:44,height:44,fontSize:14}}>{person.name.split(' ').map(s=>s[0]).join('').slice(0,2)}</div>
+            <div className="t-avatar" style={{width:48,height:48,fontSize:16,flexShrink:0}}>
+              {person.name.split(' ').map(s=>s[0]).join('').slice(0,2)}
+            </div>
             <div>
-              <div style={{fontSize:18,fontWeight:400,letterSpacing:'-0.005em'}}>{person.name}</div>
-              <div className="mono" style={{fontSize:10.5,color:'var(--ink-50)',letterSpacing:'0.08em',marginTop:2}}>{person.role.toUpperCase()} · {person.evals} EVALUACIONES</div>
+              <div style={{fontSize:19,fontWeight:300,letterSpacing:'-0.01em'}}>{person.name}</div>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginTop:4}}>
+                <span className="mono" style={{fontSize:10,color:'var(--ink-45)'}}>{person.role} · {person.evals} evaluaciones · última {person.last}</span>
+                <span style={{width:4,height:4,borderRadius:'50%',background:col}}/>
+                <span className="mono" style={{fontSize:10,color:col,textTransform:'uppercase',letterSpacing:'0.08em'}}>{STATUS_LABEL[person.status]}</span>
+              </div>
             </div>
           </div>
-          <div className="rec-head" style={{padding:0}}>
-            <div className="close" onClick={onClose}><SIcon name="close" size={14}/></div>
-          </div>
+          <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',color:'var(--ink-40)',padding:6,display:'flex',alignItems:'center'}}>
+            <SIcon name="close" size={16}/>
+          </button>
         </div>
 
-        <div style={{display:'grid',gridTemplateColumns:'180px 1fr',gap:24,alignItems:'center',padding:'8px 4px 24px',borderBottom:'1px solid var(--glass-border)'}}>
-          <div style={{textAlign:'center'}}>
-            <div style={{fontSize:56,fontWeight:200,letterSpacing:'-0.03em',lineHeight:1}}>{person.score}</div>
-            <div className="mono" style={{fontSize:10,letterSpacing:'0.22em',color:'var(--ink-50)',textTransform:'uppercase',marginTop:4}}>SCORE GLOBAL</div>
-            <div className="mono" style={{fontSize:10.5,color:'var(--ink-70)',marginTop:8,letterSpacing:'0.08em'}}>{person.trend} VS MES ANTERIOR</div>
-          </div>
-          <div className="dim-grid">
-            {DIMENSIONS.map((d,i) => (
-              <div key={d} className="dim-card">
-                <div className="mono" style={{fontSize:10,color:'var(--ink-50)',letterSpacing:'0.16em',textTransform:'uppercase'}}>{d}</div>
-                <div style={{fontSize:22,fontWeight:300,marginTop:6,letterSpacing:'-0.01em',fontVariantNumeric:'tabular-nums'}}>{person.skills[i]}</div>
-                <div className="bar-track" style={{marginTop:8}}><div className="bar-fill" style={{width:`${person.skills[i]}%`}}/></div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div style={{padding:'20px 4px 4px'}}>
-          <div className="mono" style={{fontSize:10.5,letterSpacing:'0.22em',color:'var(--ink-50)',textTransform:'uppercase',marginBottom:14}}>Evaluaciones recientes</div>
-          {(person.recent || []).map(({ title:t, date:d, score:s }, i) => (
-            <div key={i} className="h-row" style={{margin:0,padding:'12px 0',borderTop:i>0?'1px solid var(--glass-border)':'none',cursor:'default'}}>
-              <div className={`h-score ${s>=80?'high':''}`}>{s}</div>
-              <div>
-                <div className="h-title">{t}</div>
-                <div className="h-sub">{d}</div>
-              </div>
-              <div className="h-trend">→ ver</div>
-              <div className="h-arrow"><SIcon name="arrow" size={14}/></div>
+        {/* score + tendencia */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:24}}>
+          {[
+            {label:'Score global', value:person.score, unit:'/100', color:scoreCol},
+            {label:'Tendencia', value:person.trend, unit:'pts', color: trendNum > 0 ? '#9ef5be' : trendNum < 0 ? '#fca5a5' : 'var(--ink-40)'},
+            {label:'Evaluaciones', value:person.evals, unit:'total', color:'var(--ink-70)'},
+          ].map(({label,value,unit,color}) => (
+            <div key={label} style={{padding:'16px',borderRadius:10,background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.07)',textAlign:'center'}}>
+              <div className="mono" style={{fontSize:9,color:'var(--ink-30)',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:8}}>{label}</div>
+              <div style={{fontSize:28,fontWeight:200,color,lineHeight:1}}>{value}<span style={{fontSize:11,color:'var(--ink-35)',marginLeft:3}}>{unit}</span></div>
             </div>
           ))}
-          {(!person.recent || person.recent.length === 0) && (
-            <div className="mono" style={{fontSize:12,color:'var(--ink-50)',padding:'12px 0'}}>Sin evaluaciones registradas.</div>
-          )}
         </div>
 
-        <div style={{padding:'20px 4px 4px'}}>
-          <div className="mono" style={{fontSize:10.5,letterSpacing:'0.22em',color:'var(--ink-50)',textTransform:'uppercase',marginBottom:14}}>Áreas a trabajar (sugerencia IA)</div>
-          {(person.recommendations || []).slice(0, 3).map((rec, i) => (
-            <div key={i} className="rec" style={{borderTopColor:'var(--glass-border)'}}>
-              <div className={`priority ${rec.priority || 'high'}`}><span className="dot"/> {rec.area || 'Sugerencia'}</div>
-              {rec.problem && <div className="problem">{rec.problem}</div>}
-              <div className="tip">{rec.tip || rec.problem || 'Revisar esta evaluación con el vendedor.'}</div>
-              {(rec.drill || rec.success_metric) && <div className="drill">{rec.drill || rec.success_metric}</div>}
+        {/* dimensiones */}
+        <div className="mono" style={{fontSize:9,color:'var(--ink-30)',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:12}}>Habilidades por dimensión</div>
+        <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:24}}>
+          {DIMENSIONS.map((d,i) => (
+            <div key={d} style={{display:'grid',gridTemplateColumns:'140px 1fr 32px',alignItems:'center',gap:12}}>
+              <div style={{fontSize:12,color:'var(--ink-60)'}}>{d}</div>
+              <div style={{height:6,borderRadius:3,background:'rgba(255,255,255,0.06)'}}>
+                <div style={{width:`${person.skills[i]}%`,height:'100%',borderRadius:3,
+                  background: person.skills[i] >= 75 ? '#9ef5be' : person.skills[i] >= 60 ? '#fbbf24' : '#fca5a5',
+                  transition:'width 400ms ease'}}/>
+              </div>
+              <div className="mono" style={{fontSize:11,color:'var(--ink-60)',textAlign:'right'}}>{person.skills[i]}</div>
             </div>
           ))}
-          {(!person.recommendations || person.recommendations.length === 0) && (
-            <div className="mono" style={{fontSize:12,color:'var(--ink-50)',padding:'12px 0'}}>Sin recomendaciones IA disponibles todavía.</div>
-          )}
         </div>
+
+        {/* evaluaciones recientes */}
+        <div className="mono" style={{fontSize:9,color:'var(--ink-30)',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:12}}>Evaluaciones recientes</div>
+        <div style={{display:'flex',flexDirection:'column',gap:1,marginBottom:24}}>
+          {[
+            ['Manejo de objeción: precio','hoy 16:08',84],
+            ['Apertura en frío','ayer 11:22',81],
+            ['Discovery: detectar dolor','lun 17:05',78],
+            ['Cierre consultivo','23 mar 11:30',76],
+          ].map(([t,d,s],i) => {
+            const sc = s >= 80 ? '#9ef5be' : s >= 65 ? '#fbbf24' : '#fca5a5';
+            return (
+              <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',borderRadius:8,background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.05)'}}>
+                <div style={{width:36,height:36,borderRadius:'50%',border:`2px solid ${sc}33`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                  <span style={{fontSize:12,fontWeight:300,color:sc}}>{s}</span>
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:12.5,color:'var(--ink-75)'}}>{t}</div>
+                  <div className="mono" style={{fontSize:10,color:'var(--ink-35)',marginTop:2}}>{d}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* sugerencias IA */}
+        <div className="mono" style={{fontSize:9,color:'var(--ink-30)',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:12}}>Sugerencias IA</div>
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+          {[
+            ['Bajar la velocidad al hablar de precio','WPM promedio 184 vs objetivo 150 cuando menciona costos.'],
+            ['Eliminar muletillas "este…" y "como que"','11 ocurrencias en últimas 5 evaluaciones.'],
+            ['Sostener la mirada en el cierre','Contacto visual cae al 42% en los últimos 15 segundos.'],
+          ].map(([t,d],i) => (
+            <div key={i} style={{padding:'12px 14px',borderRadius:8,background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.06)',borderLeft:'2px solid rgba(251,191,36,0.4)'}}>
+              <div style={{fontSize:12.5,color:'var(--ink-75)',marginBottom:4}}>{t}</div>
+              <div style={{fontSize:11.5,color:'var(--ink-40)',lineHeight:1.5}}>{d}</div>
+            </div>
+          ))}
+        </div>
+
       </div>
     </div>
   );
@@ -513,34 +484,66 @@ const PreguntasView = () => {
     persist(questions.filter(q => q.id !== id));
   };
 
+  const diffBadge = (d) => {
+    const map = { Alta: ['rgba(252,165,165,0.12)','#fca5a5'], Media: ['rgba(251,191,36,0.12)','#fbbf24'], Baja: ['rgba(158,245,190,0.12)','#9ef5be'] };
+    const [bg, color] = map[d] || ['rgba(255,255,255,0.07)','var(--ink-50)'];
+    return <span className="mono" style={{fontSize:9.5,padding:'3px 9px',borderRadius:6,background:bg,color,letterSpacing:'0.12em',textTransform:'uppercase'}}>{d}</span>;
+  };
+  const scoreColor = (s) => s >= 80 ? '#9ef5be' : s >= 70 ? '#fbbf24' : '#fca5a5';
+
   return (
     <div className="s-stage"><div className="s-wrap" style={{maxWidth:1280}}>
-      <div className="s-greet">
-        <h1><small>Banco de preguntas</small>Escenarios de evaluación</h1>
+      {/* header compacto */}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+        <div>
+          <div style={{fontSize:16,fontWeight:300,letterSpacing:'-0.01em'}}>Preguntas</div>
+          <div className="mono" style={{fontSize:10,color:'var(--ink-30)',marginTop:3}}>
+            Banco de escenarios · {questions.length} activos
+          </div>
+        </div>
         <button className="btn btn-primary" onClick={() => setEditing('new')}>
           <SIcon name="sparkle" size={13}/> Nueva pregunta
         </button>
       </div>
+
       <div className="glass" style={{padding:0}}>
-        <div className="section-head"><h3>Todos los escenarios</h3><span className="label">{questions.length} ACTIVOS</span></div>
+        {/* cabecera de columnas */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 120px 72px 90px 80px 36px',gap:16,alignItems:'center',padding:'10px 22px',borderBottom:'1px solid var(--glass-border)'}}>
+          <div className="mono" style={{fontSize:9,color:'var(--ink-28)',letterSpacing:'0.16em',textTransform:'uppercase'}}>Escenario</div>
+          <div className="mono" style={{fontSize:9,color:'var(--ink-28)',letterSpacing:'0.16em',textTransform:'uppercase'}}>Usos</div>
+          <div className="mono" style={{fontSize:9,color:'var(--ink-28)',letterSpacing:'0.16em',textTransform:'uppercase'}}>Score</div>
+          <div className="mono" style={{fontSize:9,color:'var(--ink-28)',letterSpacing:'0.16em',textTransform:'uppercase'}}>Dificultad</div>
+          <div/>
+          <div/>
+        </div>
         {questions.length === 0 ? (
           <div style={{padding:40,textAlign:'center',color:'var(--ink-50)',fontSize:13}}>
             No hay preguntas · crea la primera con "Nueva pregunta"
           </div>
         ) : questions.map((q,i) => (
-          <div key={q.id} style={{display:'grid',gridTemplateColumns:'1fr 140px 80px 80px 100px 40px',gap:16,alignItems:'center',padding:'14px 22px',borderTop:i>0?'1px solid var(--glass-border)':'none'}}>
+          <div key={q.id}
+            style={{display:'grid',gridTemplateColumns:'1fr 120px 72px 90px 80px 36px',gap:16,alignItems:'center',
+              padding:'14px 22px',borderTop:i>0?'1px solid var(--glass-border)':'none',
+              transition:'background 120ms'}}
+            onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.025)'}
+            onMouseLeave={e => e.currentTarget.style.background=''}
+          >
             <div>
-              <div style={{fontSize:13.5,fontWeight:500,marginBottom:3}}>{q.title}</div>
-              <div className="mono" style={{fontSize:10.5,color:'var(--ink-50)',letterSpacing:'0.08em'}}>{q.category}</div>
+              <div style={{fontSize:13.5,fontWeight:400,marginBottom:3,color:'var(--ink-85)'}}>{q.title}</div>
+              <div className="mono" style={{fontSize:10,color:'var(--ink-40)',letterSpacing:'0.06em'}}>{q.category}</div>
             </div>
-            <div className="mono" style={{fontSize:11,color:'var(--ink-50)',letterSpacing:'0.06em'}}>{q.uses} usos</div>
-            <div className={`t-score ${q.avgScore>=80?'high':''}`}>{q.avgScore || '—'}</div>
-            <div className="mono" style={{fontSize:10.5,color:'var(--ink-50)',letterSpacing:'0.06em'}}>{q.difficulty}</div>
-            <button className="btn" style={{padding:'6px 12px',fontSize:11}} onClick={() => setEditing(q)}>Editar</button>
+            <div className="mono" style={{fontSize:11,color:'var(--ink-45)',letterSpacing:'0.06em'}}>{q.uses} usos</div>
+            <div style={{fontSize:22,fontWeight:200,color: q.avgScore ? scoreColor(q.avgScore) : 'var(--ink-30)',lineHeight:1}}>
+              {q.avgScore || '—'}
+            </div>
+            {diffBadge(q.difficulty)}
+            <button className="btn" style={{padding:'5px 10px',fontSize:10.5,opacity:0.8}} onClick={() => setEditing(q)}>Editar</button>
             <div
-              style={{color:'var(--ink-40)',cursor:'pointer',display:'flex',justifyContent:'center'}}
+              style={{color:'var(--ink-30)',cursor:'pointer',display:'flex',justifyContent:'center',transition:'color 120ms'}}
               onClick={() => handleDelete(q.id)}
               title="Eliminar pregunta"
+              onMouseEnter={e => e.currentTarget.style.color='rgba(252,165,165,0.7)'}
+              onMouseLeave={e => e.currentTarget.style.color='var(--ink-30)'}
             ><SIcon name="close" size={13}/></div>
           </div>
         ))}
@@ -557,7 +560,7 @@ const PreguntasView = () => {
 };
 
 /* ----------------------------- VISTA REPORTES ----------------------------- */
-const ReportesView = ({ team = [] }) => {
+const ReportesView = () => {
   const [period, setPeriod] = useState('30d');
   const [busy, setBusy] = useState(null); // null | report key
   const [history, setHistory] = useState(() => {
@@ -585,16 +588,15 @@ const ReportesView = ({ team = [] }) => {
   };
 
   const SELLERS_CSV =
-    'name,email,role,evaluations,score,trend,status\n' +
-    team.map(p => [
-      p.name,
-      p.email || '',
-      p.role,
-      p.evals,
-      p.score,
-      p.trend,
-      p.status,
-    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n') + '\n';
+    'name,role,evaluations,score,trend,status\n' +
+    'Mariana Aimar,Senior,24,84,+6,on-track\n' +
+    'Federico Lozada,Senior,22,81,+3,on-track\n' +
+    'Carolina Méndez,Mid,18,78,+8,improving\n' +
+    'Diego Sosa,Senior,26,76,-2,watch\n' +
+    'Lucía Fernández,Mid,14,72,+4,on-track\n' +
+    'Tomás Iriarte,Junior,9,68,+11,improving\n' +
+    'Sofía Bertinat,Mid,16,64,-4,needs-coaching\n' +
+    'Ricardo Pena,Junior,7,58,-6,needs-coaching\n';
 
   const printPDF = (title, bodyHTML) => {
     const w = window.open('', '_blank', 'width=900,height=700');
@@ -632,11 +634,6 @@ const ReportesView = ({ team = [] }) => {
 
   const generatePDF = (kind) => {
     const date = new Date().toLocaleString('es-AR');
-    const teamAvg = team.length ? Math.round(team.reduce((s,p) => s + p.score, 0) / team.length) : 0;
-    const totalEvals = team.reduce((s,p) => s + p.evals, 0);
-    const top = team.slice().sort((a,b) => b.score - a.score)[0];
-    const improvement = team.slice().sort((a,b) => parseInt(b.trend, 10) - parseInt(a.trend, 10))[0];
-    const needs = team.filter(p => p.status === 'needs-coaching' || p.status === 'watch' || p.score < 75);
     if (kind === 'team-pdf') {
       const body = `
         <h1>APEX VISION</h1>
@@ -646,30 +643,24 @@ const ReportesView = ({ team = [] }) => {
         <h3>Métricas generales</h3>
         <table>
           ${[
-            ['Score promedio del equipo',`${teamAvg} / 100`],
-            ['Vendedores activos',String(team.length)],
-            ['Evaluaciones realizadas',String(totalEvals)],
-            ['Top performer',top ? `${top.name} (${top.score})` : 'Sin datos'],
-            ['Mayor mejora',improvement ? `${improvement.name} (${improvement.trend})` : 'Sin datos'],
-            ['Requieren coaching',String(needs.length)],
+            ['Score promedio del equipo','75 / 100'],
+            ['Vendedores activos','8'],
+            ['Evaluaciones realizadas','135'],
+            ['Top performer','Mariana Aimar (84)'],
+            ['Mayor mejora','Tomás Iriarte (+11)'],
+            ['Requieren coaching','2'],
           ].map(([k,v]) => `<tr><td class="label">${k}</td><td class="value">${v}</td></tr>`).join('')}
         </table>
         <h3>Tendencia</h3>
-        <p style="font-size:12px;color:#444">Datos generados desde evaluaciones reales completadas en /seller.</p>
+        <p style="font-size:12px;color:#444">Score: 68 → 70 → 73 → 75 (+10% vs mes anterior)</p>
         <div class="footer">Apex Vision · Sales Evaluator</div>`;
       return printPDF('Reporte de Equipo', body);
     }
-    const items = needs.slice().sort((a,b) => a.score - b.score).map(p => {
-      const worstIdx = p.skills.reduce((idx, value, i, arr) => value < arr[idx] ? i : idx, 0);
-      const rec = (p.recommendations || [])[0];
-      return {
-        name: p.name,
-        meta: `${p.role} · score ${p.score}/100`,
-        pri: p.score < 65 ? 'high' : 'med',
-        focus: rec?.area || DIMENSIONS[worstIdx],
-        action: rec?.drill || rec?.tip || `Trabajar ${DIMENSIONS[worstIdx]} hasta superar 75/100.`,
-      };
-    });
+    const items = [
+      { name:'Sofía Bertinat',  meta:'Mid · score 64/100',    pri:'high', focus:'Manejo de objeciones', action:'Sesión 1:1 semanal · revisar grabaciones de top performers' },
+      { name:'Ricardo Pena',    meta:'Junior · score 58/100', pri:'high', focus:'Apertura',             action:'Práctica con top performer · 3 evaluaciones esta semana' },
+      { name:'Diego Sosa',      meta:'Senior · score 76/100', pri:'med',  focus:'Ritmo de voz',         action:'Plan de práctica con 3 evaluaciones esta semana' },
+    ];
     const body = `
       <h1>APEX VISION</h1>
       <h2>Plan de Coaching · IA</h2>
@@ -722,10 +713,31 @@ const ReportesView = ({ team = [] }) => {
     }
   };
 
+  const typeBadge = (t) => {
+    const isPDF = t === 'PDF';
+    return (
+      <span className="mono" style={{fontSize:9,padding:'2px 7px',borderRadius:5,letterSpacing:'0.14em',
+        background: isPDF ? 'rgba(139,92,246,0.14)' : 'rgba(34,197,94,0.12)',
+        color: isPDF ? 'rgba(196,181,253,0.9)' : 'rgba(134,239,172,0.9)',
+        border: `1px solid ${isPDF ? 'rgba(139,92,246,0.2)' : 'rgba(34,197,94,0.18)'}`,
+      }}>{t}</span>
+    );
+  };
+
   return (
     <div className="s-stage"><div className="s-wrap" style={{maxWidth:1280}}>
-      <div className="s-greet">
-        <h1><small>Reportes</small>Exportar datos del equipo</h1>
+      {/* header compacto */}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+        <div>
+          <div style={{fontSize:16,fontWeight:300,letterSpacing:'-0.01em'}}>Reportes</div>
+          <div className="mono" style={{fontSize:10,color:'var(--ink-30)',marginTop:3}}>
+            Exportar datos del equipo
+          </div>
+        </div>
+      </div>
+
+      {/* selector de periodo — debajo del título */}
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:18}}>
         <div className="pillbar">
           {['30d','90d','todo'].map(p => (
             <button key={p} className={period===p?'on':''} onClick={() => setPeriod(p)}>
@@ -733,38 +745,58 @@ const ReportesView = ({ team = [] }) => {
             </button>
           ))}
         </div>
+        <div className="mono" style={{fontSize:9.5,color:'var(--ink-28)'}}>
+          {period==='30d' ? 'Últimos 30 días' : period==='90d' ? 'Últimos 90 días' : 'Todo el historial'}
+        </div>
       </div>
+
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14,marginBottom:18}}>
         {reports.map(r => (
-          <div key={r.key} className="glass" style={{padding:24,display:'flex',flexDirection:'column'}}>
-            <div style={{marginBottom:14,color:'var(--ink-60)'}}><SIcon name={r.icon} size={22} stroke={1.2}/></div>
-            <div style={{fontSize:14,fontWeight:500,marginBottom:8}}>{r.title}</div>
-            <div style={{fontSize:12.5,color:'var(--ink-50)',lineHeight:1.6,marginBottom:18,flex:1}}>{r.desc}</div>
+          <div key={r.key} className="glass" style={{padding:24,display:'flex',flexDirection:'column',gap:0}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+              <div style={{color:'var(--ink-50)'}}><SIcon name={r.icon} size={18} stroke={1.2}/></div>
+              {typeBadge(r.type)}
+            </div>
+            <div style={{fontSize:13.5,fontWeight:400,marginBottom:6,color:'var(--ink-85)'}}>{r.title}</div>
+            <div style={{fontSize:12,color:'var(--ink-40)',lineHeight:1.6,marginBottom:20,flex:1}}>{r.desc}</div>
             <button
-              className="btn btn-primary"
-              style={{width:'100%',justifyContent:'center',padding:'10px',display:'inline-flex',alignItems:'center',gap:6}}
+              className="btn"
+              style={{width:'100%',justifyContent:'center',padding:'9px',display:'inline-flex',alignItems:'center',gap:6,
+                border:'1px solid rgba(255,255,255,0.1)',fontSize:11.5,
+                opacity: busy === r.key ? 0.6 : 1}}
               onClick={() => generate(r)}
               disabled={busy === r.key}
             >
               <SIcon name="download" size={12}/>
-              {busy === r.key ? 'Generando...' : 'Generar'}
+              {busy === r.key ? 'Generando…' : 'Generar'}
             </button>
           </div>
         ))}
       </div>
+
       <div className="glass" style={{padding:0}}>
-        <div className="section-head"><h3>Historial de reportes</h3></div>
+        {/* cabecera columnas */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 64px 120px 72px 100px',gap:16,alignItems:'center',padding:'10px 22px',borderBottom:'1px solid var(--glass-border)'}}>
+          {['Nombre','Tipo','Generado','Tamaño',''].map((h,i) => (
+            <div key={i} className="mono" style={{fontSize:9,color:'var(--ink-28)',letterSpacing:'0.16em',textTransform:'uppercase'}}>{h}</div>
+          ))}
+        </div>
         {history.length === 0 ? (
           <div style={{padding:30,textAlign:'center',color:'var(--ink-50)',fontSize:13}}>Sin reportes generados</div>
         ) : history.map((item,i) => (
-          <div key={i} style={{display:'grid',gridTemplateColumns:'1fr 60px 120px 80px 110px',gap:16,alignItems:'center',padding:'14px 22px',borderTop:i>0?'1px solid var(--glass-border)':'none'}}>
-            <div style={{fontSize:13}}>{item.name}</div>
-            <div className="mono" style={{fontSize:10.5,color:'var(--ink-50)'}}>{item.type}</div>
-            <div className="mono" style={{fontSize:10.5,color:'var(--ink-50)'}}>{item.date}</div>
-            <div className="mono" style={{fontSize:10.5,color:'var(--ink-50)'}}>{item.size}</div>
+          <div key={i}
+            style={{display:'grid',gridTemplateColumns:'1fr 64px 120px 72px 100px',gap:16,alignItems:'center',
+              padding:'13px 22px',borderTop:i>0?'1px solid var(--glass-border)':'none',transition:'background 120ms'}}
+            onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.025)'}
+            onMouseLeave={e => e.currentTarget.style.background=''}
+          >
+            <div style={{fontSize:13,color:'var(--ink-80)'}}>{item.name}</div>
+            {typeBadge(item.type)}
+            <div className="mono" style={{fontSize:10.5,color:'var(--ink-40)'}}>{item.date}</div>
+            <div className="mono" style={{fontSize:10.5,color:'var(--ink-40)'}}>{item.size}</div>
             <button
               className="btn"
-              style={{padding:'6px 12px',fontSize:11,display:'inline-flex',alignItems:'center',justifyContent:'center',gap:6}}
+              style={{padding:'5px 10px',fontSize:10.5,display:'inline-flex',alignItems:'center',justifyContent:'center',gap:5,opacity:0.8}}
               onClick={() => downloadHistory(item)}
             >
               <SIcon name="download" size={11}/> Descargar
@@ -844,21 +876,41 @@ const AjustesView = ({ onLogout }) => {
     </div>
   );
 
+  const SectionLabel = ({ children }) => (
+    <div style={{display:'flex',alignItems:'center',gap:10,paddingBottom:14,marginBottom:4,borderBottom:'1px solid rgba(255,255,255,0.05)'}}>
+      <div className="mono" style={{fontSize:9.5,letterSpacing:'0.22em',color:'var(--ink-35)',textTransform:'uppercase'}}>{children}</div>
+      <div style={{flex:1,height:1,background:'rgba(255,255,255,0.03)'}}/>
+    </div>
+  );
+
   return (
-    <div className="s-stage"><div className="s-wrap" style={{maxWidth:820}}>
-      <div className="s-greet">
-        <h1><small>Ajustes</small>Configuración de cuenta</h1>
+    <div className="s-stage"><div className="s-wrap" style={{maxWidth:860}}>
+      {/* header compacto */}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
+        <div>
+          <div style={{fontSize:16,fontWeight:300,letterSpacing:'-0.01em'}}>Ajustes</div>
+          <div className="mono" style={{fontSize:10,color:'var(--ink-30)',marginTop:3}}>Configuración de cuenta</div>
+        </div>
         {savedAt && !dirty && (
-          <div className="mono" style={{fontSize:10.5,color:'rgba(120,255,180,0.7)',letterSpacing:'0.18em',textTransform:'uppercase'}}>
-            ✓ Guardado · {savedAt}
+          <div className="mono" style={{fontSize:10,color:'rgba(120,255,180,0.65)',letterSpacing:'0.14em',textTransform:'uppercase',
+            display:'flex',alignItems:'center',gap:6}}>
+            <span style={{width:5,height:5,borderRadius:'50%',background:'rgba(120,255,180,0.65)',display:'inline-block'}}/>
+            Guardado · {savedAt}
+          </div>
+        )}
+        {dirty && (
+          <div className="mono" style={{fontSize:10,color:'rgba(251,191,36,0.75)',letterSpacing:'0.14em',textTransform:'uppercase',
+            display:'flex',alignItems:'center',gap:6}}>
+            <span style={{width:5,height:5,borderRadius:'50%',background:'rgba(251,191,36,0.75)',display:'inline-block'}}/>
+            Cambios sin guardar
           </div>
         )}
       </div>
 
-      <div style={{display:'grid',gap:14}}>
+      <div style={{display:'grid',gap:12}}>
         {/* EMPRESA */}
-        <div className="glass" style={{padding:'24px 28px'}}>
-          <div className="mono" style={{fontSize:10.5,letterSpacing:'0.22em',color:'var(--ink-50)',textTransform:'uppercase',marginBottom:14}}>Empresa</div>
+        <div className="glass" style={{padding:'22px 28px'}}>
+          <SectionLabel>Empresa</SectionLabel>
           <Row label="Nombre de la empresa">
             <input style={inputStyle} value={settings.company.name} onChange={e => update('company','name',e.target.value)}/>
           </Row>
@@ -873,8 +925,8 @@ const AjustesView = ({ onLogout }) => {
         </div>
 
         {/* EVALUACIONES */}
-        <div className="glass" style={{padding:'24px 28px'}}>
-          <div className="mono" style={{fontSize:10.5,letterSpacing:'0.22em',color:'var(--ink-50)',textTransform:'uppercase',marginBottom:14}}>Evaluaciones</div>
+        <div className="glass" style={{padding:'22px 28px'}}>
+          <SectionLabel>Evaluaciones</SectionLabel>
           <Row label="Duración máxima de grabación">
             <select style={inputStyle} value={settings.evaluations.maxDuration} onChange={e => update('evaluations','maxDuration',e.target.value)}>
               {['1 minuto','2 minutos','3 minutos','5 minutos','10 minutos'].map(o => <option key={o}>{o}</option>)}
@@ -893,8 +945,8 @@ const AjustesView = ({ onLogout }) => {
         </div>
 
         {/* NOTIFICACIONES */}
-        <div className="glass" style={{padding:'24px 28px'}}>
-          <div className="mono" style={{fontSize:10.5,letterSpacing:'0.22em',color:'var(--ink-50)',textTransform:'uppercase',marginBottom:14}}>Notificaciones</div>
+        <div className="glass" style={{padding:'22px 28px'}}>
+          <SectionLabel>Notificaciones</SectionLabel>
           <Row label="Resumen semanal por email">
             <Toggle checked={settings.notifications.weekly} onChange={v => update('notifications','weekly',v)}/>
           </Row>
@@ -907,21 +959,16 @@ const AjustesView = ({ onLogout }) => {
         </div>
 
         {/* SAVE BAR */}
-        <div style={{display:'flex',gap:10,alignItems:'center'}}>
+        <div style={{display:'flex',gap:10,alignItems:'center',padding:'4px 0'}}>
           <button
-            className="btn btn-primary"
+            className={dirty ? 'btn btn-primary' : 'btn'}
             onClick={save}
             disabled={!dirty}
-            style={{opacity: dirty ? 1 : 0.5}}
+            style={{opacity: dirty ? 1 : 0.45, transition:'opacity 150ms'}}
           >
             <SIcon name="download" size={13}/> Guardar cambios
           </button>
-          <button className="btn" onClick={reset}>Restablecer</button>
-          {dirty && (
-            <span className="mono" style={{fontSize:10.5,color:'#fcd34d',letterSpacing:'0.18em',textTransform:'uppercase'}}>
-              · Cambios sin guardar
-            </span>
-          )}
+          <button className="btn" onClick={reset} style={{opacity:0.7}}>Restablecer</button>
           <div style={{flex:1}}/>
           <button
             className="btn"
@@ -936,6 +983,90 @@ const AjustesView = ({ onLogout }) => {
   );
 };
 
+/* ----------------------------- PERFIL EMPRESA ----------------------------- */
+const PerfilEmpresa = ({ user, onGoAjustes }) => {
+  const teamAvg = Math.round(TEAM.reduce((s,p) => s + p.score, 0) / TEAM.length);
+  const totalEvals = TEAM.reduce((s,p) => s + p.evals, 0);
+  const topPerformer = TEAM.slice().sort((a,b) => b.score - a.score)[0];
+
+  const StatCard = ({ label, value, sub, color }) => (
+    <div style={{padding:'18px 20px',borderRadius:12,background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.07)',flex:1}}>
+      <div className="mono" style={{fontSize:9,color:'var(--ink-28)',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:10}}>{label}</div>
+      <div style={{fontSize:26,fontWeight:200,color: color || 'var(--ink-85)',lineHeight:1,marginBottom:4}}>{value}</div>
+      {sub && <div className="mono" style={{fontSize:10,color:'var(--ink-35)'}}>{sub}</div>}
+    </div>
+  );
+
+  const InfoRow = ({ label, value }) => (
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'11px 0',borderTop:'1px solid rgba(255,255,255,0.05)'}}>
+      <div style={{fontSize:13,color:'var(--ink-55)'}}>{label}</div>
+      <div className="mono" style={{fontSize:12,color:'var(--ink-80)'}}>{value}</div>
+    </div>
+  );
+
+  return (
+    <div className="s-stage"><div className="s-wrap" style={{maxWidth:900}}>
+      {/* header compacto */}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:24}}>
+        <div>
+          <div style={{fontSize:16,fontWeight:300,letterSpacing:'-0.01em'}}>Perfil de empresa</div>
+          <div className="mono" style={{fontSize:10,color:'var(--ink-30)',marginTop:3}}>
+            {user.tenant} · cuenta activa
+          </div>
+        </div>
+        <button className="btn" style={{fontSize:11.5}} onClick={onGoAjustes}>
+          <SIcon name="download" size={12}/> Editar en Ajustes
+        </button>
+      </div>
+
+      {/* avatar + info principal */}
+      <div className="glass" style={{padding:'28px 32px',marginBottom:12,display:'flex',alignItems:'center',gap:24}}>
+        <div style={{width:64,height:64,borderRadius:16,background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.12)',
+          display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+          <span className="mono" style={{fontSize:22,fontWeight:300,letterSpacing:'0.06em',color:'var(--ink-70)'}}>
+            {user.tenant.slice(0,2).toUpperCase()}
+          </span>
+        </div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:22,fontWeight:300,letterSpacing:'-0.01em',marginBottom:4}}>{user.tenant} Sales</div>
+          <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+            {[['Tecnología B2B','rgba(139,92,246,0.14)','rgba(196,181,253,0.8)'],['Argentina','rgba(255,255,255,0.05)','var(--ink-50)'],['Plan Pro','rgba(158,245,190,0.1)','rgba(158,245,190,0.75)']].map(([label,bg,color]) => (
+              <span key={label} className="mono" style={{fontSize:10,padding:'3px 10px',borderRadius:6,background:bg,color,letterSpacing:'0.1em'}}>
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div style={{textAlign:'right'}}>
+          <div className="mono" style={{fontSize:9,color:'var(--ink-28)',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:4}}>Miembro desde</div>
+          <div style={{fontSize:13,color:'var(--ink-60)'}}>Enero 2025</div>
+        </div>
+      </div>
+
+      {/* stats del equipo */}
+      <div className="mono" style={{fontSize:9,color:'var(--ink-28)',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:10}}>Resumen del equipo</div>
+      <div style={{display:'flex',gap:10,marginBottom:12}}>
+        <StatCard label="Vendedores" value={TEAM.length} sub="100% activos" />
+        <StatCard label="Score promedio" value={teamAvg} sub="vs 70 benchmark" color={teamAvg >= 75 ? '#9ef5be' : teamAvg >= 65 ? '#fbbf24' : '#fca5a5'}/>
+        <StatCard label="Evaluaciones totales" value={totalEvals} sub="últimos 30 días"/>
+        <StatCard label="Top performer" value={topPerformer.score} sub={topPerformer.name} color="#9ef5be"/>
+      </div>
+
+      {/* datos de cuenta */}
+      <div className="glass" style={{padding:'20px 28px'}}>
+        <div className="mono" style={{fontSize:9.5,letterSpacing:'0.22em',color:'var(--ink-35)',textTransform:'uppercase',
+          paddingBottom:12,marginBottom:4,borderBottom:'1px solid rgba(255,255,255,0.05)'}}>Datos de cuenta</div>
+        <InfoRow label="Nombre de la empresa" value="Northwind Sales"/>
+        <InfoRow label="Industria" value="Tecnología B2B"/>
+        <InfoRow label="País" value="Argentina"/>
+        <InfoRow label="Plan" value="Pro · 8 usuarios"/>
+        <InfoRow label="Próxima renovación" value="15 Jun 2026"/>
+        <InfoRow label="Admin principal" value={user.email}/>
+      </div>
+    </div></div>
+  );
+};
+
 /* ----------------------------- MAIN VIEW ----------------------------- */
 const AdminApp = () => {
   const [time, setTime] = useState(new Date());
@@ -943,9 +1074,6 @@ const AdminApp = () => {
   const [period, setPeriod] = useState('30d');
   const [page, setPage] = useState('equipo');
   const [roleFilter, setRoleFilter] = useState('Todos');
-  const [teamData, setTeamData] = useState([]);
-  const [teamLoading, setTeamLoading] = useState(true);
-  const [teamError, setTeamError] = useState('');
 
   // ── Token system (basado en plan financiero: $0.01/token) ─────────────────
   // Costos: 5 tokens/evaluación ($0.05) · 20 tokens/plan coaching IA ($0.20)
@@ -984,8 +1112,8 @@ const AdminApp = () => {
     // Cada recomendación se ancla en una métrica concreta detectada en el desempeño.
     await new Promise(r => setTimeout(r, 800));
 
-    const teamAvg = team.length ? Math.round(team.reduce((s,p) => s + p.score, 0) / team.length) : 0;
-    const skillNames = DIMENSIONS;
+    const teamAvg = Math.round(TEAM.reduce((s,p) => s + p.score, 0) / TEAM.length);
+    const skillNames = ['Confianza','Claridad','Manejo objeciones','Ritmo de voz','Lenguaje corporal'];
 
     const buildItem = (p) => {
       // Identificar la dimensión más débil con su métrica
@@ -998,9 +1126,9 @@ const AdminApp = () => {
       const actionMap = {
         'Confianza': `Practica 3 grabaciones esta semana enfocadas en apertura. Meta: subir confianza de ${worstScore} a ${Math.min(85, worstScore + 12)} en 30 días.`,
         'Claridad': `Estructura cada pitch con problema-solución-CTA. Meta: claridad ≥ 75 en próximas 2 evaluaciones (actual ${worstScore}).`,
+        'Manejo objeciones': `Sesión 1:1 semanal · revisar 3 objeciones reales. Meta: manejo objeciones ${worstScore} → ${Math.min(80, worstScore + 15)} en 4 semanas.`,
         'Ritmo de voz': `Si pace > 170 WPM o < 100, ajustar pausas. Meta: ritmo entre 130-160 WPM y score ≥ 75 (actual ${worstScore}).`,
         'Lenguaje corporal': `Practicar postura abierta y contacto visual frente a cámara. Meta: leng. corporal ${worstScore} → 75+ en 3 evaluaciones.`,
-        'Escucha activa': `Incluir 2 preguntas consultivas y una reformulación. Meta: escucha activa ${worstScore} → ${Math.min(80, worstScore + 15)} en 4 semanas.`,
       };
 
       const priority = p.score < 65 ? 'alta' : (p.score < 75 ? 'media' : 'baja');
@@ -1015,11 +1143,11 @@ const AdminApp = () => {
       };
     };
 
-    const targets = team.filter(p => p.status === 'needs-coaching' || p.status === 'watch' || p.score < 75);
+    const targets = TEAM.filter(p => p.status === 'needs-coaching' || p.status === 'watch' || p.score < 75);
 
     const plan = {
       generatedAt: new Date().toLocaleString('es-AR'),
-      summary: `Equipo ${team.length} vendedores · score promedio ${teamAvg}/100 · ${targets.length} requieren intervención (criterio: score<75 o status watch/needs-coaching)`,
+      summary: `Equipo ${TEAM.length} vendedores · score promedio ${teamAvg}/100 · ${targets.length} requieren intervención (criterio: score<75 o status watch/needs-coaching)`,
       items: targets.sort((a,b) => a.score - b.score).map(buildItem),
       methodology: 'Cada recomendación se ancla en la dimensión más débil del vendedor con métricas concretas y meta de mejora medible.',
     };
@@ -1048,9 +1176,7 @@ const AdminApp = () => {
   };
   const handleLogout = () => {
     if (window.ApexAPI) window.ApexAPI.logout();
-    localStorage.removeItem('apex_access_token');
-    localStorage.removeItem('apex_refresh_token');
-    window.location.href = '/seller';
+    window.dispatchEvent(new Event('apex:session-expired'));
   };
 
   useEffect(() => {
@@ -1058,234 +1184,103 @@ const AdminApp = () => {
     return () => clearInterval(t);
   }, []);
 
-  useEffect(() => {
-    let alive = true;
-    const loadTeam = async () => {
-      setTeamLoading(true);
-      setTeamError('');
-      try {
-        if (!window.ApexAPI) throw new Error('Cliente API no disponible');
-        await window.ApexAPI.restoreToken();
-        const rows = await window.ApexAPI.listAdminEvaluations();
-        if (!alive) return;
-        setTeamData(normalizeTeamEvaluations(rows));
-      } catch (err) {
-        if (!alive) return;
-        setTeamError(err?.message || 'No se pudieron cargar evaluaciones reales');
-        setTeamData([]);
-      } finally {
-        if (alive) setTeamLoading(false);
-      }
-    };
-    loadTeam();
-    const refresh = setInterval(loadTeam, 15000);
-    return () => { alive = false; clearInterval(refresh); };
-  }, []);
-
-  const team = teamData;
-  const roleOptions = ['Todos', ...Array.from(new Set(team.map(p => p.role))).filter(Boolean)];
-  const visibleTeam = team.filter(p => roleFilter === 'Todos' || p.role === roleFilter);
-  const teamAvg = team.length ? Math.round(team.reduce((s,p) => s + p.score, 0) / team.length) : 0;
-  const totalEvals = team.reduce((s,p) => s + p.evals, 0);
-  const needsCoach = team.filter(p => p.status === 'needs-coaching').length;
-  const insights = buildTeamInsights(team);
-  const recentActivity = team
-    .flatMap(p => (p.recent || []).map(item => ({ ...item, name: p.name })))
-    .slice(0, 5);
-  const categoryRows = (() => {
-    const map = new Map();
-    team.forEach(p => (p.recent || []).forEach(item => {
-      const key = item.title || 'Evaluación';
-      const current = map.get(key) || { total: 0, count: 0 };
-      current.total += item.score || 0;
-      current.count += 1;
-      map.set(key, current);
-    }));
-    return Array.from(map.entries())
-      .map(([name, v]) => [name, Math.round(v.total / v.count)])
-      .slice(0, 6);
-  })();
+  const teamAvg = Math.round(TEAM.reduce((s,p) => s + p.score, 0) / TEAM.length);
+  const totalEvals = TEAM.reduce((s,p) => s + p.evals, 0);
+  const needsCoach = TEAM.filter(p => p.status === 'needs-coaching').length;
 
   return (
     <div id="app">
       <div className="s-shell">
-        <AdminTop user={user} page={page} onNav={setPage} onLogout={handleLogout} onProfile={openProfile}/>
+        <AdminTop user={user} page={page} onNav={setPage} onLogout={handleLogout} onProfile={openProfile} tokens={tokens} onRecharge={() => recharge(500)}/>
         {page === 'preguntas' && <PreguntasView/>}
-        {page === 'reportes'  && <ReportesView team={team}/>}
+        {page === 'reportes'  && <ReportesView/>}
         {page === 'ajustes'   && <AjustesView onLogout={handleLogout}/>}
+        {page === 'perfil'    && <PerfilEmpresa user={user} onGoAjustes={() => setPage('ajustes')}/>}
         {page === 'equipo' && <div className="s-stage">
           <div className="s-wrap" style={{maxWidth:1280}}>
-            <div className="s-greet">
-              <h1>
-                <small>Equipo · {user.tenant}</small>
-                Hola Juliana
-              </h1>
-              <div style={{display:'flex',gap:8,alignItems:'flex-end'}}>
-                <div className="pillbar">
-                  <button className={period==='7d'?'on':''} onClick={()=>setPeriod('7d')}>7D</button>
-                  <button className={period==='30d'?'on':''} onClick={()=>setPeriod('30d')}>30D</button>
-                  <button className={period==='90d'?'on':''} onClick={()=>setPeriod('90d')}>90D</button>
+            {/* header compacto */}
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+              <div>
+                <div style={{fontSize:16,fontWeight:300,letterSpacing:'-0.01em'}}>Equipo</div>
+                <div className="mono" style={{fontSize:10,color:'var(--ink-30)',marginTop:3}}>
+                  {user.tenant} · {TEAM.length} vendedores · {needsCoach} requieren coaching
                 </div>
-                <div
-                  title={`1 evaluación = ${TOKEN_COSTS.evaluation} tokens · 1 plan coaching IA = ${TOKEN_COSTS.coachingPlan} tokens · 1 token = $0.01`}
-                  style={{
-                    display:'flex',alignItems:'center',gap:8,padding:'8px 14px',
-                    border:'1px solid var(--ink-20)',borderRadius:10,
-                    background:'rgba(255,255,255,0.03)',cursor:'help'
-                  }}
-                >
-                  <SIcon name="sparkle" size={13}/>
-                  <div style={{display:'flex',flexDirection:'column',lineHeight:1}}>
-                    <span className="mono" style={{fontSize:9,letterSpacing:'0.18em',color:'var(--ink-50)',textTransform:'uppercase'}}>Saldo IA</span>
-                    <span style={{fontSize:14,fontWeight:500,fontVariantNumeric:'tabular-nums',marginTop:3}}>{tokens.toLocaleString('es-AR')} <small style={{fontSize:10,color:'var(--ink-50)'}}>tokens</small></span>
-                  </div>
-                  <button
-                    className="btn"
-                    style={{padding:'4px 10px',fontSize:11,marginLeft:4}}
-                    onClick={() => recharge(500)}
-                    title="Recargar 500 tokens ($5.00)"
-                  >+500</button>
-                </div>
-                <button className="btn"><SIcon name="download" size={13}/> Exportar reporte</button>
+              </div>
+              <button className="btn" style={{display:'flex',alignItems:'center',gap:6,fontSize:11.5}}>
+                <SIcon name="download" size={12}/> Exportar
+              </button>
+            </div>
+
+            {/* barra de periodo — debajo del título, encima de KPIs */}
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
+              <div className="pillbar">
+                <button className={period==='7d'?'on':''} onClick={()=>setPeriod('7d')}>7D</button>
+                <button className={period==='30d'?'on':''} onClick={()=>setPeriod('30d')}>30D</button>
+                <button className={period==='90d'?'on':''} onClick={()=>setPeriod('90d')}>90D</button>
+              </div>
+              <div className="mono" style={{fontSize:9.5,color:'var(--ink-28)'}}>
+                {period==='7d' ? 'Últimos 7 días' : period==='30d' ? 'Últimos 30 días' : 'Últimos 90 días'}
               </div>
             </div>
 
             <div className="kpis" style={{marginBottom:18}}>
-              <Kpi label="Score promedio del equipo" value={teamAvg} unit="/100" delta={team.length ? 'datos reales del tenant' : 'sin evaluaciones'} sparkId="a1" data={[teamAvg,teamAvg,teamAvg,teamAvg]}/>
-              <Kpi label={`Evaluaciones · ${period.toUpperCase()}`} value={totalEvals} unit="" delta={teamLoading ? 'cargando...' : 'desde /seller'} sparkId="a2" data={[0,totalEvals,totalEvals]}/>
-              <Kpi label="Vendedores activos" value={team.length} unit={team.length ? `/${team.length}` : ''} delta="con evaluaciones registradas" sparkId="a3" data={[0,team.length,team.length]}/>
-              <Kpi label="Requieren coaching" value={needsCoach} unit="" delta="score menor a 65" sparkId="a4" data={[0,needsCoach,needsCoach]}/>
+              <Kpi label="Score promedio del equipo" value={teamAvg} unit="/100" delta="+ 4 vs mes anterior" deltaDir="up" sparkId="a1" data={[68,70,69,72,73,72,75,74,76,75,76,teamAvg]}/>
+              <Kpi label="Evaluaciones · 30d" value={totalEvals} unit="" delta="↑ 18% participación" deltaDir="up" sparkId="a2" data={[6,8,12,9,14,18,16,20,22,19,24,totalEvals]}/>
+              <Kpi label="Vendedores activos" value={TEAM.length} unit={`/${TEAM.length}`} delta="100% activos esta semana" deltaDir="neutral" sparkId="a3" data={[5,6,6,7,7,8,8,8,8,8,8,8]}/>
+              <Kpi label="Requieren coaching" value={needsCoach} unit="" delta="↑ 2 desde la semana pasada" deltaDir="warn" sparkId="a4" data={[1,1,2,1,2,2,2,3,2,2,2,needsCoach]}/>
             </div>
 
-            <div className="grid-dash" style={{gridTemplateColumns:'2fr 1fr',marginBottom:18}}>
-              {/* TEAM LIST */}
-              <div className="glass" style={{padding:0}}>
-                <div className="section-head">
-                  <h3>Tu equipo</h3>
-                  <div style={{display:'flex',gap:6,alignItems:'center'}}>
-                    <div className="pillbar">
-                      {roleOptions.map(r => (
-                        <button
-                          key={r}
-                          className={roleFilter === r ? 'on' : ''}
-                          onClick={() => setRoleFilter(r)}
-                        >{r}</button>
-                      ))}
-                    </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 280px',gap:14,alignItems:'start'}}>
+
+              {/* GRID DE TARJETAS */}
+              <div>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+                  <div className="mono" style={{fontSize:9,color:'var(--ink-28)',letterSpacing:'0.16em',textTransform:'uppercase'}}>Vendedores · clic para ver detalle</div>
+                  <div className="pillbar">
+                    {['Todos','Senior','Mid','Junior'].map(r => (
+                      <button key={r} className={roleFilter===r?'on':''} onClick={()=>setRoleFilter(r)}>{r}</button>
+                    ))}
                   </div>
                 </div>
-                {teamError && (
-                  <div className="mono" style={{fontSize:11,color:'#fca5a5',padding:'0 22px 12px'}}>
-                    {teamError}. Iniciá sesión como admin.demo@jupiter.local para ver todo el tenant.
-                  </div>
-                )}
-                <div className="t-list">
-                  {teamLoading ? (
-                    <div className="mono" style={{fontSize:12,color:'var(--ink-50)',padding:24}}>Cargando análisis reales...</div>
-                  ) : visibleTeam.length > 0 ? (
-                    visibleTeam.map(p => <TeamRow key={p.id} p={p} onOpen={setDrawer}/>)
-                  ) : (
-                    <div className="mono" style={{fontSize:12,color:'var(--ink-50)',padding:24}}>
-                      No hay análisis reales todavía. Completá una evaluación desde /seller y volverá a aparecer acá.
-                    </div>
-                  )}
+                <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
+                  {TEAM.filter(p => roleFilter==='Todos' || p.role===roleFilter)
+                       .map(p => <TeamCard key={p.id} p={p} onOpen={setDrawer}/>)}
                 </div>
               </div>
 
-              {/* INSIGHTS */}
-              <div className="glass" style={{padding:24}}>
-                <div className="mono" style={{fontSize:10.5,letterSpacing:'0.22em',color:'var(--ink-50)',textTransform:'uppercase',marginBottom:14}}>Insights del equipo</div>
-
-                <div className="insight-block">
-                  <div className="insight-label">Fortaleza del equipo</div>
-                  <div className="insight-value">{insights.strongest[0]}</div>
-                  <div className="insight-meta">{insights.strongest[1]}</div>
-                </div>
-                <div className="insight-block">
-                  <div className="insight-label">Punto débil</div>
-                  <div className="insight-value">{insights.weakest[0]}</div>
-                  <div className="insight-meta">{insights.weakest[1]}</div>
-                </div>
-                <div className="insight-block">
-                  <div className="insight-label">Top performer del mes</div>
-                  <div className="insight-value">{insights.top[0]}</div>
-                  <div className="insight-meta">{insights.top[1]}</div>
-                </div>
-                <div className="insight-block">
-                  <div className="insight-label">Mayor mejora</div>
-                  <div className="insight-value">{insights.improvement[0]}</div>
-                  <div className="insight-meta">{insights.improvement[1]}</div>
-                </div>
-
-                <button
-                  className="btn btn-primary"
-                  style={{width:'100%',justifyContent:'center',marginTop:18}}
-                  onClick={generateCoachingPlan}
-                  disabled={coachingBusy || tokens < TOKEN_COSTS.coachingPlan}
-                >
-                  <SIcon name="sparkle" size={13}/>
-                  {coachingBusy ? 'Generando con IA...' : `Generar plan de coaching con IA · ${TOKEN_COSTS.coachingPlan} tokens`}
-                </button>
-                {tokenError && (
-                  <div className="mono" style={{fontSize:10.5,color:'#fca5a5',marginTop:8,lineHeight:1.5}}>
-                    {tokenError}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* HEATMAP */}
-            <div className="glass" style={{padding:0,marginBottom:18}}>
-              <div className="section-head">
-                <h3>Mapa de habilidades · equipo × dimensión</h3>
-                <span className="label">PROMEDIO {period.toUpperCase()}</span>
-              </div>
-              <div style={{padding:'14px 22px 22px',overflowX:'auto'}}>
-                {team.length ? (
-                  <Heatmap team={team}/>
-                ) : (
-                  <div className="mono" style={{fontSize:12,color:'var(--ink-50)',padding:18}}>Sin dimensiones reales para graficar.</div>
-                )}
-              </div>
-            </div>
-
-            {/* QUESTIONS / CATEGORIES */}
-            <div className="grid-dash" style={{gridTemplateColumns:'1fr 1fr'}}>
-              <div className="glass" style={{padding:24}}>
-                <div className="mono" style={{fontSize:10.5,letterSpacing:'0.22em',color:'var(--ink-50)',textTransform:'uppercase',marginBottom:16}}>Desempeño por categoría de pregunta</div>
-                <div className="bars">
-                  {(categoryRows.length ? categoryRows : [['Sin datos', 0]]).map(([n,v])=>(
-                    <div key={n} className="bar-row">
-                      <span className="name">{n}</span>
-                      <div className="bar-track"><div className="bar-fill" style={{width:`${v}%`}}/></div>
-                      <span className="val">{v}</span>
+              {/* INSIGHTS SIDEBAR */}
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                <div style={{padding:'18px 20px',borderRadius:12,background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.07)'}}>
+                  <div className="mono" style={{fontSize:9,color:'var(--ink-28)',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:14}}>Insights</div>
+                  {[
+                    {label:'Fortaleza',       value:'Escucha activa',  meta:'79 prom · +6 vs mes ant.'},
+                    {label:'Punto débil',      value:'Ritmo de voz',    meta:'68 prom · 5 hablan >170 WPM'},
+                    {label:'Top performer',   value:'Mariana Aimar',   meta:'84 score · racha 7 días'},
+                    {label:'Mayor mejora',    value:'Tomás Iriarte',   meta:'+11 pts · Junior → Mid'},
+                  ].map(({label,value,meta}) => (
+                    <div key={label} style={{marginBottom:14,paddingBottom:14,borderBottom:'1px solid rgba(255,255,255,0.05)'}}>
+                      <div className="mono" style={{fontSize:9,color:'var(--ink-30)',letterSpacing:'0.12em',textTransform:'uppercase',marginBottom:3}}>{label}</div>
+                      <div style={{fontSize:13,fontWeight:400,color:'var(--ink-80)',marginBottom:2}}>{value}</div>
+                      <div className="mono" style={{fontSize:9.5,color:'var(--ink-35)'}}>{meta}</div>
                     </div>
                   ))}
                 </div>
-              </div>
 
-              <div className="glass" style={{padding:24}}>
-                <div className="mono" style={{fontSize:10.5,letterSpacing:'0.22em',color:'var(--ink-50)',textTransform:'uppercase',marginBottom:16}}>Actividad reciente del equipo</div>
-                {recentActivity.map(({ name:n, title, score:s, date:t, status }, i)=>(
-                  <div key={i} style={{display:'grid',gridTemplateColumns:'auto 1fr auto auto',gap:12,alignItems:'center',padding:'10px 0',borderTop:i>0?'1px solid var(--glass-border)':'none'}}>
-                    <div className="t-avatar" style={{width:30,height:30,fontSize:10}}>{n.split(' ').map(s=>s[0]).join('').slice(0,2)}</div>
-                    <div>
-                      <div style={{fontSize:12.5,fontWeight:500}}>{n}</div>
-                      <div className="mono" style={{fontSize:10.5,color:'var(--ink-50)',marginTop:2,letterSpacing:'0.04em'}}>{status} · {title}</div>
-                    </div>
-                    <div className={`h-score ${parseInt(s)>=80?'high':''}`} style={{width:36,height:36,fontSize:11}}>{s}</div>
-                    <div className="mono" style={{fontSize:10,color:'var(--ink-50)',letterSpacing:'0.08em',width:60,textAlign:'right'}}>{t}</div>
-                  </div>
-                ))}
-                {recentActivity.length === 0 && (
-                  <div className="mono" style={{fontSize:12,color:'var(--ink-50)',padding:'10px 0'}}>Sin actividad real todavía.</div>
-                )}
+                <button className="btn" style={{width:'100%',justifyContent:'center',gap:7,fontSize:11.5,padding:'11px',
+                  border:'1px solid rgba(158,245,190,0.2)',color:'rgba(158,245,190,0.8)',
+                  opacity:(coachingBusy||tokens<TOKEN_COSTS.coachingPlan)?0.4:1}}
+                  onClick={generateCoachingPlan}
+                  disabled={coachingBusy||tokens<TOKEN_COSTS.coachingPlan}>
+                  <SIcon name="sparkle" size={12}/>
+                  {coachingBusy ? 'Generando…' : `Plan coaching IA · ${TOKEN_COSTS.coachingPlan} tokens`}
+                </button>
+                {tokenError && <div className="mono" style={{fontSize:10,color:'#fca5a5',lineHeight:1.5}}>{tokenError}</div>}
               </div>
             </div>
           </div>
         </div>}
       </div>
-      <PersonDrawer person={drawer} onClose={() => setDrawer(null)}/>
+      <PersonModal person={drawer} onClose={() => setDrawer(null)}/>
       {profileOpen && (
         <div className="drawer-back" onClick={() => setProfileOpen(false)}>
           <form
@@ -1487,4 +1482,123 @@ const AdminApp = () => {
   );
 };
 
-ReactDOM.createRoot(document.getElementById('root')).render(<AdminApp/>);
+/* ============================================================
+   ADMIN LOGIN — pantalla de autenticación para el panel admin
+   ============================================================ */
+const AdminLogin = ({ onSuccess }) => {
+  const [email, setEmail]       = useState('admin.demo@jupiter.local');
+  const [password, setPassword] = useState('Demo1234!');
+  const [showPass, setShowPass] = useState(false);
+  const [error, setError]       = useState('');
+  const [busy, setBusy]         = useState(false);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+    setBusy(true);
+    try {
+      await window.ApexAPI.login(email, password);
+      onSuccess();
+    } catch (err) {
+      const msg = err.message || '';
+      if (msg.includes('401') || msg.includes('Login failed')) {
+        setError('Email o contraseña incorrectos.');
+      } else {
+        setError('No se pudo conectar con el servidor. Verificá tu conexión.');
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const inputStyle = { width: '100%', padding: '11px 14px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: '#fff', fontSize: 13, boxSizing: 'border-box' };
+  const Spinner = () => <span style={{ width: 13, height: 13, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }} />;
+
+  return (
+    <div id="app">
+      <div className="s-shell">
+        <div style={{ padding: '40px 24px' }} />
+        <div className="s-stage">
+          <div className="s-wrap" style={{ maxWidth: 420 }}>
+            <div className="glass" style={{ padding: 36, textAlign: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                <ApexLogo size={44} />
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 200, letterSpacing: '-0.02em', marginBottom: 4 }}>Apex Vision</div>
+              <div className="mono" style={{ fontSize: 10, color: 'var(--ink-40)', marginBottom: 6, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
+                Panel de administración
+              </div>
+              <div className="mono" style={{ fontSize: 9, color: 'rgba(158,245,190,0.5)', marginBottom: 28, letterSpacing: '0.16em', textTransform: 'uppercase', padding: '4px 10px', borderRadius: 4, background: 'rgba(158,245,190,0.05)', display: 'inline-block' }}>
+                Admin Console
+              </div>
+
+              <form onSubmit={handleLogin} style={{ display: 'grid', gap: 12, textAlign: 'left' }}>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                  placeholder="Email de administrador" required autoComplete="email" style={inputStyle} />
+                <div style={{ position: 'relative' }}>
+                  <input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
+                    placeholder="Contraseña" required autoComplete="current-password"
+                    style={{ ...inputStyle, padding: '11px 42px 11px 14px' }} />
+                  <button type="button" onClick={() => setShowPass(v => !v)}
+                    style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-40)', padding: 4, display: 'flex', alignItems: 'center' }}>
+                    <SIcon name={showPass ? 'eye-off' : 'eye'} size={15} stroke={1.5} />
+                  </button>
+                </div>
+                <button type="submit" className="btn" disabled={busy}
+                  style={{ width: '100%', justifyContent: 'center', padding: '13px', opacity: busy ? 0.7 : 1, transition: 'opacity 150ms' }}>
+                  {busy
+                    ? <span style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}><Spinner /> Conectando…</span>
+                    : 'Ingresar al panel'}
+                </button>
+                {error && (
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', borderRadius: 7, background: 'rgba(252,165,165,0.08)', border: '1px solid rgba(252,165,165,0.2)' }}>
+                    <span style={{ color: '#fca5a5', fontSize: 13, marginTop: 1 }}>!</span>
+                    <span className="mono" style={{ fontSize: 11, color: '#fca5a5', lineHeight: 1.55 }}>{error}</span>
+                  </div>
+                )}
+              </form>
+
+              <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                <a href="/seller" style={{ fontSize: 12, color: 'var(--ink-35)', textDecoration: 'none' }}>
+                  ← Ir al portal de vendedores
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+};
+
+/* ============================================================
+   ADMIN ROOT — auth gate
+   ============================================================ */
+const AdminRoot = () => {
+  const [authed, setAuthed] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    // Si hay token válido, entrar directo
+    const token = localStorage.getItem('apex_access_token');
+    if (token) {
+      window.ApexAPI.getMe()
+        .then(() => setAuthed(true))
+        .catch(() => { window.ApexAPI.logout(); setAuthed(false); })
+        .finally(() => setChecking(false));
+    } else {
+      window.ApexAPI.logout();
+      setChecking(false);
+    }
+    const onExpired = () => { window.ApexAPI.logout(); setAuthed(false); };
+    window.addEventListener('apex:session-expired', onExpired);
+    return () => window.removeEventListener('apex:session-expired', onExpired);
+  }, []);
+
+  if (checking) return null;
+  if (!authed) return <AdminLogin onSuccess={() => setAuthed(true)} />;
+  return <AdminApp />;
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<AdminRoot />);
