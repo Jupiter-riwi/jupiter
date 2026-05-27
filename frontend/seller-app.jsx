@@ -1,5 +1,5 @@
 const { useState, useEffect } = React;
-const { PublicTopBar, PublicLanding, ScenarioSelector, RecordingStage, SellerResults, SIcon, ApexLogo, SellerDashboard, SellerProgress, SellerCoaching, SellerPlan, SellerSettings } = window;
+const { PublicTopBar, PublicLanding, ScenarioSelector, RecordingStage, SellerResults, SIcon, ApexLogo, SellerDashboard, SellerProgress, SellerCoaching, SellerPlan, SellerSettings, SellerProfile, SellerMainDashboard } = window;
 
 const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -9,7 +9,7 @@ const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
    ============================================================ */
 function ApexApp() {
   const [page, setPage]           = useState('login');   // login | register | landing | scenario | results
-  const [tab, setTab]             = useState('home');    // home | plan | settings
+  const [tab, setTab]             = useState('dashboard'); // dashboard | home | progress | coaching | plan | settings
   const [scenario, setScenario]   = useState(null);
   const [recording, setRecording] = useState(false);
   const [evaluationData, setEvalData] = useState(null);
@@ -94,7 +94,7 @@ function ApexApp() {
   };
 
   // ── navigation ────────────────────────────────────────────────────────────
-  const goLanding   = () => { setPage('landing'); setTab('home'); setScenario(null); setEvalData(null); };
+  const goLanding   = () => { setPage('landing'); setTab('dashboard'); setScenario(null); setEvalData(null); };
   const goSection   = (id) => {
     setPage('landing'); setScenario(null); setEvalData(null);
     setTimeout(() => {
@@ -236,15 +236,18 @@ function ApexApp() {
     const displayName = user?.name || user?.email?.split('@')[0] || 'Vendedor';
     const isMain = page === 'landing';
     const TABS = [
-      { id: 'home',     label: 'Evaluaciones' },
-      { id: 'progress', label: 'Progreso' },
-      { id: 'coaching', label: 'Coaching IA' },
-      { id: 'plan',     label: 'Mi Plan' },
-      { id: 'settings', label: 'Configuración' },
+      { id: 'dashboard', label: 'Dashboard' },
+      { id: 'home',      label: 'Evaluaciones' },
+      { id: 'progress',  label: 'Progreso' },
+      { id: 'coaching',  label: 'Coaching IA' },
+      { id: 'plan',      label: 'Mi Plan' },
+      { id: 'profile',   label: 'Perfil' },
+      { id: 'settings',  label: 'Configuración' },
     ];
     return (
-      <>
-        <div className="s-topbar">
+      <div style={{backdropFilter:'blur(20px) saturate(140%)', background:'rgba(10,10,12,0.55)', borderBottom:'1px solid rgba(255,255,255,0.07)', position:'relative', zIndex:5}}>
+        {/* fila logo + usuario */}
+        <div style={{display:'flex',alignItems:'center',height:56,padding:'0 28px'}}>
           <div style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}} onClick={goLanding}>
             <ApexLogo size={36} />
             <div style={{lineHeight:1}}>
@@ -254,7 +257,10 @@ function ApexApp() {
           </div>
           <div style={{flex:1}} />
           <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <div style={{display:'flex',alignItems:'center',gap:7,padding:'6px 12px',borderRadius:999,background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.08)'}}>
+            <div onClick={() => { setPage('landing'); setTab('profile'); }}
+              style={{display:'flex',alignItems:'center',gap:7,padding:'6px 12px',borderRadius:999,background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.08)',cursor:'pointer',transition:'background 150ms'}}
+              onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.09)'}
+              onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.05)'}>
               <SIcon name="user" size={13} stroke={1.5} />
               <span style={{fontSize:12,color:'var(--ink-70)',letterSpacing:'0.02em'}}>{displayName}</span>
             </div>
@@ -265,12 +271,13 @@ function ApexApp() {
             </button>
           </div>
         </div>
+        {/* fila tabs — centradas */}
         {isMain && (
-          <div style={{borderBottom:'1px solid rgba(255,255,255,0.07)',display:'flex',gap:2,padding:'0 24px'}}>
+          <div style={{display:'flex',gap:2,padding:'0 24px', borderTop:'1px solid rgba(255,255,255,0.05)', justifyContent:'center'}}>
             {TABS.map(t => (
               <button key={t.id} onClick={() => setTab(t.id)}
                 style={{
-                  background:'none',border:'none',cursor:'pointer',padding:'12px 16px',fontSize:12.5,
+                  background:'none',border:'none',cursor:'pointer',padding:'10px 16px',fontSize:12.5,
                   color: tab===t.id ? 'var(--ink-90)' : 'var(--ink-40)',
                   borderBottom: tab===t.id ? '2px solid rgba(255,255,255,0.7)' : '2px solid transparent',
                   marginBottom:-1,letterSpacing:'0.02em',transition:'color 150ms',
@@ -280,7 +287,7 @@ function ApexApp() {
             ))}
           </div>
         )}
-      </>
+      </div>
     );
   };
 
@@ -290,10 +297,12 @@ function ApexApp() {
       <div className="s-shell">
         <AuthTopBar />
 
+        {page === 'landing'   && tab === 'dashboard' && <SellerMainDashboard user={user} onStart={goScenario} onGoTab={setTab} />}
         {page === 'landing'   && tab === 'home'     && <SellerDashboard user={user} onStart={goScenario} />}
         {page === 'landing'   && tab === 'progress' && <SellerProgress user={user} />}
         {page === 'landing'   && tab === 'coaching' && <SellerCoaching user={user} onGoToPlan={() => setTab('plan')} />}
         {page === 'landing'   && tab === 'plan'     && <SellerPlan user={user} />}
+        {page === 'landing'   && tab === 'profile'  && <SellerProfile user={user} onGoTab={setTab} />}
         {page === 'landing'   && tab === 'settings' && <SellerSettings user={user} onUserUpdate={u => setUser(u)} />}
         {page === 'scenario'  && <ScenarioSelector onSelect={handleSelectScenario} onBack={goLanding} />}
         {page === 'results'   && <SellerResults scenario={scenario} evaluationData={evaluationData} onBack={goLanding} onPractice={goScenario} />}

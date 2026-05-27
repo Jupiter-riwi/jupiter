@@ -617,142 +617,139 @@ const ScoreRing = ({ score }) => {
 };
 
 const SellerDashboard = ({ user, onStart, onViewResult }) => {
-  const [evals, setEvals]   = useState(null);
+  const [evals, setEvals]     = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    window.ApexAPI.getEvaluations(1, 6)
+    window.ApexAPI.getEvaluations(1, 10)
       .then(d => setEvals(d))
       .catch(() => setEvals({ data: [], total: 0 }))
       .finally(() => setLoading(false));
   }, []);
 
-  const name = user?.name || user?.email?.split('@')[0] || 'Vendedor';
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches';
-
-  const completedEvals = evals?.data?.filter(e => e.status === 'completed') || [];
-  const avgScore = completedEvals.length
-    ? Math.round(completedEvals.reduce((s, e) => s + (e.score?.overall ?? e.overall_score ?? 0), 0) / completedEvals.length)
-    : null;
+  const completedEvals = evals?.data?.filter(e => e.status === 'completed' || e.status === 'scored') || [];
+  const rawScores = completedEvals.map(e => {
+    const r = e.score?.overall ?? e.overall_score ?? 0;
+    return Math.round(r > 1 ? r : r * 100);
+  });
+  const avgScore  = rawScores.length ? Math.round(rawScores.reduce((a, b) => a + b, 0) / rawScores.length) : null;
+  const bestScore = rawScores.length ? Math.max(...rawScores) : null;
+  const scoreCol  = s => s >= 80 ? '#9ef5be' : s >= 60 ? '#fbbf24' : '#fca5a5';
+  const fmtDate   = d => new Date(d).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
 
   return (
     <div className="s-stage">
-      <div className="s-wrap" style={{ maxWidth: 900 }}>
+      <div className="s-wrap">
 
-        {/* HEADER */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', paddingTop: 48, paddingBottom: 36 }}>
+        {/* ── sección header ── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div>
-            <div className="mono" style={{ fontSize: 10.5, letterSpacing: '0.22em', color: 'var(--ink-40)', textTransform: 'uppercase', marginBottom: 8 }}>
-              {greeting}
-            </div>
-            <h1 style={{ fontSize: 38, fontWeight: 200, letterSpacing: '-0.03em', lineHeight: 1.1, marginBottom: 6 }}>
-              {name}
-            </h1>
-            <p style={{ fontSize: 13.5, color: 'var(--ink-50)' }}>
-              {evals?.total
-                ? `${evals.total} evaluación${evals.total !== 1 ? 'es' : ''} realizadas`
-                : 'Todavía no realizaste evaluaciones'}
-            </p>
+            <div style={{ fontSize: 16, fontWeight: 300, letterSpacing: '-0.01em' }}>Mis evaluaciones</div>
+            {!loading && (
+              <div className="mono" style={{ fontSize: 10, color: 'var(--ink-30)', marginTop: 3 }}>
+                {evals?.total
+                  ? `${evals.total} evaluación${evals.total !== 1 ? 'es' : ''} · ${completedEvals.length} completada${completedEvals.length !== 1 ? 's' : ''}`
+                  : 'ninguna realizada aún'}
+              </div>
+            )}
           </div>
-
           <button className="btn btn-primary" onClick={onStart}
-            style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '14px 28px', fontSize: 13, letterSpacing: '0.1em', textTransform: 'uppercase', flexShrink: 0, marginTop: 8 }}>
-            <SIcon name="mic" size={15} stroke={1.5} />
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', fontSize: 11.5 }}>
+            <SIcon name="mic" size={13} stroke={1.5} />
             Nueva evaluación
           </button>
         </div>
 
-        {/* STATS — solo si hay evaluaciones */}
-        {(evals?.total > 0) && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 36 }}>
+        {/* ── stats (solo si hay datos) ── */}
+        {!loading && evals?.total > 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
             {[
-              { label: 'Evaluaciones',     value: evals.total,          unit: 'total' },
-              { label: 'Score promedio',   value: avgScore ?? '—',      unit: avgScore ? '/100' : '' },
-              { label: 'Completadas',      value: completedEvals.length, unit: `de ${evals.total}` },
-            ].map(({ label, value, unit }) => (
-              <div key={label} className="glass" style={{ padding: '20px 22px' }}>
-                <div style={{ fontSize: 11, color: 'var(--ink-40)', letterSpacing: '0.06em', marginBottom: 8 }}>{label}</div>
-                <div style={{ fontSize: 32, fontWeight: 200, letterSpacing: '-0.02em', lineHeight: 1 }}>
-                  {value}
-                  <span style={{ fontSize: 12, color: 'var(--ink-40)', marginLeft: 5 }}>{unit}</span>
-                </div>
+              { label: 'Total',          value: evals.total,           color: 'var(--ink-70)', sub: `${completedEvals.length} completadas` },
+              { label: 'Score promedio', value: avgScore  ? `${avgScore}/100`  : '—', color: avgScore  ? scoreCol(avgScore)  : 'var(--ink-20)', sub: avgScore  ? (avgScore >= 80 ? 'Excelente' : avgScore >= 60 ? 'En progreso' : 'Necesita mejorar') : 'sin datos aún' },
+              { label: 'Mejor score',    value: bestScore ? `${bestScore}/100` : '—', color: bestScore ? '#a78bfa' : 'var(--ink-20)', sub: bestScore ? 'tu récord personal' : 'sin datos aún' },
+            ].map(({ label, value, color, sub }) => (
+              <div key={label} style={{ padding: '14px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <div className="mono" style={{ fontSize: 9, color: 'var(--ink-28)', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 8 }}>{label}</div>
+                <div style={{ fontSize: 22, fontWeight: 200, color, lineHeight: 1, marginBottom: 4 }}>{value}</div>
+                <div style={{ fontSize: 10, color: 'var(--ink-25)' }}>{sub}</div>
               </div>
             ))}
           </div>
         )}
 
-        {/* EVALUACIONES RECIENTES o EMPTY STATE */}
+        {/* ── cuerpo ── */}
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--ink-40)', fontSize: 13 }}>
-            Cargando historial…
-          </div>
+          <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--ink-25)', fontSize: 12 }}>Cargando…</div>
+
         ) : evals?.total === 0 ? (
-          /* EMPTY STATE */
-          <div className="glass" style={{ padding: '48px 40px', textAlign: 'center' }}>
-            <div style={{ fontSize: 40, marginBottom: 16, opacity: 0.3 }}>
-              <SIcon name="mic" size={44} stroke={1} />
+          /* empty state — sutil, no hero */
+          <div style={{ padding: '40px 24px', borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.08)', textAlign: 'center' }}>
+            <div style={{ color: 'rgba(255,255,255,0.15)', marginBottom: 14, display: 'flex', justifyContent: 'center' }}>
+              <SIcon name="mic" size={32} stroke={0.9} />
             </div>
-            <div style={{ fontSize: 18, fontWeight: 300, marginBottom: 10, letterSpacing: '-0.01em' }}>
-              Tu primera evaluación te espera
+            <div style={{ fontSize: 14, fontWeight: 300, color: 'var(--ink-50)', marginBottom: 6 }}>Todavía no hay evaluaciones</div>
+            <div style={{ fontSize: 12, color: 'var(--ink-28)', marginBottom: 20, lineHeight: 1.6, maxWidth: 360, margin: '0 auto 20px' }}>
+              Grabate 60–90 segundos y la IA analiza tu lenguaje corporal, voz y discurso en tiempo real.
             </div>
-            <p style={{ fontSize: 13.5, color: 'var(--ink-50)', maxWidth: '40ch', margin: '0 auto 28px', lineHeight: 1.65 }}>
-              Elegí un escenario, grabate por 60–90 segundos y la IA analiza tu lenguaje corporal, voz y discurso.
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 32, marginBottom: 32 }}>
-              {[['body', 'Lenguaje corporal'], ['wave', 'Voz y prosodia'], ['brain', 'Score con IA']].map(([icon, label]) => (
-                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--ink-50)' }}>
-                  <SIcon name={icon} size={15} stroke={1.3} />
-                  {label}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginBottom: 22 }}>
+              {[['body', 'Lenguaje corporal'], ['wave', 'Voz y prosodia'], ['sparkle', 'Score con IA']].map(([icon, label]) => (
+                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--ink-35)' }}>
+                  <SIcon name={icon} size={13} stroke={1.3} />{label}
                 </div>
               ))}
             </div>
             <button className="btn btn-primary" onClick={onStart}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 9, padding: '14px 32px', fontSize: 13, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-              <SIcon name="mic" size={14} /> Empezar ahora
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 22px', fontSize: 12 }}>
+              <SIcon name="mic" size={13} stroke={1.5} /> Empezar primera evaluación
             </button>
           </div>
+
         ) : (
-          /* HISTORIAL */
+          /* lista de evaluaciones */
           <div>
-            <div className="mono" style={{ fontSize: 10.5, letterSpacing: '0.22em', color: 'var(--ink-40)', textTransform: 'uppercase', marginBottom: 16 }}>
-              Evaluaciones recientes
+            <div className="mono" style={{ fontSize: 9, color: 'var(--ink-25)', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 10 }}>
+              Historial reciente
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 40 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {evals.data.map(ev => {
-                const score = ev.score?.overall ?? ev.overall_score ?? null;
-                const scenario = ev.title || 'Evaluación';
-                const date = new Date(ev.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+                const rawS = ev.score?.overall ?? ev.overall_score ?? null;
+                const score = rawS !== null ? Math.round(rawS > 1 ? rawS : rawS * 100) : null;
+                const isComplete = ev.status === 'completed' || ev.status === 'scored';
+                const isProcessing = ev.status === 'processing';
+                const date = fmtDate(ev.created_at);
                 return (
-                  <div key={ev.id} className="glass"
-                    onClick={() => onViewResult && onViewResult(ev)}
-                    style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16,
-                      cursor: ev.status === 'completed' ? 'pointer' : 'default',
-                      transition: 'background 140ms',
-                    }}
-                    onMouseEnter={e => { if(ev.status==='completed') e.currentTarget.style.background='rgba(255,255,255,0.06)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background=''; }}>
+                  <div key={ev.id}
+                    onClick={() => isComplete && onViewResult && onViewResult(ev)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', cursor: isComplete ? 'pointer' : 'default', transition: 'background 140ms, border-color 140ms' }}
+                    onMouseEnter={e => { if (isComplete) { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)'; }}}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; }}>
 
+                    {/* score ring o placeholder */}
                     {score !== null
-                      ? <ScoreRing score={Math.round(score > 1 ? score : score * 100)} />
-                      : <div style={{ width: 56, height: 56, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-30)' }}>
-                          <SIcon name="progress" size={18} stroke={1.2} />
-                        </div>
-                    }
+                      ? <ScoreRing score={score} />
+                      : <div style={{ width: 52, height: 52, borderRadius: '50%', border: '1px dashed rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: 'var(--ink-25)' }}>
+                          <SIcon name={isProcessing ? 'progress' : 'mic'} size={16} stroke={1.2} />
+                        </div>}
 
+                    {/* info */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 500, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{scenario}</div>
-                      <div style={{ fontSize: 11.5, color: 'var(--ink-40)' }}>{date}</div>
+                      <div style={{ fontSize: 13, fontWeight: 400, color: 'var(--ink-80)', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {ev.title || 'Evaluación sin título'}
+                      </div>
+                      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                        <span className="mono" style={{ fontSize: 10, color: 'var(--ink-30)' }}>{date}</span>
+                        <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'rgba(255,255,255,0.15)' }} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ width: 5, height: 5, borderRadius: '50%', background: isComplete ? '#9ef5be' : isProcessing ? '#fbbf24' : 'rgba(255,255,255,0.2)', flexShrink: 0 }} />
+                          <span className="mono" style={{ fontSize: 10, color: isComplete ? 'var(--ink-40)' : isProcessing ? '#fbbf24' : 'var(--ink-25)' }}>
+                            {isComplete ? 'completada' : isProcessing ? 'procesando…' : 'en curso'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor[ev.status] || 'var(--ink-30)', display: 'inline-block' }}/>
-                      <span className="mono" style={{ fontSize: 10, color: statusColor[ev.status] || 'var(--ink-40)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                        {statusLabel[ev.status] || ev.status}
-                      </span>
-                    </div>
-
-                    {ev.status === 'completed' && <SIcon name="arrow" size={14} stroke={1.3} style={{ color: 'var(--ink-30)', flexShrink: 0 }} />}
+                    {/* flecha si clickeable */}
+                    {isComplete && <SIcon name="arrow" size={13} stroke={1.3} style={{ color: 'var(--ink-25)', flexShrink: 0 }} />}
                   </div>
                 );
               })}
@@ -850,70 +847,101 @@ const SellerProgress = ({ user }) => {
   const lastScore = completed.length ? completed[completed.length - 1]._s : null;
   const trend     = completed.length >= 2 ? lastScore - completed[completed.length - 2]._s : null;
 
+  const scoreCol = s => s >= 80 ? '#9ef5be' : s >= 60 ? '#fbbf24' : '#fca5a5';
+
   return (
     <div className="s-stage">
-      <div className="s-wrap" style={{ maxWidth: 900 }}>
-        <div style={{ paddingTop: 48, paddingBottom: 32 }}>
-          <div className="mono" style={{ fontSize: 10.5, letterSpacing: '0.22em', color: 'var(--ink-40)', textTransform: 'uppercase', marginBottom: 8 }}>Progreso</div>
-          <h1 style={{ fontSize: 34, fontWeight: 200, letterSpacing: '-0.03em' }}>Tu evolución</h1>
+      <div className="s-wrap">
+
+        {/* header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 300, letterSpacing: '-0.01em' }}>Tu evolución</div>
+            {!loading && (
+              <div className="mono" style={{ fontSize: 10, color: 'var(--ink-30)', marginTop: 3 }}>
+                {completed.length === 0 ? 'completá evaluaciones para ver tu progreso' : `${completed.length} evaluación${completed.length !== 1 ? 'es' : ''} completada${completed.length !== 1 ? 's' : ''}`}
+              </div>
+            )}
+          </div>
         </div>
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--ink-40)', fontSize: 13 }}>Cargando datos…</div>
+          <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--ink-25)', fontSize: 12 }}>Cargando…</div>
         ) : (
           <>
-            {/* STATS */}
+            {/* stats — solo con datos */}
             {completed.length > 0 && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 24 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>
                 {[
-                  { label: 'Score promedio', value: avgScore, unit: '/100' },
-                  { label: 'Mejor score',    value: bestScore, unit: '/100' },
-                  { label: 'Última sesión',  value: lastScore, unit: '/100' },
-                  { label: 'Tendencia',      value: trend !== null ? (trend >= 0 ? `+${trend}` : trend) : '—', unit: trend !== null ? 'vs anterior' : '', color: trend > 0 ? '#9ef5be' : trend < 0 ? '#fca5a5' : 'inherit' },
+                  { label: 'Score promedio', value: avgScore,  color: avgScore  ? scoreCol(avgScore)  : 'var(--ink-20)', unit: '/100' },
+                  { label: 'Mejor score',    value: bestScore, color: '#a78bfa', unit: '/100' },
+                  { label: 'Última sesión',  value: lastScore, color: lastScore ? scoreCol(lastScore) : 'var(--ink-20)', unit: '/100' },
+                  { label: 'Tendencia',      value: trend !== null ? (trend >= 0 ? `+${trend}` : `${trend}`) : '—',
+                    color: trend > 0 ? '#9ef5be' : trend < 0 ? '#fca5a5' : 'var(--ink-40)',
+                    unit: trend !== null ? 'pts' : '' },
                 ].map(({ label, value, unit, color }) => (
-                  <div key={label} className="glass" style={{ padding: '18px 20px' }}>
-                    <div style={{ fontSize: 11, color: 'var(--ink-40)', letterSpacing: '0.06em', marginBottom: 8 }}>{label}</div>
-                    <div style={{ fontSize: 28, fontWeight: 200, letterSpacing: '-0.02em', color: color || 'inherit' }}>
-                      {value ?? '—'}<span style={{ fontSize: 11, color: 'var(--ink-40)', marginLeft: 4 }}>{unit}</span>
+                  <div key={label} style={{ padding: '14px 18px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                    <div className="mono" style={{ fontSize: 9, color: 'var(--ink-28)', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 8 }}>{label}</div>
+                    <div style={{ fontSize: 24, fontWeight: 200, color, lineHeight: 1 }}>
+                      {value ?? '—'}<span style={{ fontSize: 10, color: 'var(--ink-30)', marginLeft: 3 }}>{unit}</span>
                     </div>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* CHART */}
-            <div className="glass" style={{ padding: '24px 28px', marginBottom: 28 }}>
-              <div className="mono" style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--ink-40)', textTransform: 'uppercase', marginBottom: 16 }}>Score por sesión</div>
-              <ScoreChart data={chartData} />
+            {/* gráfico */}
+            <div style={{ padding: '18px 20px', borderRadius: 11, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div className="mono" style={{ fontSize: 9, color: 'var(--ink-28)', letterSpacing: '0.16em', textTransform: 'uppercase' }}>Score por sesión</div>
+                {completed.length > 0 && (
+                  <span className="mono" style={{ fontSize: 9, color: 'var(--ink-25)' }}>{completed.length} sesión{completed.length !== 1 ? 'es' : ''}</span>
+                )}
+              </div>
+              {completed.length < 2 ? (
+                <div style={{ height: 100, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 8, border: '1px dashed rgba(255,255,255,0.07)' }}>
+                  <SIcon name="progress" size={20} stroke={1} style={{ color: 'rgba(255,255,255,0.12)' }} />
+                  <div style={{ fontSize: 12, color: 'var(--ink-25)', textAlign: 'center' }}>
+                    {completed.length === 0 ? 'Completá tu primera evaluación para ver el gráfico' : 'Necesitás al menos 2 evaluaciones para ver la evolución'}
+                  </div>
+                </div>
+              ) : (
+                <ScoreChart data={chartData} />
+              )}
             </div>
 
-            {/* LOGROS */}
-            <div className="mono" style={{ fontSize: 10.5, letterSpacing: '0.22em', color: 'var(--ink-40)', textTransform: 'uppercase', marginBottom: 16 }}>Logros</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 40 }}>
+            {/* logros */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div className="mono" style={{ fontSize: 9, color: 'var(--ink-28)', letterSpacing: '0.16em', textTransform: 'uppercase' }}>Logros</div>
+              <span className="mono" style={{ fontSize: 9, color: 'var(--ink-25)' }}>
+                {BADGES_DEF.filter(b => b.unlocked(completed)).length}/{BADGES_DEF.length} obtenidos
+              </span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>
               {BADGES_DEF.map(b => {
                 const ok  = b.unlocked(completed);
                 const prg = b.prog ? b.prog(completed) : null;
                 return (
-                  <div key={b.id} className="glass" style={{
-                    padding: '18px 16px', textAlign: 'center',
-                    opacity: ok ? 1 : 0.4,
-                    filter: ok ? 'none' : 'grayscale(1)',
-                    transition: 'opacity 300ms',
+                  <div key={b.id} style={{
+                    padding: '16px 14px', textAlign: 'center', borderRadius: 10,
+                    background: ok ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.02)',
+                    border: ok ? `1px solid ${b.color}33` : '1px solid rgba(255,255,255,0.06)',
+                    opacity: ok ? 1 : 0.5, transition: 'opacity 300ms',
                   }}>
-                    <div style={{ marginBottom: 10, color: ok ? b.color : 'var(--ink-30)' }}>
-                      <SIcon name={b.icon} size={22} stroke={1.3} />
+                    <div style={{ marginBottom: 8, color: ok ? b.color : 'var(--ink-25)' }}>
+                      <SIcon name={b.icon} size={20} stroke={1.3} />
                     </div>
-                    <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 4 }}>{b.label}</div>
-                    <div style={{ fontSize: 10.5, color: 'var(--ink-40)', lineHeight: 1.4, marginBottom: prg ? 10 : 0 }}>{b.desc}</div>
+                    <div style={{ fontSize: 11.5, fontWeight: 400, marginBottom: 3, color: ok ? 'var(--ink-80)' : 'var(--ink-40)' }}>{b.label}</div>
+                    <div style={{ fontSize: 10, color: 'var(--ink-30)', lineHeight: 1.4 }}>{b.desc}</div>
                     {prg && !ok && (
-                      <div>
-                        <div style={{ height: 3, borderRadius: 99, background: 'rgba(255,255,255,0.07)', overflow: 'hidden', marginTop: 8 }}>
+                      <div style={{ marginTop: 8 }}>
+                        <div style={{ height: 2, borderRadius: 99, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
                           <div style={{ height: '100%', width: `${(prg[0]/prg[1])*100}%`, background: b.color, borderRadius: 99 }} />
                         </div>
-                        <div style={{ fontSize: 9.5, color: 'var(--ink-30)', marginTop: 4 }}>{prg[0]}/{prg[1]}</div>
+                        <div className="mono" style={{ fontSize: 9, color: 'var(--ink-25)', marginTop: 3 }}>{prg[0]}/{prg[1]}</div>
                       </div>
                     )}
-                    {ok && <div style={{ fontSize: 9.5, color: b.color, marginTop: 6, letterSpacing: '0.1em' }}>✓ Obtenido</div>}
+                    {ok && <div className="mono" style={{ fontSize: 9, color: b.color, marginTop: 6, letterSpacing: '0.08em' }}>obtenido</div>}
                   </div>
                 );
               })}
@@ -973,22 +1001,23 @@ const SellerCoaching = ({ user, onGoToPlan }) => {
   return (
     <div className="s-stage">
       <div className="s-wrap" style={{ maxWidth: 900 }}>
-        <div style={{ paddingTop: 48, paddingBottom: 32 }}>
-          <div className="mono" style={{ fontSize: 10.5, letterSpacing: '0.22em', color: 'var(--ink-40)', textTransform: 'uppercase', marginBottom: 8 }}>Coaching IA</div>
-          <h1 style={{ fontSize: 34, fontWeight: 200, letterSpacing: '-0.03em', marginBottom: 6 }}>Mejorá tu pitch</h1>
-          <p style={{ fontSize: 13.5, color: 'var(--ink-50)' }}>
-            Técnicas seleccionadas para vendedores {avgScore !== null ? `con score ${avgScore}/100` : 'en formación'}.
-          </p>
+
+        {/* header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 300, letterSpacing: '-0.01em' }}>Coaching IA</div>
+            {!loading && (
+              <div className="mono" style={{ fontSize: 10, color: 'var(--ink-30)', marginTop: 3 }}>
+                {avgScore !== null ? `score promedio ${avgScore}/100 · técnicas personalizadas` : 'técnicas para vendedores en formación'}
+              </div>
+            )}
+          </div>
         </div>
 
         {!loading && completed.length === 0 && (
-          <div className="glass" style={{ padding: '28px 32px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 16,
-            background: 'rgba(158,245,190,0.04)', border: '1px solid rgba(158,245,190,0.15)' }}>
-            <SIcon name="sparkle" size={20} stroke={1.3} style={{ color: '#9ef5be', flexShrink: 0 }} />
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 3, color: '#9ef5be' }}>Coaching personalizado disponible tras tu primera evaluación</div>
-              <div style={{ fontSize: 12.5, color: 'var(--ink-50)' }}>Grabate un pitch y la IA analizará tus áreas específicas de mejora.</div>
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 8, background: 'rgba(158,245,190,0.04)', border: '1px solid rgba(158,245,190,0.1)', marginBottom: 18 }}>
+            <span style={{ color: '#9ef5be', flexShrink: 0 }}><SIcon name="sparkle" size={13} stroke={1.4} /></span>
+            <span style={{ fontSize: 12, color: 'var(--ink-45)' }}>El coaching se personaliza con tus datos luego de tu primera evaluación.</span>
           </div>
         )}
 
@@ -1028,16 +1057,16 @@ const SellerCoaching = ({ user, onGoToPlan }) => {
         </div>
 
         {/* UPSELL COACHING IA PERSONALIZADO */}
-        <div className="glass" style={{ padding: '24px 28px', marginBottom: 40, display: 'flex', alignItems: 'center', gap: 20,
-          background: 'linear-gradient(135deg, rgba(120,255,180,0.04), rgba(255,255,255,0.02))',
-          border: '1px solid rgba(120,255,180,0.18)' }}>
+        <div style={{ padding: '18px 22px', borderRadius: 11, marginBottom: 32, display: 'flex', alignItems: 'center', gap: 20,
+          background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)' }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 5 }}>Coaching IA personalizado</div>
-            <div style={{ fontSize: 12.5, color: 'var(--ink-50)', lineHeight: 1.6 }}>
-              Con el plan Growth, la IA analiza tus evaluaciones y genera un plan de mejora específico para vos: áreas débiles, ejercicios y metas semanales.
+            <div style={{ fontSize: 12.5, fontWeight: 400, marginBottom: 4, color: 'var(--ink-70)' }}>Coaching IA personalizado</div>
+            <div style={{ fontSize: 12, color: 'var(--ink-35)', lineHeight: 1.55 }}>
+              Con el plan Growth la IA genera un plan de mejora específico: áreas débiles, ejercicios y metas semanales.
             </div>
           </div>
-          <button className="btn btn-primary" onClick={onGoToPlan} style={{ flexShrink: 0, padding: '11px 20px', fontSize: 12, letterSpacing: '0.08em', whiteSpace: 'nowrap' }}>
+          <button className="btn" onClick={onGoToPlan}
+            style={{ flexShrink: 0, padding: '9px 18px', fontSize: 11.5, letterSpacing: '0.06em', whiteSpace: 'nowrap', color: 'var(--ink-60)' }}>
             Ver plan Growth
           </button>
         </div>
@@ -1081,11 +1110,14 @@ const SellerPlan = ({ user }) => {
     <div className="s-stage">
       <div className="s-wrap" style={{ maxWidth: 900 }}>
 
-        {/* HEADER */}
-        <div style={{ paddingTop: 48, paddingBottom: 32 }}>
-          <div className="mono" style={{ fontSize: 10.5, letterSpacing: '0.22em', color: 'var(--ink-40)', textTransform: 'uppercase', marginBottom: 8 }}>Mi Plan</div>
-          <h1 style={{ fontSize: 34, fontWeight: 200, letterSpacing: '-0.03em', marginBottom: 4 }}>Plan Starter</h1>
-          <p style={{ fontSize: 13.5, color: 'var(--ink-50)' }}>Período actual · renovación mensual</p>
+        {/* header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 300, letterSpacing: '-0.01em' }}>Mi plan</div>
+            <div className="mono" style={{ fontSize: 10, color: 'var(--ink-30)', marginTop: 3 }}>
+              Plan Starter · renovación mensual · {tokensTotal - tokensUsed} tokens disponibles
+            </div>
+          </div>
         </div>
 
         {/* TOKEN USAGE */}
@@ -1158,9 +1190,10 @@ const SellerPlan = ({ user }) => {
                     </div>
                   ))}
                 </div>
-                <button className={`btn${isCurrent ? '' : ' btn-primary'}`}
+                <button className="btn"
                   style={{ width: '100%', justifyContent: 'center', padding: '11px', fontSize: 12,
-                    opacity: isCurrent ? 0.45 : 1, cursor: isCurrent ? 'default' : 'pointer' }}
+                    opacity: isCurrent ? 0.35 : 0.85, cursor: isCurrent ? 'default' : 'pointer',
+                    color: isCurrent ? 'var(--ink-40)' : 'var(--ink-70)' }}
                   disabled={isCurrent}
                   onClick={() => !isCurrent && setUpgradeTarget(p)}>
                   {isCurrent ? 'Plan actual' : p.id === 'enterprise' ? 'Contactar ventas' : 'Actualizar plan'}
@@ -1195,8 +1228,8 @@ const SellerPlan = ({ user }) => {
               ))}
             </div>
             <a href={`mailto:ventas@apexvision.ai?subject=Upgrade%20a%20plan%20${upgradeTarget.name}&body=Hola%2C%20quiero%20actualizar%20mi%20plan%20a%20${upgradeTarget.name}.%20Mi%20cuenta%3A%20${encodeURIComponent(user?.email || '')}`}
-              className="btn btn-primary"
-              style={{ display: 'block', width: '100%', textAlign: 'center', padding: '13px', fontSize: 13, letterSpacing: '0.08em', textDecoration: 'none', marginBottom: 10, boxSizing: 'border-box' }}>
+              className="btn"
+              style={{ display: 'block', width: '100%', textAlign: 'center', padding: '13px', fontSize: 13, letterSpacing: '0.08em', textDecoration: 'none', marginBottom: 10, boxSizing: 'border-box', color: 'var(--ink-80)' }}>
               {upgradeTarget.id === 'enterprise' ? 'Contactar ventas' : 'Solicitar upgrade'}
             </a>
             <button onClick={() => setUpgradeTarget(null)}
@@ -1255,9 +1288,14 @@ const SellerSettings = ({ user, onUserUpdate }) => {
     <div className="s-stage">
       <div className="s-wrap" style={{ maxWidth: 640 }}>
 
-        <div style={{ paddingTop: 48, paddingBottom: 32 }}>
-          <div className="mono" style={{ fontSize: 10.5, letterSpacing: '0.22em', color: 'var(--ink-40)', textTransform: 'uppercase', marginBottom: 8 }}>Configuración</div>
-          <h1 style={{ fontSize: 34, fontWeight: 200, letterSpacing: '-0.03em' }}>Tu perfil</h1>
+        {/* header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 300, letterSpacing: '-0.01em' }}>Configuración</div>
+            <div className="mono" style={{ fontSize: 10, color: 'var(--ink-30)', marginTop: 3 }}>
+              {user?.email || 'configuración de cuenta'}
+            </div>
+          </div>
         </div>
 
         {/* DATOS PERSONALES */}
@@ -1274,7 +1312,7 @@ const SellerSettings = ({ user, onUserUpdate }) => {
                 placeholder="Tu nombre" style={inputStyle} />
             </Field>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <button type="submit" className="btn btn-primary" style={{ padding: '11px 24px', fontSize: 12.5 }}>
+              <button type="submit" className="btn" style={{ padding: '11px 24px', fontSize: 12.5 }}>
                 Guardar cambios
               </button>
               {saved && (
@@ -1315,7 +1353,7 @@ const SellerSettings = ({ user, onUserUpdate }) => {
               </div>
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <button type="submit" className="btn" style={{ padding: '11px 24px', fontSize: 12.5 }}>
+              <button type="submit" className="btn" style={{ padding: '11px 24px', fontSize: 12.5, opacity: 0.75 }}>
                 Actualizar contraseña
               </button>
               {pwSaved && (
@@ -1332,12 +1370,409 @@ const SellerSettings = ({ user, onUserUpdate }) => {
   );
 };
 
+/* ============================================================
+   PERFIL — página de perfil del vendedor
+   ============================================================ */
+const SellerProfile = ({ user, onGoTab }) => {
+  const [evals, setEvals] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    window.ApexAPI.getEvaluations(1, 50)
+      .then(d => setEvals(d))
+      .catch(() => setEvals({ data: [], total: 0 }))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const storedName   = localStorage.getItem('apex_display_name') || '';
+  const displayName  = storedName || user?.name || user?.email?.split('@')[0] || 'Vendedor';
+  const initials     = displayName.split(' ').filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+  const memberSince  = user?.created_at
+    ? new Date(user.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })
+    : null;
+
+  const completed = (evals?.data || [])
+    .filter(e => e.status === 'completed' || e.status === 'scored')
+    .map(e => ({ ...e, _s: Math.round(((e.score?.overall ?? e.overall_score ?? 0) > 1 ? (e.score?.overall ?? e.overall_score) : (e.score?.overall ?? e.overall_score) * 100)) }));
+
+  const scores    = completed.map(e => e._s);
+  const avgScore  = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+  const bestScore = scores.length ? Math.max(...scores) : null;
+  const scoreCol  = s => s >= 80 ? '#9ef5be' : s >= 60 ? '#fbbf24' : '#fca5a5';
+
+  // this month
+  const now = new Date();
+  const thisMonth = (evals?.data || []).filter(e => {
+    const d = new Date(e.created_at);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+
+  const unlockedBadges = BADGES_DEF.filter(b => b.unlocked(completed));
+
+  return (
+    <div className="s-stage">
+      <div className="s-wrap" style={{ maxWidth: 760 }}>
+
+        {/* ── hero de perfil ── */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 24, marginBottom: 24, padding: '24px', borderRadius: 14, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+          {/* avatar grande */}
+          <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <span style={{ fontSize: 26, fontWeight: 200, color: 'var(--ink-70)' }}>{initials}</span>
+          </div>
+          {/* datos */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 22, fontWeight: 200, letterSpacing: '-0.02em', color: 'var(--ink-90)', marginBottom: 4 }}>{displayName}</div>
+            <div className="mono" style={{ fontSize: 11, color: 'var(--ink-40)', marginBottom: 12 }}>{user?.email}</div>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--ink-45)' }}>
+                <SIcon name="user" size={12} stroke={1.4} />
+                Vendedor
+              </div>
+              {memberSince && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--ink-45)' }}>
+                  <SIcon name="history" size={12} stroke={1.4} />
+                  Miembro desde {memberSince}
+                </div>
+              )}
+              {unlockedBadges.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--ink-45)' }}>
+                  <SIcon name="sparkle" size={12} stroke={1.4} />
+                  {unlockedBadges.length} logro{unlockedBadges.length !== 1 ? 's' : ''} obtenido{unlockedBadges.length !== 1 ? 's' : ''}
+                </div>
+              )}
+            </div>
+          </div>
+          {/* botón editar */}
+          <button className="btn" onClick={() => onGoTab('settings')}
+            style={{ fontSize: 11.5, padding: '8px 16px', opacity: 0.65, flexShrink: 0 }}>
+            Editar perfil
+          </button>
+        </div>
+
+        {/* ── estadísticas ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 20 }}>
+          {[
+            { label: 'Evaluaciones', value: evals?.total ?? '—', sub: `${completed.length} completadas`, color: 'var(--ink-70)' },
+            { label: 'Score promedio', value: avgScore ? `${avgScore}` : '—', sub: avgScore ? (avgScore >= 80 ? 'Excelente' : avgScore >= 60 ? 'En progreso' : 'Mejorando') : 'sin datos', color: avgScore ? scoreCol(avgScore) : 'var(--ink-20)', unit: avgScore ? '/100' : '' },
+            { label: 'Mejor score',   value: bestScore ? `${bestScore}` : '—', sub: bestScore ? 'tu récord' : 'sin datos', color: bestScore ? '#a78bfa' : 'var(--ink-20)', unit: bestScore ? '/100' : '' },
+            { label: 'Este mes',      value: thisMonth.length, sub: `${thisMonth.filter(e => e.status === 'completed' || e.status === 'scored').length} completadas`, color: thisMonth.length > 0 ? 'var(--ink-70)' : 'var(--ink-20)' },
+          ].map(({ label, value, sub, color, unit }) => (
+            <div key={label} style={{ padding: '14px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <div className="mono" style={{ fontSize: 9, color: 'var(--ink-28)', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 8 }}>{label}</div>
+              <div style={{ fontSize: 24, fontWeight: 200, color, lineHeight: 1, marginBottom: 4 }}>
+                {value}{unit && <span style={{ fontSize: 10, color: 'var(--ink-30)', marginLeft: 2 }}>{unit}</span>}
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--ink-25)' }}>{loading ? '…' : sub}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── logros ── */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div className="mono" style={{ fontSize: 9, color: 'var(--ink-28)', letterSpacing: '0.16em', textTransform: 'uppercase' }}>Logros</div>
+            <span className="mono" style={{ fontSize: 9, color: 'var(--ink-25)' }}>{unlockedBadges.length}/{BADGES_DEF.length} obtenidos</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+            {BADGES_DEF.map(b => {
+              const ok  = b.unlocked(completed);
+              const prg = b.prog ? b.prog(completed) : null;
+              return (
+                <div key={b.id} style={{
+                  padding: '16px 14px', textAlign: 'center', borderRadius: 10,
+                  background: ok ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.02)',
+                  border: ok ? `1px solid ${b.color}33` : '1px solid rgba(255,255,255,0.05)',
+                  opacity: ok ? 1 : 0.45, transition: 'opacity 300ms',
+                }}>
+                  <div style={{ marginBottom: 8, color: ok ? b.color : 'var(--ink-25)' }}>
+                    <SIcon name={b.icon} size={20} stroke={1.3} />
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 400, marginBottom: 3, color: ok ? 'var(--ink-80)' : 'var(--ink-40)' }}>{b.label}</div>
+                  <div style={{ fontSize: 10, color: 'var(--ink-28)', lineHeight: 1.4 }}>{b.desc}</div>
+                  {prg && !ok && (
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ height: 2, borderRadius: 99, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${(prg[0]/prg[1])*100}%`, background: b.color, borderRadius: 99 }} />
+                      </div>
+                      <div className="mono" style={{ fontSize: 9, color: 'var(--ink-25)', marginTop: 3 }}>{prg[0]}/{prg[1]}</div>
+                    </div>
+                  )}
+                  {ok && <div className="mono" style={{ fontSize: 9, color: b.color, marginTop: 6, letterSpacing: '0.08em' }}>obtenido</div>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── actividad reciente ── */}
+        {!loading && completed.length > 0 && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div className="mono" style={{ fontSize: 9, color: 'var(--ink-28)', letterSpacing: '0.16em', textTransform: 'uppercase' }}>Actividad reciente</div>
+              <button onClick={() => onGoTab('home')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--ink-35)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                Ver todas <SIcon name="arrow" size={11} stroke={1.5} />
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {[...completed].reverse().slice(0, 5).map((ev, i) => (
+                <div key={ev.id || i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 14px', borderRadius: 9, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', border: `2px solid ${scoreCol(ev._s)}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <span style={{ fontSize: 11, fontWeight: 300, color: scoreCol(ev._s) }}>{ev._s}</span>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12.5, color: 'var(--ink-75)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.title || 'Evaluación sin título'}</div>
+                    <div className="mono" style={{ fontSize: 10, color: 'var(--ink-30)', marginTop: 2 }}>
+                      {new Date(ev.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </div>
+                  </div>
+                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#9ef5be', flexShrink: 0 }} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!loading && completed.length === 0 && (
+          <div style={{ padding: '32px', textAlign: 'center', borderRadius: 11, border: '1px dashed rgba(255,255,255,0.07)' }}>
+            <div style={{ fontSize: 12, color: 'var(--ink-30)', marginBottom: 14 }}>Todavía no hay evaluaciones completadas</div>
+            <button className="btn btn-primary" onClick={() => onGoTab('home')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 18px', fontSize: 12 }}>
+              <SIcon name="mic" size={13} stroke={1.5} /> Hacer mi primera evaluación
+            </button>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+};
+
+/* ============================================================
+   MAIN DASHBOARD — vista general del vendedor
+   ============================================================ */
+const normScore = (e) => {
+  const raw = e.score?.overall ?? e.overall_score ?? null;
+  if (raw === null) return null;
+  return Math.round(raw > 1 ? raw : raw * 100);
+};
+
+const ScoreMini = ({ scores }) => {
+  if (scores.length < 2) return null;
+  const W = 160, H = 44, pad = 6;
+  const lo = Math.max(0, Math.min(...scores) - 8);
+  const hi = Math.min(100, Math.max(...scores) + 8);
+  const range = hi - lo || 1;
+  const xs = scores.map((_, i) => pad + (i / (scores.length - 1)) * (W - pad * 2));
+  const ys = scores.map(s => H - pad - ((s - lo) / range) * (H - pad * 2));
+  const last = scores[scores.length - 1];
+  const prev = scores[scores.length - 2];
+  const color = last > prev ? '#9ef5be' : last < prev ? '#fca5a5' : 'rgba(255,255,255,0.35)';
+  const area = `M${xs[0]},${H} ` + xs.map((x, i) => `L${x},${ys[i]}`).join(' ') + ` L${xs[xs.length-1]},${H} Z`;
+  return (
+    <svg width={W} height={H} style={{ display: 'block' }}>
+      <defs>
+        <linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.18" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill="url(#sg)" />
+      <polyline points={xs.map((x, i) => `${x},${ys[i]}`).join(' ')} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={xs[xs.length-1]} cy={ys[ys.length-1]} r={3.5} fill={color} />
+    </svg>
+  );
+};
+
+const SellerMainDashboard = ({ user, onStart, onGoTab }) => {
+  const [evals, setEvals] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    window.ApexAPI.getEvaluations(1, 20)
+      .then(r => setEvals(r.data || r || []))
+      .catch(() => setEvals([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const displayName = user?.name || user?.email?.split('@')[0] || 'Vendedor';
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Buenos días' : hour < 18 ? 'Buenas tardes' : 'Buenas noches';
+
+  const completed = evals.filter(e => e.status === 'completed' || e.status === 'scored');
+  const scores = completed.map(normScore).filter(s => s !== null);
+  const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+  const bestScore = scores.length ? Math.max(...scores) : null;
+  const trend = scores.length >= 2 ? (scores[scores.length - 1] - scores[scores.length - 2]) : null;
+  const recent = [...evals].reverse().slice(0, 4);
+
+  const fmtDate = (d) => {
+    if (!d) return '';
+    return new Date(d).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+  };
+
+  const scoreColor = (s) => s >= 80 ? '#9ef5be' : s >= 60 ? '#fbbf24' : '#fca5a5';
+
+  /* ── layout compartido (vacío o con datos) ───────────────── */
+
+  return (
+    <div className="s-stage">
+      <div className="s-wrap">
+
+        {/* KPIs + CTA en la misma fila */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+          <div className="mono" style={{ fontSize: 9, color: 'var(--ink-25)', letterSpacing: '0.16em', textTransform: 'uppercase' }}>Resumen</div>
+          <button className="btn btn-primary" onClick={onStart} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', fontSize: 11.5 }}>
+            <SIcon name="mic" size={12} stroke={1.5} />
+            Nueva evaluación
+          </button>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 16 }}>
+
+          {/* score promedio */}
+          <div style={{ padding: '16px 18px', borderRadius: 11, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderTop: avgScore !== null ? `2px solid ${scoreColor(avgScore)}` : '1px solid rgba(255,255,255,0.07)' }}>
+            <div className="mono" style={{ fontSize: 9, color: 'var(--ink-30)', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 10 }}>Score promedio</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <span style={{ fontSize: 30, fontWeight: 200, color: avgScore !== null ? scoreColor(avgScore) : 'var(--ink-20)', lineHeight: 1 }}>{avgScore ?? '—'}</span>
+              {avgScore !== null && <span style={{ fontSize: 11, color: 'var(--ink-30)' }}>/100</span>}
+            </div>
+            {avgScore !== null
+              ? <div style={{ marginTop: 10, height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.06)' }}><div style={{ width: `${avgScore}%`, height: '100%', borderRadius: 2, background: scoreColor(avgScore) }} /></div>
+              : <div style={{ fontSize: 10, color: 'var(--ink-20)', marginTop: 8 }}>promedio de todas tus sesiones</div>}
+          </div>
+
+          {/* mejor score */}
+          <div style={{ padding: '16px 18px', borderRadius: 11, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderTop: bestScore !== null ? '2px solid #a78bfa' : '1px solid rgba(255,255,255,0.07)' }}>
+            <div className="mono" style={{ fontSize: 9, color: 'var(--ink-30)', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 10 }}>Mejor score</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <span style={{ fontSize: 30, fontWeight: 200, color: bestScore !== null ? '#a78bfa' : 'var(--ink-20)', lineHeight: 1 }}>{bestScore ?? '—'}</span>
+              {bestScore !== null && <span style={{ fontSize: 11, color: 'var(--ink-30)' }}>/100</span>}
+            </div>
+            {bestScore !== null
+              ? <div style={{ marginTop: 10, height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.06)' }}><div style={{ width: `${bestScore}%`, height: '100%', borderRadius: 2, background: '#a78bfa' }} /></div>
+              : <div style={{ fontSize: 10, color: 'var(--ink-20)', marginTop: 8 }}>tu puntaje más alto hasta ahora</div>}
+          </div>
+
+          {/* evaluaciones */}
+          <div style={{ padding: '16px 18px', borderRadius: 11, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+            <div className="mono" style={{ fontSize: 9, color: 'var(--ink-30)', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 10 }}>Evaluaciones</div>
+            <div style={{ fontSize: 30, fontWeight: 200, lineHeight: 1, color: evals.length > 0 ? 'var(--ink-80)' : 'var(--ink-20)' }}>{evals.length}</div>
+            <div style={{ fontSize: 10, color: 'var(--ink-25)', marginTop: 8 }}>
+              {evals.length === 0 ? 'ninguna realizada aún' : `${completed.length} completada${completed.length !== 1 ? 's' : ''}`}
+            </div>
+          </div>
+
+          {/* tendencia */}
+          <div style={{ padding: '16px 18px', borderRadius: 11, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderTop: trend !== null ? `2px solid ${trend > 0 ? '#9ef5be' : trend < 0 ? '#fca5a5' : 'rgba(255,255,255,0.15)'}` : '1px solid rgba(255,255,255,0.07)' }}>
+            <div className="mono" style={{ fontSize: 9, color: 'var(--ink-30)', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 10 }}>Tendencia</div>
+            <div style={{ fontSize: 30, fontWeight: 200, lineHeight: 1, color: trend !== null ? (trend > 0 ? '#9ef5be' : trend < 0 ? '#fca5a5' : 'var(--ink-40)') : 'var(--ink-20)' }}>
+              {trend !== null ? (trend > 0 ? `+${trend}` : `${trend}`) : '—'}
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--ink-25)', marginTop: 8 }}>
+              {trend !== null ? 'vs evaluación anterior' : 'necesitás 2+ evaluaciones'}
+            </div>
+          </div>
+        </div>
+
+        {/* fila inferior: sparkline + historial */}
+        <div style={{ display: 'grid', gridTemplateColumns: scores.length >= 2 ? '220px 1fr' : '1fr', gap: 12 }}>
+
+          {scores.length >= 2 && (
+            <div style={{ padding: '18px 20px', borderRadius: 11, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <div className="mono" style={{ fontSize: 9, color: 'var(--ink-30)', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 14 }}>Evolución</div>
+              <ScoreMini scores={scores.slice(-8)} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+                <span className="mono" style={{ fontSize: 9, color: 'var(--ink-20)' }}>hace {Math.min(8, scores.length)}</span>
+                <span className="mono" style={{ fontSize: 9, color: 'var(--ink-20)' }}>ahora</span>
+              </div>
+              <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <button onClick={() => onGoTab('progress')} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 7, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: 'var(--ink-50)', cursor: 'pointer', fontSize: 11 }}>
+                  <SIcon name="progress" size={12} stroke={1.5} /> Ver progreso completo
+                </button>
+                <button onClick={() => onGoTab('coaching')} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 7, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: 'var(--ink-50)', cursor: 'pointer', fontSize: 11 }}>
+                  <SIcon name="sparkle" size={12} stroke={1.5} /> Coaching IA
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* tabla historial */}
+          <div style={{ padding: '18px 20px', borderRadius: 11, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div className="mono" style={{ fontSize: 9, color: 'var(--ink-30)', letterSpacing: '0.16em', textTransform: 'uppercase' }}>Historial de evaluaciones</div>
+              {evals.length > 5 && (
+                <button onClick={() => onGoTab('home')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--ink-35)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  Ver todas <SIcon name="arrow" size={11} stroke={1.5} />
+                </button>
+              )}
+            </div>
+
+            {/* cabecera tabla */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 100px 72px', padding: '0 8px 8px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              {['Evaluación', 'Fecha', 'Estado', 'Score'].map(h => (
+                <div key={h} className="mono" style={{ fontSize: 9, color: 'var(--ink-25)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>{h}</div>
+              ))}
+            </div>
+
+            {loading && <div style={{ padding: '20px 8px', color: 'var(--ink-20)', fontSize: 12 }}>Cargando…</div>}
+
+            {!loading && evals.length === 0 && (
+              <div style={{ padding: '32px 8px', textAlign: 'center' }}>
+                <div style={{ color: 'var(--ink-25)', fontSize: 12, marginBottom: 14 }}>Todavía no hay evaluaciones registradas</div>
+                <button className="btn btn-primary" onClick={onStart} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 18px', fontSize: 12 }}>
+                  <SIcon name="mic" size={13} stroke={1.5} /> Empezar ahora
+                </button>
+              </div>
+            )}
+
+            {!loading && evals.length > 0 && (
+              <div>
+                {[...evals].reverse().slice(0, 6).map((ev, i) => {
+                  const s = normScore(ev);
+                  const isComplete = ev.status === 'completed' || ev.status === 'scored';
+                  const isProcessing = ev.status === 'processing';
+                  return (
+                    <div key={ev.id || i}
+                      style={{ display: 'grid', gridTemplateColumns: '1fr 90px 100px 72px', padding: '10px 8px', borderBottom: '1px solid rgba(255,255,255,0.04)', borderRadius: 6, cursor: 'default', transition: 'background 150ms' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                      <div style={{ fontSize: 12.5, color: 'var(--ink-75)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {ev.title || 'Sin título'}
+                      </div>
+                      <div className="mono" style={{ fontSize: 10, color: 'var(--ink-30)' }}>
+                        {ev.created_at ? fmtDate(ev.created_at) : '—'}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <div style={{ width: 5, height: 5, borderRadius: '50%', background: isComplete ? '#9ef5be' : isProcessing ? '#fbbf24' : 'rgba(255,255,255,0.2)', flexShrink: 0 }} />
+                        <span className="mono" style={{ fontSize: 10, color: isComplete ? 'var(--ink-40)' : isProcessing ? '#fbbf24' : 'var(--ink-20)' }}>
+                          {isComplete ? 'completada' : isProcessing ? 'procesando' : 'en curso'}
+                        </span>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        {s !== null
+                          ? <span style={{ fontSize: 14, fontWeight: 300, color: scoreColor(s) }}>{s}<span style={{ fontSize: 9, color: 'var(--ink-25)', marginLeft: 1 }}>/100</span></span>
+                          : <span style={{ fontSize: 11, color: 'var(--ink-20)' }}>—</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
 /* backward-compat para admin-app.jsx */
 const HOME_QUESTION = SCENARIOS[0];
 
 Object.assign(window, {
   SIcon, ApexLogo, PublicTopBar, PublicLanding, ScenarioSelector, StepProgress,
-  SellerDashboard, SellerProgress, SellerCoaching, SellerPlan, SellerSettings,
+  SellerDashboard, SellerProgress, SellerCoaching, SellerPlan, SellerSettings, SellerProfile,
+  SellerMainDashboard,
   HOME_QUESTION, SCENARIOS, FEATURES,
   SellerTopBar: PublicTopBar,
   SellerHome: PublicLanding,
