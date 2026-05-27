@@ -322,7 +322,7 @@ const PublicLanding = ({ onStart }) => (
                 'Plan de coaching IA por vendedor (20 tokens)',
                 'Dashboard de equipo con tendencias',
                 'Reportes PDF/CSV automáticos',
-                'Analisis con Groq (LLaMA 3.3 70B, modelo premium)',
+                'Análisis con OpenAI/Groq (modelo premium)',
                 'Tokens no usados se acumulan',
                 'Soporte prioritario',
               ].map((f, i) => (
@@ -380,7 +380,7 @@ const PublicLanding = ({ onStart }) => (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24 }}>
             {[
               { label: 'Evaluación de pitch',     value: '5 tokens',  desc: '$0.05 USD por video analizado' },
-              { label: 'Plan de coaching IA',     value: '20 tokens', desc: '$0.20 USD analisis del equipo con Groq (LLaMA 3.3 70B)' },
+              { label: 'Plan de coaching IA',     value: '20 tokens', desc: '$0.20 USD análisis del equipo con OpenAI/Groq' },
               { label: 'Reporte PDF / CSV',       value: 'Gratis',    desc: 'sin costo en tokens' },
               { label: 'Recarga adicional',       value: '$10 / 1k',  desc: '+1.000 tokens por $10 USD (sin vencimiento)' },
             ].map(({ label, value, desc }) => (
