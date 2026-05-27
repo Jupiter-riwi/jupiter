@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Apex Vision — Scoring Worker",
-    description="Consolida features y genera score con Groq (LLaMA 3.3 70B).",
+    description="Consolida features y genera score + recomendaciones con OpenAI/Groq.",
     version="0.1.0",
     lifespan=lifespan,
 )

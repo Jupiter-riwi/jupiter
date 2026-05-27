@@ -137,6 +137,13 @@
     return body.data || body;
   },
 
+  async listAdminEvaluations() {
+    const res = await this._fetchAuth(API_BASE + '/api/admin/evaluations?limit=500', { method: 'GET' });
+    if (!res.ok) throw new Error('List admin evaluations failed: ' + res.status);
+    const body = await res.json();
+    return body.data || body;
+  },
+
   async uploadVideo(evalId, blob) {
     const url = API_BASE + '/api/evaluations/' + evalId + '/upload';
     const res = await this._fetchAuth(url, {

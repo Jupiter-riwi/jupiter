@@ -1,5 +1,4 @@
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional
 
 
 class DimensionScore(BaseModel):
@@ -9,8 +8,12 @@ class DimensionScore(BaseModel):
 
 class Recommendation(BaseModel):
     priority: str = Field(...)
+    area: str
+    problem: str
+    impact: str
     tip: str
     drill: str
+    success_metric: str
 
     @field_validator("priority")
     @classmethod
@@ -23,7 +26,7 @@ class Recommendation(BaseModel):
 class ScoreResult(BaseModel):
     overall: int = Field(..., ge=0, le=100)
     dimensions: dict[str, DimensionScore]
-    recommendations: list[Recommendation]
+    recommendations: list[Recommendation] = Field(..., min_length=3, max_length=5)
 
     @field_validator("dimensions")
     @classmethod
@@ -35,6 +38,23 @@ class ScoreResult(BaseModel):
             raise ValueError(f"Missing dimensions: {missing}")
         if extra:
             raise ValueError(f"Unexpected dimensions: {extra}")
+        return v
+
+    @field_validator("recommendations")
+    @classmethod
+    def recommendations_are_actionable(cls, v: list[Recommendation]) -> list[Recommendation]:
+        for rec in v:
+            fields = {
+                "area": rec.area,
+                "problem": rec.problem,
+                "impact": rec.impact,
+                "tip": rec.tip,
+                "drill": rec.drill,
+                "success_metric": rec.success_metric,
+            }
+            empty = [name for name, value in fields.items() if not value.strip()]
+            if empty:
+                raise ValueError(f"Recommendation has empty fields: {empty}")
         return v
 
 

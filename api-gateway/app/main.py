@@ -241,15 +241,32 @@ def ensure_evaluations_table(conn: Any) -> None:
     conn.commit()
 
 
-def _require_user(authorization: str | None) -> tuple[str, str]:
+def _require_claims(authorization: str | None) -> dict[str, Any]:
     token = _parse_bearer(authorization)
     payload = _decode_token(token)
     if payload.get("type") != "access":
         raise HTTPException(status_code=401, detail="invalid token type")
+    return payload
+
+
+def _require_user(authorization: str | None) -> tuple[str, str]:
+    payload = _require_claims(authorization)
     user_id = str(payload.get("user_id", ""))
     tenant_id = str(payload.get("tenant_id", ""))
     if not user_id or not tenant_id:
         raise HTTPException(status_code=401, detail="invalid token")
+    return user_id, tenant_id
+
+
+def _require_admin(authorization: str | None) -> tuple[str, str]:
+    payload = _require_claims(authorization)
+    user_id = str(payload.get("user_id", ""))
+    tenant_id = str(payload.get("tenant_id", ""))
+    role = str(payload.get("role", ""))
+    if not user_id or not tenant_id:
+        raise HTTPException(status_code=401, detail="invalid token")
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="admin role required")
     return user_id, tenant_id
 
 
@@ -274,6 +291,13 @@ def _row_to_evaluation(row: Any) -> dict[str, Any]:
         "created_at": row[8].isoformat() if hasattr(row[8], "isoformat") else str(row[8]),
         "updated_at": row[9].isoformat() if hasattr(row[9], "isoformat") else str(row[9]),
     }
+
+
+def _row_to_admin_evaluation(row: Any) -> dict[str, Any]:
+    item = _row_to_evaluation(row[:10])
+    item["seller_email"] = row[10]
+    item["seller_role"] = row[11]
+    return item
 
 
 def ensure_coach_history_table(conn: Any) -> None:
@@ -772,6 +796,48 @@ def list_evaluations(
 
     return {
         "data": [_row_to_evaluation(r) for r in rows],
+        "page": page,
+        "limit": limit,
+        "total": total,
+    }
+
+
+@app.get("/api/admin/evaluations")
+def list_tenant_evaluations(
+    authorization: str | None = Header(default=None),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=100, ge=1, le=500),
+) -> dict[str, Any]:
+    _admin_id, tenant_id = _require_admin(authorization)
+
+    with db_conn() as conn:
+        ensure_evaluations_table(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT COUNT(*) FROM evaluations WHERE tenant_id = %s::uuid",
+                (tenant_id,),
+            )
+            total = cur.fetchone()[0]
+
+            offset = (page - 1) * limit
+            cur.execute(
+                """
+                SELECT e.id::text, e.tenant_id::text, e.user_id::text, e.title, e.video_key,
+                       e.status::text, e.score, e.features::text, e.created_at, e.updated_at,
+                       u.email, u.role::text
+                FROM evaluations e
+                LEFT JOIN users u
+                  ON u.id = e.user_id AND u.tenant_id = e.tenant_id
+                WHERE e.tenant_id = %s::uuid
+                ORDER BY e.created_at DESC
+                LIMIT %s OFFSET %s
+                """,
+                (tenant_id, limit, offset),
+            )
+            rows = cur.fetchall()
+
+    return {
+        "data": [_row_to_admin_evaluation(r) for r in rows],
         "page": page,
         "limit": limit,
         "total": total,

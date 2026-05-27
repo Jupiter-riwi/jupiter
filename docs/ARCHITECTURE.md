@@ -16,9 +16,10 @@
      - Pose/lenguaje corporal (MediaPipe local)
      - Transcripción (OpenAI Whisper)
      - Análisis prosódico (librosa)
-7. Worker de scoring agrega features + transcript → llama a OpenAI GPT-4o con prompt estructurado → JSON con score y recomendaciones.
+7. Worker de scoring agrega features + transcript → llama a OpenAI GPT-4o con prompt estructurado → JSON con score objetivo y recomendaciones accionables.
 8. Resultado se persiste y se notifica al frontend (WebSocket o polling).
-9. Vendedor ve su evaluación en el dashboard de su perfil; admin del cliente ve agregados del equipo.
+9. Vendedor ve su evaluación en el dashboard de su perfil.
+10. Admin del cliente consulta las evaluaciones reales del tenant y ve agregados por vendedor, dimensiones, actividad y recomendaciones.
 ```
 
 ---
@@ -42,6 +43,7 @@
 │  - PUT  <storage>/...  (upload directo del cliente)                      │
 │  - POST /evaluations/{id}/complete  (notifica fin de upload)             │
 │  - GET  /evaluations/{id}                                                │
+│  - GET  /admin/evaluations  (admin: evaluaciones del tenant)             │
 │  - WS   /evaluations/{id}/stream                                         │
 └──────────┬──────────────────────────────┬──────────────────────────────┘
            │ publish job                  │ read/write
@@ -75,8 +77,9 @@
 │  │ 3. Scoring Worker       │ │
 │  │    fan-in: pose +       │ │
 │  │    transcript + prosody │ │
-│  │    → GPT-4o (JSON mode) │ │
-│  │    → score + tips       │ │
+│  │    → GPT-4o (JSON      │ │
+│  │      schema)            │ │
+│  │    → score + coaching   │ │
 │  └─────────────────────────┘ │
 └──────────────────────────────┘
 ```
@@ -107,9 +110,11 @@ scores         (id, evaluation_id, overall numeric, dimensions jsonb, recommenda
 
 `tenant_id` en cada tabla → row-level security en Postgres para multi-tenancy.
 
+El dashboard admin consume `GET /api/admin/evaluations`, que retorna evaluaciones del tenant con `seller_email` y `seller_role`; el frontend agrupa por vendedor y calcula score promedio, dimensiones, tendencias, actividad reciente y recomendaciones desde `features.recommendations`.
+
 ---
 
-## 5. Contrato de scoring (salida de GPT-4o)
+## 5. Contrato de scoring y recomendaciones (salida de GPT-4o)
 
 ```json
 {
@@ -122,13 +127,20 @@ scores         (id, evaluation_id, overall numeric, dimensions jsonb, recommenda
     "escucha_activa":  { "score": 65, "evidence": "..." }
   },
   "recommendations": [
-    { "priority": "high",  "tip": "...", "drill": "..." },
-    { "priority": "medium", "tip": "...", "drill": "..." }
+    {
+      "priority": "high",
+      "area": "ritmo_voz",
+      "problem": "Hablas a 185 WPM, por encima del rango recomendado.",
+      "impact": "El prospecto puede percibir ansiedad y perder partes clave.",
+      "tip": "Reduce velocidad y marca pausas entre ideas.",
+      "drill": "Graba el mismo pitch 3 veces intentando llegar a 150 WPM.",
+      "success_metric": "WPM entre 130 y 160 durante al menos 80% del pitch."
+    }
   ]
 }
 ```
 
-GPT-4o se llama con `response_format: { type: "json_schema" }` para garantizar el contrato.
+GPT-4o se llama con `response_format: { type: "json_schema" }` y el resultado se valida con Pydantic antes de persistir. El prompt por defecto es `ai-workers/scoring/prompts/v2.md`; `SCORING_PROMPT_VERSION` permite cambiar de versión.
 
 ---
 
@@ -228,6 +240,6 @@ Ver detalle de uso del MCP de Supabase en `docs/SUPABASE.md`.
 1. **Privacidad**: video de empleados es dato sensible. Definir política de retención, consentimiento, y posible procesamiento on-premise para clientes regulados.
 2. **Costo OpenAI**: Whisper + GPT-4o por video puede sumar. Estimar costo por evaluación y considerar caching/batching.
 3. **Latencia**: si el cliente espera resultado en <30s, hay que optimizar (pose en streaming, Whisper con archivos chicos, GPT-4o-mini para scoring).
-4. **Calibración del scoring**: el prompt necesita iteración con feedback humano. La skill `prompt-eval` ayuda.
+4. **Calibración del scoring y coaching**: el prompt necesita iteración con feedback humano. La skill `prompt-eval` ayuda y debe revisar que las recomendaciones incluyan problema, impacto, drill y métrica.
 5. **Idioma**: ¿multi-idioma desde día uno o sólo español? Whisper lo soporta nativamente; el prompt del scoring debe ser idioma-agnóstico.
 6. ~~API Gateway Go vs Python~~ → **resuelto: FastAPI**.

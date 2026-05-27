@@ -2,7 +2,27 @@ import json
 import pytest
 
 from scoring.models import ScoreResult, DimensionScore, Recommendation, ScoringJob
-from scoring.llm import load_prompt, build_prompt
+from scoring.llm import load_prompt, build_prompt, _score_result_json_schema
+
+
+def rec(priority: str = "high", area: str = "ritmo_voz") -> dict:
+    return {
+        "priority": priority,
+        "area": area,
+        "problem": "WPM 185, por encima del rango recomendado.",
+        "impact": "El prospecto puede perder partes clave del mensaje.",
+        "tip": "Reduce velocidad y marca pausas entre ideas.",
+        "drill": "Graba el mismo pitch 3 veces intentando llegar a 150 WPM.",
+        "success_metric": "WPM entre 130 y 160 durante al menos 80% del pitch.",
+    }
+
+
+def recommendations() -> list[dict]:
+    return [
+        rec("high", "ritmo_voz"),
+        rec("high", "escucha_activa"),
+        rec("medium", "claridad"),
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -20,15 +40,13 @@ class TestModels:
                 "ritmo_voz": {"score": 80, "evidence": "WPM 140"},
                 "escucha_activa": {"score": 65, "evidence": "pocas preguntas"},
             },
-            "recommendations": [
-                {"priority": "high", "tip": "Habla mas lento", "drill": "Lee en voz alta 5 min/dia"},
-                {"priority": "medium", "tip": "Mantén contacto visual", "drill": "Grábate mirando a cámara"},
-            ],
+            "recommendations": recommendations(),
         }
         result = ScoreResult.model_validate(data)
         assert result.overall == 78
         assert result.dimensions["confianza"].score == 82
-        assert len(result.recommendations) == 2
+        assert len(result.recommendations) == 3
+        assert result.recommendations[0].success_metric
 
     def test_score_result_missing_dimension_raises(self):
         data = {
@@ -36,7 +54,7 @@ class TestModels:
             "dimensions": {
                 "confianza": {"score": 82, "evidence": "ok"},
             },
-            "recommendations": [],
+            "recommendations": recommendations(),
         }
         with pytest.raises(ValueError):
             ScoreResult.model_validate(data)
@@ -52,7 +70,7 @@ class TestModels:
                 "escucha_activa": {"score": 65, "evidence": "ok"},
                 "extra": {"score": 50, "evidence": "no"},
             },
-            "recommendations": [],
+            "recommendations": recommendations(),
         }
         with pytest.raises(ValueError):
             ScoreResult.model_validate(data)
@@ -67,7 +85,7 @@ class TestModels:
                 "ritmo_voz": {"score": 80, "evidence": "ok"},
                 "escucha_activa": {"score": 65, "evidence": "ok"},
             },
-            "recommendations": [],
+            "recommendations": recommendations(),
         }
         with pytest.raises(ValueError):
             ScoreResult.model_validate(data)
@@ -83,7 +101,9 @@ class TestModels:
                 "escucha_activa": {"score": 65, "evidence": "ok"},
             },
             "recommendations": [
-                {"priority": "urgent", "tip": "X", "drill": "Y"},
+                rec("urgent"),
+                rec("medium", "claridad"),
+                rec("low", "confianza"),
             ],
         }
         with pytest.raises(ValueError):
@@ -115,9 +135,15 @@ class TestModels:
 class TestPrompt:
     def test_load_prompt_v1_exists(self):
         prompt = load_prompt("v1")
-        assert "Eres un coach de ventas experto" in prompt
+        assert "coach de ventas" in prompt
         assert "{{pose_features}}" in prompt
         assert "confianza" in prompt.lower()
+
+    def test_load_prompt_v2_is_default_contract(self):
+        prompt = load_prompt("v2")
+        assert "Scoring y Coaching" in prompt
+        assert "success_metric" in prompt
+        assert "no insultes" in prompt
 
     def test_load_prompt_nonexistent_raises(self):
         with pytest.raises(FileNotFoundError):
@@ -135,6 +161,21 @@ class TestPrompt:
         assert '"posture": "good"' in prompt
         assert '"wpm": 140' in prompt
 
+    def test_openai_schema_is_closed(self):
+        schema = _score_result_json_schema()
+        assert schema["additionalProperties"] is False
+        assert schema["properties"]["dimensions"]["additionalProperties"] is False
+        assert set(schema["properties"]["dimensions"]["required"]) == {
+            "confianza",
+            "claridad",
+            "lenguaje_corporal",
+            "ritmo_voz",
+            "escucha_activa",
+        }
+        rec_schema = schema["properties"]["recommendations"]["items"]
+        assert rec_schema["additionalProperties"] is False
+        assert "success_metric" in rec_schema["required"]
+
 
 # ---------------------------------------------------------------------------
 # Tests: ScoreResult serialization
@@ -151,9 +192,7 @@ class TestSerialization:
                 "ritmo_voz": {"score": 80, "evidence": "velocidad adecuada"},
                 "escucha_activa": {"score": 65, "evidence": "formula preguntas"},
             },
-            "recommendations": [
-                {"priority": "high", "tip": "Reduce velocidad", "drill": "Practica lectura pausada"},
-            ],
+            "recommendations": recommendations(),
         }
         score = ScoreResult.model_validate(data)
         dumped = score.model_dump()
@@ -167,7 +206,7 @@ class TestSerialization:
 # ---------------------------------------------------------------------------
 
 class TestEdgeCases:
-    def test_empty_recommendations(self):
+    def test_empty_recommendations_are_invalid(self):
         data = {
             "overall": 50,
             "dimensions": {
@@ -179,8 +218,8 @@ class TestEdgeCases:
             },
             "recommendations": [],
         }
-        result = ScoreResult.model_validate(data)
-        assert result.recommendations == []
+        with pytest.raises(ValueError):
+            ScoreResult.model_validate(data)
 
     def test_boundary_scores(self):
         data = {
@@ -192,7 +231,7 @@ class TestEdgeCases:
                 "ritmo_voz": {"score": 0, "evidence": "min"},
                 "escucha_activa": {"score": 0, "evidence": "min"},
             },
-            "recommendations": [],
+            "recommendations": recommendations(),
         }
         ScoreResult.model_validate(data)
 

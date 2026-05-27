@@ -332,8 +332,11 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
                   <span className="dot" />
                   {r.area || (r.priority === 'high' ? 'Alta prioridad' : r.priority === 'medium' ? 'Prioridad media' : 'Sugerencia')}
                 </div>
+                {r.problem && <div className="problem">{r.problem}</div>}
+                {r.impact && <div className="impact">{r.impact}</div>}
                 <div className="tip">{r.tip || r}</div>
                 {r.drill && <div className="drill">{r.drill}</div>}
+                {r.success_metric && <div className="metric">{r.success_metric}</div>}
               </div>
             ))}
             <button className="btn btn-primary" onClick={onPractice} style={{ width: '100%', justifyContent: 'center', marginTop: 18 }}>

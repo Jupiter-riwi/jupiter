@@ -7,23 +7,148 @@ const { SIcon, AVSpark, ApexLogo } = window;
    vendedores, identifica quién necesita coaching y en qué áreas.
    ============================================================ */
 
-const TEAM = [
-  { id: 1, name: 'Mariana Aimar',     role: 'Senior',     evals: 24, score: 84, trend: '+6', skills: [88,82,86,75,88], status: 'on-track', last: 'hoy 16:08' },
-  { id: 2, name: 'Federico Lozada',   role: 'Senior',     evals: 22, score: 81, trend: '+3', skills: [80,84,78,82,79], status: 'on-track', last: 'hoy 11:22' },
-  { id: 3, name: 'Carolina Méndez',   role: 'Mid',        evals: 18, score: 78, trend: '+8', skills: [82,76,72,80,80], status: 'improving', last: 'ayer 18:40' },
-  { id: 4, name: 'Diego Sosa',        role: 'Senior',     evals: 26, score: 76, trend: '−2', skills: [70,75,82,78,75], status: 'watch', last: 'ayer 14:05' },
-  { id: 5, name: 'Lucía Fernández',   role: 'Mid',        evals: 14, score: 72, trend: '+4', skills: [75,68,74,72,71], status: 'on-track', last: 'hoy 09:15' },
-  { id: 6, name: 'Tomás Iriarte',     role: 'Junior',     evals: 9,  score: 68, trend: '+11', skills: [70,65,72,66,67], status: 'improving', last: 'hoy 10:48' },
-  { id: 7, name: 'Sofía Bertinat',    role: 'Mid',        evals: 16, score: 64, trend: '−4', skills: [60,68,58,72,62], status: 'needs-coaching', last: '2 días' },
-  { id: 8, name: 'Ricardo Pena',      role: 'Junior',     evals: 7,  score: 58, trend: '−6', skills: [55,60,52,68,55], status: 'needs-coaching', last: '4 días' },
-];
-
 const DIMENSIONS = ['Confianza', 'Claridad', 'Lenguaje corporal', 'Ritmo de voz', 'Escucha activa'];
+const DIMENSION_KEYS = ['confianza', 'claridad', 'lenguaje_corporal', 'ritmo_voz', 'escucha_activa'];
 const STATUS_LABEL = {
   'on-track':       'En camino',
   'improving':      'Mejorando',
   'watch':          'Observar',
   'needs-coaching': 'Requiere coaching',
+};
+
+const titleCaseEmail = (email, fallback = 'Vendedor') => {
+  const raw = String(email || fallback).split('@')[0].replace(/[._-]+/g, ' ').trim();
+  return raw
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(s => s.charAt(0).toUpperCase() + s.slice(1))
+    .join(' ') || fallback;
+};
+
+const normalizeScore = (value) => {
+  if (typeof value !== 'number' || Number.isNaN(value)) return null;
+  const score = value <= 1 ? value * 100 : value;
+  return Math.max(0, Math.min(100, Math.round(score)));
+};
+
+const formatRelativeDate = (iso) => {
+  if (!iso) return 'sin fecha';
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) return 'sin fecha';
+  const diffMs = Date.now() - then.getTime();
+  const min = Math.floor(diffMs / 60000);
+  if (min < 1) return 'ahora';
+  if (min < 60) return `hace ${min} min`;
+  const hours = Math.floor(min / 60);
+  if (hours < 24) return `hace ${hours} h`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return 'ayer';
+  if (days < 7) return `hace ${days} días`;
+  return then.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
+};
+
+const extractDimensions = (evaluation) => {
+  const dims = evaluation?.features?.dimensions || evaluation?.dimensions || {};
+  return DIMENSION_KEYS.map(key => normalizeScore(dims?.[key]?.score ?? dims?.[key]));
+};
+
+const extractRecommendations = (evaluation) => (
+  evaluation?.features?.recommendations || evaluation?.recommendations || []
+);
+
+const normalizeTeamEvaluations = (evaluations) => {
+  const groups = new Map();
+  (evaluations || []).forEach(ev => {
+    const key = ev.user_id || ev.seller_email || 'unknown';
+    if (!groups.has(key)) {
+      groups.set(key, {
+        id: key,
+        name: titleCaseEmail(ev.seller_email, `Vendedor ${groups.size + 1}`),
+        email: ev.seller_email || '',
+        role: ev.seller_role === 'admin' ? 'Admin' : 'Seller',
+        evaluations: [],
+      });
+    }
+    groups.get(key).evaluations.push(ev);
+  });
+
+  return Array.from(groups.values()).map(person => {
+    const ordered = person.evaluations
+      .slice()
+      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    const scored = ordered
+      .map(ev => ({ ev, score: normalizeScore(ev.score ?? ev.features?.overall) }))
+      .filter(item => item.score !== null);
+    const avgScore = scored.length
+      ? Math.round(scored.reduce((sum, item) => sum + item.score, 0) / scored.length)
+      : 0;
+    const latest = scored[0];
+    const previous = scored[1] || scored[scored.length - 1];
+    const delta = latest && previous ? latest.score - previous.score : 0;
+    const trend = delta > 0 ? `+${delta}` : delta < 0 ? String(delta) : '0';
+    const dimensionValues = DIMENSION_KEYS.map((_, index) => {
+      const values = ordered
+        .map(extractDimensions)
+        .map(arr => arr[index])
+        .filter(v => typeof v === 'number');
+      return values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : avgScore;
+    });
+    const status = avgScore < 65
+      ? 'needs-coaching'
+      : avgScore < 75
+        ? 'watch'
+        : delta > 3
+          ? 'improving'
+          : 'on-track';
+
+    return {
+      id: person.id,
+      name: person.name,
+      email: person.email,
+      role: person.role,
+      evals: ordered.length,
+      score: avgScore,
+      trend,
+      skills: dimensionValues,
+      status,
+      last: formatRelativeDate(ordered[0]?.created_at),
+      recent: ordered.slice(0, 5).map(ev => ({
+        title: ev.title || 'Evaluación',
+        date: formatRelativeDate(ev.created_at),
+        score: normalizeScore(ev.score ?? ev.features?.overall) || 0,
+        status: ev.status,
+      })),
+      recommendations: extractRecommendations(ordered.find(ev => extractRecommendations(ev).length) || {}),
+    };
+  }).sort((a, b) => b.score - a.score);
+};
+
+const buildTeamInsights = (team) => {
+  if (!team.length) {
+    return {
+      strongest: ['Sin datos', 'Completa evaluaciones desde /seller'],
+      weakest: ['Sin datos', 'Aún no hay dimensiones reales'],
+      top: ['Sin datos', 'No hay vendedores evaluados'],
+      improvement: ['Sin datos', 'Se calculará con al menos 2 evaluaciones'],
+    };
+  }
+  const dimAvgs = DIMENSIONS.map((name, i) => {
+    const values = team.map(p => p.skills[i]).filter(v => typeof v === 'number');
+    const avg = values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : 0;
+    return { name, avg };
+  });
+  const strongest = dimAvgs.reduce((best, item) => item.avg > best.avg ? item : best, dimAvgs[0]);
+  const weakest = dimAvgs.reduce((worst, item) => item.avg < worst.avg ? item : worst, dimAvgs[0]);
+  const top = team.slice().sort((a, b) => b.score - a.score)[0];
+  const improvement = team
+    .slice()
+    .sort((a, b) => parseInt(b.trend, 10) - parseInt(a.trend, 10))[0];
+  return {
+    strongest: [strongest.name, `${strongest.avg} promedio`],
+    weakest: [weakest.name, `${weakest.avg} promedio`],
+    top: [top.name, `${top.score} score · ${top.evals} evaluaciones`],
+    improvement: [improvement.name, `${improvement.trend} puntos · última ${improvement.last}`],
+  };
 };
 
 /* ----------------------------- KPI ----------------------------- */
@@ -174,7 +299,7 @@ const MiniRadar = ({ values, size = 44 }) => {
 };
 
 /* ----------------------------- HEATMAP ----------------------------- */
-const Heatmap = () => {
+const Heatmap = ({ team }) => {
   // rows = vendedores, cols = dimensiones
   return (
     <div className="hmap">
@@ -183,7 +308,7 @@ const Heatmap = () => {
         {DIMENSIONS.map(d => <div key={d} className="hmap-col-label">{d}</div>)}
         <div className="hmap-col-label">Global</div>
       </div>
-      {TEAM.map(p => (
+      {team.map(p => (
         <div key={p.id} className="hmap-row">
           <div className="hmap-name">{p.name}</div>
           {p.skills.map((v,i) => (
@@ -241,12 +366,7 @@ const PersonDrawer = ({ person, onClose }) => {
 
         <div style={{padding:'20px 4px 4px'}}>
           <div className="mono" style={{fontSize:10.5,letterSpacing:'0.22em',color:'var(--ink-50)',textTransform:'uppercase',marginBottom:14}}>Evaluaciones recientes</div>
-          {[
-            ['Manejo de objeción: precio', 'hoy 16:08', 84],
-            ['Apertura en frío', 'ayer 11:22', 81],
-            ['Discovery: detectar dolor', 'lun 17:05', 78],
-            ['Cierre consultivo', '23 mar 11:30', 76],
-          ].map(([t,d,s],i) => (
+          {(person.recent || []).map(({ title:t, date:d, score:s }, i) => (
             <div key={i} className="h-row" style={{margin:0,padding:'12px 0',borderTop:i>0?'1px solid var(--glass-border)':'none',cursor:'default'}}>
               <div className={`h-score ${s>=80?'high':''}`}>{s}</div>
               <div>
@@ -257,21 +377,24 @@ const PersonDrawer = ({ person, onClose }) => {
               <div className="h-arrow"><SIcon name="arrow" size={14}/></div>
             </div>
           ))}
+          {(!person.recent || person.recent.length === 0) && (
+            <div className="mono" style={{fontSize:12,color:'var(--ink-50)',padding:'12px 0'}}>Sin evaluaciones registradas.</div>
+          )}
         </div>
 
         <div style={{padding:'20px 4px 4px'}}>
           <div className="mono" style={{fontSize:10.5,letterSpacing:'0.22em',color:'var(--ink-50)',textTransform:'uppercase',marginBottom:14}}>Áreas a trabajar (sugerencia IA)</div>
-          {[
-            ['Bajar la velocidad al hablar de precio', 'WPM promedio 184 vs objetivo 150 cuando menciona costos.'],
-            ['Eliminar muletillas “este…” y “como que”', '11 ocurrencias en últimas 5 evaluaciones.'],
-            ['Sostener la mirada en el cierre', 'Contacto visual cae al 42% en los últimos 15 segundos.'],
-          ].map(([t,d],i) => (
+          {(person.recommendations || []).slice(0, 3).map((rec, i) => (
             <div key={i} className="rec" style={{borderTopColor:'var(--glass-border)'}}>
-              <div className="priority high"><span className="dot"/> SUGERENCIA</div>
-              <div className="tip">{t}</div>
-              <div className="drill">{d}</div>
+              <div className={`priority ${rec.priority || 'high'}`}><span className="dot"/> {rec.area || 'Sugerencia'}</div>
+              {rec.problem && <div className="problem">{rec.problem}</div>}
+              <div className="tip">{rec.tip || rec.problem || 'Revisar esta evaluación con el vendedor.'}</div>
+              {(rec.drill || rec.success_metric) && <div className="drill">{rec.drill || rec.success_metric}</div>}
             </div>
           ))}
+          {(!person.recommendations || person.recommendations.length === 0) && (
+            <div className="mono" style={{fontSize:12,color:'var(--ink-50)',padding:'12px 0'}}>Sin recomendaciones IA disponibles todavía.</div>
+          )}
         </div>
       </div>
     </div>
@@ -434,7 +557,7 @@ const PreguntasView = () => {
 };
 
 /* ----------------------------- VISTA REPORTES ----------------------------- */
-const ReportesView = () => {
+const ReportesView = ({ team = [] }) => {
   const [period, setPeriod] = useState('30d');
   const [busy, setBusy] = useState(null); // null | report key
   const [history, setHistory] = useState(() => {
@@ -462,15 +585,16 @@ const ReportesView = () => {
   };
 
   const SELLERS_CSV =
-    'name,role,evaluations,score,trend,status\n' +
-    'Mariana Aimar,Senior,24,84,+6,on-track\n' +
-    'Federico Lozada,Senior,22,81,+3,on-track\n' +
-    'Carolina Méndez,Mid,18,78,+8,improving\n' +
-    'Diego Sosa,Senior,26,76,-2,watch\n' +
-    'Lucía Fernández,Mid,14,72,+4,on-track\n' +
-    'Tomás Iriarte,Junior,9,68,+11,improving\n' +
-    'Sofía Bertinat,Mid,16,64,-4,needs-coaching\n' +
-    'Ricardo Pena,Junior,7,58,-6,needs-coaching\n';
+    'name,email,role,evaluations,score,trend,status\n' +
+    team.map(p => [
+      p.name,
+      p.email || '',
+      p.role,
+      p.evals,
+      p.score,
+      p.trend,
+      p.status,
+    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n') + '\n';
 
   const printPDF = (title, bodyHTML) => {
     const w = window.open('', '_blank', 'width=900,height=700');
@@ -508,6 +632,11 @@ const ReportesView = () => {
 
   const generatePDF = (kind) => {
     const date = new Date().toLocaleString('es-AR');
+    const teamAvg = team.length ? Math.round(team.reduce((s,p) => s + p.score, 0) / team.length) : 0;
+    const totalEvals = team.reduce((s,p) => s + p.evals, 0);
+    const top = team.slice().sort((a,b) => b.score - a.score)[0];
+    const improvement = team.slice().sort((a,b) => parseInt(b.trend, 10) - parseInt(a.trend, 10))[0];
+    const needs = team.filter(p => p.status === 'needs-coaching' || p.status === 'watch' || p.score < 75);
     if (kind === 'team-pdf') {
       const body = `
         <h1>APEX VISION</h1>
@@ -517,24 +646,30 @@ const ReportesView = () => {
         <h3>Métricas generales</h3>
         <table>
           ${[
-            ['Score promedio del equipo','75 / 100'],
-            ['Vendedores activos','8'],
-            ['Evaluaciones realizadas','135'],
-            ['Top performer','Mariana Aimar (84)'],
-            ['Mayor mejora','Tomás Iriarte (+11)'],
-            ['Requieren coaching','2'],
+            ['Score promedio del equipo',`${teamAvg} / 100`],
+            ['Vendedores activos',String(team.length)],
+            ['Evaluaciones realizadas',String(totalEvals)],
+            ['Top performer',top ? `${top.name} (${top.score})` : 'Sin datos'],
+            ['Mayor mejora',improvement ? `${improvement.name} (${improvement.trend})` : 'Sin datos'],
+            ['Requieren coaching',String(needs.length)],
           ].map(([k,v]) => `<tr><td class="label">${k}</td><td class="value">${v}</td></tr>`).join('')}
         </table>
         <h3>Tendencia</h3>
-        <p style="font-size:12px;color:#444">Score: 68 → 70 → 73 → 75 (+10% vs mes anterior)</p>
+        <p style="font-size:12px;color:#444">Datos generados desde evaluaciones reales completadas en /seller.</p>
         <div class="footer">Apex Vision · Sales Evaluator</div>`;
       return printPDF('Reporte de Equipo', body);
     }
-    const items = [
-      { name:'Sofía Bertinat',  meta:'Mid · score 64/100',    pri:'high', focus:'Manejo de objeciones', action:'Sesión 1:1 semanal · revisar grabaciones de top performers' },
-      { name:'Ricardo Pena',    meta:'Junior · score 58/100', pri:'high', focus:'Apertura',             action:'Práctica con top performer · 3 evaluaciones esta semana' },
-      { name:'Diego Sosa',      meta:'Senior · score 76/100', pri:'med',  focus:'Ritmo de voz',         action:'Plan de práctica con 3 evaluaciones esta semana' },
-    ];
+    const items = needs.slice().sort((a,b) => a.score - b.score).map(p => {
+      const worstIdx = p.skills.reduce((idx, value, i, arr) => value < arr[idx] ? i : idx, 0);
+      const rec = (p.recommendations || [])[0];
+      return {
+        name: p.name,
+        meta: `${p.role} · score ${p.score}/100`,
+        pri: p.score < 65 ? 'high' : 'med',
+        focus: rec?.area || DIMENSIONS[worstIdx],
+        action: rec?.drill || rec?.tip || `Trabajar ${DIMENSIONS[worstIdx]} hasta superar 75/100.`,
+      };
+    });
     const body = `
       <h1>APEX VISION</h1>
       <h2>Plan de Coaching · IA</h2>
@@ -808,6 +943,9 @@ const AdminApp = () => {
   const [period, setPeriod] = useState('30d');
   const [page, setPage] = useState('equipo');
   const [roleFilter, setRoleFilter] = useState('Todos');
+  const [teamData, setTeamData] = useState([]);
+  const [teamLoading, setTeamLoading] = useState(true);
+  const [teamError, setTeamError] = useState('');
 
   // ── Token system (basado en plan financiero: $0.01/token) ─────────────────
   // Costos: 5 tokens/evaluación ($0.05) · 20 tokens/plan coaching IA ($0.20)
@@ -846,8 +984,8 @@ const AdminApp = () => {
     // Cada recomendación se ancla en una métrica concreta detectada en el desempeño.
     await new Promise(r => setTimeout(r, 800));
 
-    const teamAvg = Math.round(TEAM.reduce((s,p) => s + p.score, 0) / TEAM.length);
-    const skillNames = ['Confianza','Claridad','Manejo objeciones','Ritmo de voz','Lenguaje corporal'];
+    const teamAvg = team.length ? Math.round(team.reduce((s,p) => s + p.score, 0) / team.length) : 0;
+    const skillNames = DIMENSIONS;
 
     const buildItem = (p) => {
       // Identificar la dimensión más débil con su métrica
@@ -860,9 +998,9 @@ const AdminApp = () => {
       const actionMap = {
         'Confianza': `Practica 3 grabaciones esta semana enfocadas en apertura. Meta: subir confianza de ${worstScore} a ${Math.min(85, worstScore + 12)} en 30 días.`,
         'Claridad': `Estructura cada pitch con problema-solución-CTA. Meta: claridad ≥ 75 en próximas 2 evaluaciones (actual ${worstScore}).`,
-        'Manejo objeciones': `Sesión 1:1 semanal · revisar 3 objeciones reales. Meta: manejo objeciones ${worstScore} → ${Math.min(80, worstScore + 15)} en 4 semanas.`,
         'Ritmo de voz': `Si pace > 170 WPM o < 100, ajustar pausas. Meta: ritmo entre 130-160 WPM y score ≥ 75 (actual ${worstScore}).`,
         'Lenguaje corporal': `Practicar postura abierta y contacto visual frente a cámara. Meta: leng. corporal ${worstScore} → 75+ en 3 evaluaciones.`,
+        'Escucha activa': `Incluir 2 preguntas consultivas y una reformulación. Meta: escucha activa ${worstScore} → ${Math.min(80, worstScore + 15)} en 4 semanas.`,
       };
 
       const priority = p.score < 65 ? 'alta' : (p.score < 75 ? 'media' : 'baja');
@@ -877,11 +1015,11 @@ const AdminApp = () => {
       };
     };
 
-    const targets = TEAM.filter(p => p.status === 'needs-coaching' || p.status === 'watch' || p.score < 75);
+    const targets = team.filter(p => p.status === 'needs-coaching' || p.status === 'watch' || p.score < 75);
 
     const plan = {
       generatedAt: new Date().toLocaleString('es-AR'),
-      summary: `Equipo ${TEAM.length} vendedores · score promedio ${teamAvg}/100 · ${targets.length} requieren intervención (criterio: score<75 o status watch/needs-coaching)`,
+      summary: `Equipo ${team.length} vendedores · score promedio ${teamAvg}/100 · ${targets.length} requieren intervención (criterio: score<75 o status watch/needs-coaching)`,
       items: targets.sort((a,b) => a.score - b.score).map(buildItem),
       methodology: 'Cada recomendación se ancla en la dimensión más débil del vendedor con métricas concretas y meta de mejora medible.',
     };
@@ -920,16 +1058,60 @@ const AdminApp = () => {
     return () => clearInterval(t);
   }, []);
 
-  const teamAvg = Math.round(TEAM.reduce((s,p) => s + p.score, 0) / TEAM.length);
-  const totalEvals = TEAM.reduce((s,p) => s + p.evals, 0);
-  const needsCoach = TEAM.filter(p => p.status === 'needs-coaching').length;
+  useEffect(() => {
+    let alive = true;
+    const loadTeam = async () => {
+      setTeamLoading(true);
+      setTeamError('');
+      try {
+        if (!window.ApexAPI) throw new Error('Cliente API no disponible');
+        await window.ApexAPI.restoreToken();
+        const rows = await window.ApexAPI.listAdminEvaluations();
+        if (!alive) return;
+        setTeamData(normalizeTeamEvaluations(rows));
+      } catch (err) {
+        if (!alive) return;
+        setTeamError(err?.message || 'No se pudieron cargar evaluaciones reales');
+        setTeamData([]);
+      } finally {
+        if (alive) setTeamLoading(false);
+      }
+    };
+    loadTeam();
+    const refresh = setInterval(loadTeam, 15000);
+    return () => { alive = false; clearInterval(refresh); };
+  }, []);
+
+  const team = teamData;
+  const roleOptions = ['Todos', ...Array.from(new Set(team.map(p => p.role))).filter(Boolean)];
+  const visibleTeam = team.filter(p => roleFilter === 'Todos' || p.role === roleFilter);
+  const teamAvg = team.length ? Math.round(team.reduce((s,p) => s + p.score, 0) / team.length) : 0;
+  const totalEvals = team.reduce((s,p) => s + p.evals, 0);
+  const needsCoach = team.filter(p => p.status === 'needs-coaching').length;
+  const insights = buildTeamInsights(team);
+  const recentActivity = team
+    .flatMap(p => (p.recent || []).map(item => ({ ...item, name: p.name })))
+    .slice(0, 5);
+  const categoryRows = (() => {
+    const map = new Map();
+    team.forEach(p => (p.recent || []).forEach(item => {
+      const key = item.title || 'Evaluación';
+      const current = map.get(key) || { total: 0, count: 0 };
+      current.total += item.score || 0;
+      current.count += 1;
+      map.set(key, current);
+    }));
+    return Array.from(map.entries())
+      .map(([name, v]) => [name, Math.round(v.total / v.count)])
+      .slice(0, 6);
+  })();
 
   return (
     <div id="app">
       <div className="s-shell">
         <AdminTop user={user} page={page} onNav={setPage} onLogout={handleLogout} onProfile={openProfile}/>
         {page === 'preguntas' && <PreguntasView/>}
-        {page === 'reportes'  && <ReportesView/>}
+        {page === 'reportes'  && <ReportesView team={team}/>}
         {page === 'ajustes'   && <AjustesView onLogout={handleLogout}/>}
         {page === 'equipo' && <div className="s-stage">
           <div className="s-wrap" style={{maxWidth:1280}}>
@@ -969,10 +1151,10 @@ const AdminApp = () => {
             </div>
 
             <div className="kpis" style={{marginBottom:18}}>
-              <Kpi label="Score promedio del equipo" value={teamAvg} unit="/100" delta="+ 4 vs mes anterior" sparkId="a1" data={[68,70,69,72,73,72,75,74,76,75,76,teamAvg]}/>
-              <Kpi label="Evaluaciones · 30d" value={totalEvals} unit="" delta="↑ 18% participación" sparkId="a2" data={[6,8,12,9,14,18,16,20,22,19,24,totalEvals]}/>
-              <Kpi label="Vendedores activos" value={TEAM.length} unit={`/${TEAM.length}`} delta="100% activos esta semana" sparkId="a3" data={[5,6,6,7,7,8,8,8,8,8,8,8]}/>
-              <Kpi label="Requieren coaching" value={needsCoach} unit="" delta="2 desde la semana pasada" sparkId="a4" data={[1,1,2,1,2,2,2,3,2,2,2,needsCoach]}/>
+              <Kpi label="Score promedio del equipo" value={teamAvg} unit="/100" delta={team.length ? 'datos reales del tenant' : 'sin evaluaciones'} sparkId="a1" data={[teamAvg,teamAvg,teamAvg,teamAvg]}/>
+              <Kpi label={`Evaluaciones · ${period.toUpperCase()}`} value={totalEvals} unit="" delta={teamLoading ? 'cargando...' : 'desde /seller'} sparkId="a2" data={[0,totalEvals,totalEvals]}/>
+              <Kpi label="Vendedores activos" value={team.length} unit={team.length ? `/${team.length}` : ''} delta="con evaluaciones registradas" sparkId="a3" data={[0,team.length,team.length]}/>
+              <Kpi label="Requieren coaching" value={needsCoach} unit="" delta="score menor a 65" sparkId="a4" data={[0,needsCoach,needsCoach]}/>
             </div>
 
             <div className="grid-dash" style={{gridTemplateColumns:'2fr 1fr',marginBottom:18}}>
@@ -982,7 +1164,7 @@ const AdminApp = () => {
                   <h3>Tu equipo</h3>
                   <div style={{display:'flex',gap:6,alignItems:'center'}}>
                     <div className="pillbar">
-                      {['Todos','Senior','Mid','Junior'].map(r => (
+                      {roleOptions.map(r => (
                         <button
                           key={r}
                           className={roleFilter === r ? 'on' : ''}
@@ -992,9 +1174,21 @@ const AdminApp = () => {
                     </div>
                   </div>
                 </div>
+                {teamError && (
+                  <div className="mono" style={{fontSize:11,color:'#fca5a5',padding:'0 22px 12px'}}>
+                    {teamError}. Iniciá sesión como admin.demo@jupiter.local para ver todo el tenant.
+                  </div>
+                )}
                 <div className="t-list">
-                  {TEAM.filter(p => roleFilter === 'Todos' || p.role === roleFilter)
-                       .map(p => <TeamRow key={p.id} p={p} onOpen={setDrawer}/>)}
+                  {teamLoading ? (
+                    <div className="mono" style={{fontSize:12,color:'var(--ink-50)',padding:24}}>Cargando análisis reales...</div>
+                  ) : visibleTeam.length > 0 ? (
+                    visibleTeam.map(p => <TeamRow key={p.id} p={p} onOpen={setDrawer}/>)
+                  ) : (
+                    <div className="mono" style={{fontSize:12,color:'var(--ink-50)',padding:24}}>
+                      No hay análisis reales todavía. Completá una evaluación desde /seller y volverá a aparecer acá.
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1004,23 +1198,23 @@ const AdminApp = () => {
 
                 <div className="insight-block">
                   <div className="insight-label">Fortaleza del equipo</div>
-                  <div className="insight-value">Escucha activa</div>
-                  <div className="insight-meta">79 promedio · +6 vs mes anterior</div>
+                  <div className="insight-value">{insights.strongest[0]}</div>
+                  <div className="insight-meta">{insights.strongest[1]}</div>
                 </div>
                 <div className="insight-block">
                   <div className="insight-label">Punto débil</div>
-                  <div className="insight-value">Ritmo de voz</div>
-                  <div className="insight-meta">68 promedio · 5 vendedores hablan {'>'}170 WPM</div>
+                  <div className="insight-value">{insights.weakest[0]}</div>
+                  <div className="insight-meta">{insights.weakest[1]}</div>
                 </div>
                 <div className="insight-block">
                   <div className="insight-label">Top performer del mes</div>
-                  <div className="insight-value">Mariana Aimar</div>
-                  <div className="insight-meta">84 score · 24 evaluaciones · racha de 7 días</div>
+                  <div className="insight-value">{insights.top[0]}</div>
+                  <div className="insight-meta">{insights.top[1]}</div>
                 </div>
                 <div className="insight-block">
                   <div className="insight-label">Mayor mejora</div>
-                  <div className="insight-value">Tomás Iriarte</div>
-                  <div className="insight-meta">+11 puntos · de Junior a borde de Mid</div>
+                  <div className="insight-value">{insights.improvement[0]}</div>
+                  <div className="insight-meta">{insights.improvement[1]}</div>
                 </div>
 
                 <button
@@ -1047,7 +1241,11 @@ const AdminApp = () => {
                 <span className="label">PROMEDIO {period.toUpperCase()}</span>
               </div>
               <div style={{padding:'14px 22px 22px',overflowX:'auto'}}>
-                <Heatmap/>
+                {team.length ? (
+                  <Heatmap team={team}/>
+                ) : (
+                  <div className="mono" style={{fontSize:12,color:'var(--ink-50)',padding:18}}>Sin dimensiones reales para graficar.</div>
+                )}
               </div>
             </div>
 
@@ -1056,14 +1254,7 @@ const AdminApp = () => {
               <div className="glass" style={{padding:24}}>
                 <div className="mono" style={{fontSize:10.5,letterSpacing:'0.22em',color:'var(--ink-50)',textTransform:'uppercase',marginBottom:16}}>Desempeño por categoría de pregunta</div>
                 <div className="bars">
-                  {[
-                    ['Apertura en frío',     76],
-                    ['Discovery',            81],
-                    ['Pitch · producto',     78],
-                    ['Manejo de objeciones', 72],
-                    ['Cierre consultivo',    74],
-                    ['Negociación',          69],
-                  ].map(([n,v])=>(
+                  {(categoryRows.length ? categoryRows : [['Sin datos', 0]]).map(([n,v])=>(
                     <div key={n} className="bar-row">
                       <span className="name">{n}</span>
                       <div className="bar-track"><div className="bar-fill" style={{width:`${v}%`}}/></div>
@@ -1075,23 +1266,20 @@ const AdminApp = () => {
 
               <div className="glass" style={{padding:24}}>
                 <div className="mono" style={{fontSize:10.5,letterSpacing:'0.22em',color:'var(--ink-50)',textTransform:'uppercase',marginBottom:16}}>Actividad reciente del equipo</div>
-                {[
-                  ['Mariana Aimar',  'completó · Manejo de objeción: precio', '84', 'hace 12 min'],
-                  ['Tomás Iriarte',  'completó · Pitch de 30 segundos',       '72', 'hace 1 h'],
-                  ['Lucía Fernández','completó · Apertura en frío',           '74', 'hace 2 h'],
-                  ['Federico Lozada','completó · Discovery',                  '83', 'hace 4 h'],
-                  ['Carolina Méndez','completó · Cierre consultivo',          '79', 'ayer'],
-                ].map(([n,a,s,t],i)=>(
+                {recentActivity.map(({ name:n, title, score:s, date:t, status }, i)=>(
                   <div key={i} style={{display:'grid',gridTemplateColumns:'auto 1fr auto auto',gap:12,alignItems:'center',padding:'10px 0',borderTop:i>0?'1px solid var(--glass-border)':'none'}}>
                     <div className="t-avatar" style={{width:30,height:30,fontSize:10}}>{n.split(' ').map(s=>s[0]).join('').slice(0,2)}</div>
                     <div>
                       <div style={{fontSize:12.5,fontWeight:500}}>{n}</div>
-                      <div className="mono" style={{fontSize:10.5,color:'var(--ink-50)',marginTop:2,letterSpacing:'0.04em'}}>{a}</div>
+                      <div className="mono" style={{fontSize:10.5,color:'var(--ink-50)',marginTop:2,letterSpacing:'0.04em'}}>{status} · {title}</div>
                     </div>
                     <div className={`h-score ${parseInt(s)>=80?'high':''}`} style={{width:36,height:36,fontSize:11}}>{s}</div>
                     <div className="mono" style={{fontSize:10,color:'var(--ink-50)',letterSpacing:'0.08em',width:60,textAlign:'right'}}>{t}</div>
                   </div>
                 ))}
+                {recentActivity.length === 0 && (
+                  <div className="mono" style={{fontSize:12,color:'var(--ink-50)',padding:'10px 0'}}>Sin actividad real todavía.</div>
+                )}
               </div>
             </div>
           </div>

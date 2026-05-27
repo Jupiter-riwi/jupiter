@@ -202,10 +202,11 @@ scoring/
 ├── main.py              # App FastAPI + lifespan + /health
 ├── Dockerfile           # Imagen Python 3.12-slim
 ├── prompts/
-│   └── v1.md            # Prompt versionado (template con placeholders {{...}})
+│   ├── v1.md            # Prompt legacy
+│   └── v2.md            # Prompt default con coaching accionable
 └── tests/
     ├── __init__.py
-    └── test_scoring.py  # 11 tests: modelos, prompts, edge cases
+    └── test_scoring.py  # tests: modelos, prompts, JSON schema, edge cases
 ```
 
 ### 3.2 Flujo de procesamiento
@@ -221,14 +222,14 @@ scoring/
        │        └── [STUB] Retorna diccionarios placeholder
        │        └── [PENDIENTE] Leer de Postgres features WHERE evaluation_id + kind
        ├── 3. build_prompt(pose, transcript, prosody)
-       │        └── Carga v1.md del disco
+       │        └── Carga v2.md por defecto (configurable con SCORING_PROMPT_VERSION)
        │        └── Reemplaza {{pose_features}}, {{transcript_features}}, {{prosody_features}}
        │        └── Cada placeholder se reemplaza con JSON.dumps(features, indent=2)
        ├── 4. call_gpt4o(prompt)
        │        │
        │        ├── 4a. POST https://api.openai.com/v1/chat/completions
        │        │        └── model: gpt-4o
-       │        │        └── response_format: {"type": "json_object"}
+       │        │        └── response_format: {"type": "json_schema"}
        │        │        └── temperature: 0.3
        │        │        └── max_tokens: 2000
        │        │        └── system: "Eres un coach de ventas. Responde solo con JSON válido."
@@ -257,14 +258,18 @@ class DimensionScore(BaseModel):
 
 class Recommendation(BaseModel):
     priority: str                          # validado en field_validator
+    area: str
+    problem: str
+    impact: str
     tip: str
     drill: str
+    success_metric: str
     # priority solo acepta: "high", "medium", "low"
 
 class ScoreResult(BaseModel):
     overall: int = Field(ge=0, le=100)
     dimensions: dict[str, DimensionScore] # exactamente 5 keys requeridas
-    recommendations: list[Recommendation]
+    recommendations: list[Recommendation] # 3 a 5 recomendaciones accionables
     # dimensiones requeridas: confianza, claridad, lenguaje_corporal,
     #                         ritmo_voz, escucha_activa
 
@@ -277,29 +282,26 @@ class ScoringJob(BaseModel):
 **Validaciones implementadas en `field_validator`:**
 - `DimensionScore.score`: 0 ≤ score ≤ 100 (automático por `ge=0, le=100`)
 - `Recommendation.priority`: rechaza cualquier valor fuera de {high, medium, low}
+- `Recommendation`: rechaza campos vacíos en `area`, `problem`, `impact`, `tip`, `drill`, `success_metric`
 - `ScoreResult.dimensions`: rechaza si faltan o sobran dimensiones de las 5 requeridas
+- `ScoreResult.recommendations`: exige mínimo 3 y máximo 5 recomendaciones
 - `ScoringJob`: rechaza si falta `evaluation_id` o `tenant_id` (campos required)
 
 ### 3.4 Estrategia de reintentos (`llm.py`)
 
 ```
-Intento 1 ──► ¿excepción? ──SÍ──► esperar 2s ──► Intento 2
-                                        │
-                                      ¿excepción?
-                                        │
-                                  SÍ ───┴──► esperar 4s ──► Intento 3
-                                        │                      │
-                                      NO                      │
-                                       │                ¿excepción?
-                                    return                   │
-                                                        SÍ ──► raise
+OpenAI configurado ──► GPT-4o + JSON schema ──► Pydantic OK ──► return
+        │                         │
+        │                         └── error/JSON inválido ──► fallback Groq si existe
+        │
+        └── sin OPENAI_API_KEY ──► Groq si existe ──► hasta 3 intentos con backoff
 ```
 
 **Política de reintentos:**
-- Solo se reintenta si OpenAI responde pero el JSON no valida con Pydantic
-- Si `OPENAI_API_KEY` no está configurada → `ValueError` directo, sin reintentos
-- Si OpenAI devuelve HTTP error → `RuntimeError`, sin reintentos (error de API, no de contenido)
-- Máximo 3 intentos totales (intento original + 2 retries)
+- OpenAI es primario cuando `OPENAI_API_KEY` está configurada.
+- Groq es fallback cuando `GROQ_API_KEY` está configurada.
+- Groq reintenta hasta 3 intentos totales (intento original + 2 retries).
+- Si ninguna key está configurada → `ValueError` directo.
 
 ### 3.5 Cliente OpenAI (`_call_openai_json`)
 
@@ -307,21 +309,24 @@ Implementado con `urllib.request` de la stdlib (sin dependencia `openai`):
 - Endpoint: `POST https://api.openai.com/v1/chat/completions`
 - Timeout: 60 segundos
 - No usa streaming
-- `response_format: {"type": "json_object"}` garantiza que GPT-4o devuelva JSON sintácticamente válido
+- `response_format: {"type": "json_schema"}` guía a GPT-4o hacia el contrato `ScoreResult`
+- Pydantic valida el contrato final antes de persistir
 - Los tokens usados se extraen de `response["usage"]` y se loggean
 
 ### 3.6 Prompt versionado
 
-**Ubicación:** `scoring/prompts/v1.md`  
+**Ubicación actual:** `scoring/prompts/v2.md`  
 **Sistema de versionado:** Archivos markdown en directorio `prompts/`.  
+**Selector:** `SCORING_PROMPT_VERSION` (default `v2`).  
 **Cambios al prompt:** Requieren PR revisable (criterio de aceptación HU-2.2).
 
 **Estructura del prompt:**
-1. Rol: "Eres un coach de ventas experto"
+1. Rol: coach senior de ventas B2B, directo y profesional
 2. Contexto: Describe los 3 tipos de features que recibe
 3. Tarea: Evalúa 5 dimensiones (0-100 cada una) con evidence
-4. Formato de salida: Ejemplo JSON exacto que debe seguir
-5. Placeholders: `{{pose_features}}`, `{{transcript_features}}`, `{{prosody_features}}`
+4. Recomendaciones: problema, impacto, tip, drill y métrica de éxito
+5. Formato de salida: Ejemplo JSON exacto que debe seguir
+6. Placeholders: `{{pose_features}}`, `{{transcript_features}}`, `{{prosody_features}}`
 
 **5 dimensiones definidas:**
 
@@ -363,8 +368,15 @@ Implementado con `urllib.request` de la stdlib (sin dependencia `openai`):
     "escucha_activa": {"score": 65, "evidence": "solo 1 pregunta en toda la presentación"}
   },
   "recommendations": [
-    {"priority": "high", "tip": "Incrementa el contacto visual", "drill": "Grábate mirando a la cámara 2 min/día"},
-    {"priority": "medium", "tip": "Añade preguntas abiertas", "drill": "Prepara 3 preguntas antes de cada presentación"}
+    {
+      "priority": "high",
+      "area": "ritmo_voz",
+      "problem": "Hablas a 185 WPM, por encima del rango recomendado.",
+      "impact": "El prospecto puede percibir ansiedad y perder partes clave.",
+      "tip": "Reduce velocidad y marca pausas entre ideas.",
+      "drill": "Graba el mismo pitch 3 veces intentando llegar a 150 WPM.",
+      "success_metric": "WPM entre 130 y 160 durante al menos 80% del pitch."
+    }
   ],
   "completed_at": "2026-05-05T12:00:00Z"
 }
@@ -474,11 +486,11 @@ uvicorn scoring.main:app --reload --port 8002
 | | `test_to_dict_is_json_serializable` | `json.dumps()` no lanza excepción |
 | `TestErrorHandling` | `test_missing_file_raises` | `FileNotFoundError` con path inexistente |
 
-### 5.2 Scoring Worker — 11 tests en `scoring/tests/test_scoring.py`
+### 5.2 Scoring Worker — tests en `scoring/tests/test_scoring.py`
 
 | Clase | Test | Qué verifica |
 |-------|------|-------------|
-| `TestModels` | `test_score_result_valid` | ScoreResult con 5 dimensiones y 2 recomendaciones |
+| `TestModels` | `test_score_result_valid` | ScoreResult con 5 dimensiones y 3 recomendaciones accionables |
 | | `test_score_result_missing_dimension_raises` | Falta dimensión → ValueError |
 | | `test_score_result_extra_dimension_raises` | Dimensión extra → ValueError |
 | | `test_score_out_of_range_raises` | overall=150 → ValueError |
@@ -486,10 +498,12 @@ uvicorn scoring.main:app --reload --port 8002
 | | `test_scoring_job_model` | ScoringJob con campos requeridos |
 | | `test_dimension_score_range` | score=-1 y score=101 → ValueError |
 | `TestPrompt` | `test_load_prompt_v1_exists` | Carga v1.md, verifica contenido |
+| | `test_load_prompt_v2_is_default_contract` | Carga v2.md y verifica contrato de coaching |
 | | `test_load_prompt_nonexistent_raises` | v999.md → FileNotFoundError |
 | | `test_build_prompt_replaces_placeholders` | Placeholders reemplazados por JSON real |
+| | `test_openai_schema_is_closed` | JSON schema strict con 5 dimensiones y recomendaciones completas |
 | `TestSerialization` | `test_score_result_model_dump_is_json_serializable` | model_dump() → json.dumps() sin error |
-| `TestEdgeCases` | `test_empty_recommendations` | recommendations=[] → válido |
+| `TestEdgeCases` | `test_empty_recommendations_are_invalid` | recommendations=[] → ValueError |
 | | `test_boundary_scores` | overall=0 y overall=100 → ambos válidos |
 
 ### 5.3 Tests de fixtures — 7 tests en `scoring/tests/test_fixtures.py`
@@ -585,8 +599,8 @@ python -m pytest scoring/tests/ -v
 
 ### 7.3 Mejoras futuras (fuera de MVP)
 
-- **Prompt multilingüe**: Actualmente el prompt está en español. Si el producto es multi-idioma, crear `v1_en.md`, `v1_pt.md`, etc.
-- **Calibración con feedback humano**: Iterar el prompt contra evaluaciones reales usando `scripts/prompt_eval.py` con los 3 fixtures
+- **Prompt multilingüe**: Actualmente el prompt está en español. Si el producto es multi-idioma, crear `v2_en.md`, `v2_pt.md`, etc.
+- **Calibración con feedback humano**: Iterar el prompt contra evaluaciones reales usando `scripts/prompt_eval.py` con los 3 fixtures, validando score y calidad de recomendaciones
 - **Métricas de costo**: El tracking de tokens ya está implementado (logging en `llm.py:50-55`), pero no se persiste en DB. Agregar campo `cost_tokens` a tabla `scores`
 - **Paralelismo**: Si el volumen crece, los consumers pueden escalarse horizontalmente (múltiples instancias del mismo worker compitiendo por la misma cola con `prefetch_count=1`)
 
@@ -659,5 +673,5 @@ Cada fixture contiene las 3 secciones (`pose`, `transcript`, `prosody`) con dato
 - **Contratos compartidos:** `docs/TEAM.md` líneas 179-218
 - **Arquitectura general:** `docs/ARCHITECTURE.md`
 - **Historias de usuario:** `docs/HISTORIAS_USUARIO.md` (HU-2.1, HU-2.2)
-- **Prompt de scoring:** `ai-workers/scoring/prompts/v1.md`
+- **Prompt de scoring:** `ai-workers/scoring/prompts/v2.md`
 - **GitHub Issues:** [#4 HU-2.1](https://github.com/Jupiter-riwi/jupiter/issues/4), [#5 HU-2.2](https://github.com/Jupiter-riwi/jupiter/issues/5) (org/repo será renombrado a APEX-VISION/apex-vision)
