@@ -207,7 +207,7 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
             <button className="btn btn-primary" onClick={onPractice}><SIcon name="redo" size={13} /> Volver a practicar</button>
             <button
               className="btn"
-              onClick={() => { window.open('/admin', '_blank'); }}
+              onClick={() => { window.open('/admin?eval=' + evalId, '_blank'); }}
               style={{ background:'rgba(120,255,180,0.1)', borderColor:'rgba(120,255,180,0.3)', color:'#9ef5be' }}
             >
               <SIcon name="arrow" size={13} /> Ver en panel admin

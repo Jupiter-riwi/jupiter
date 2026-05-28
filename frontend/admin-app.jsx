@@ -331,21 +331,22 @@ const PersonModal = ({ person, onClose }) => {
         {/* evaluaciones recientes */}
         <div className="mono" style={{fontSize:9,color:'var(--ink-30)',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:12}}>Evaluaciones recientes</div>
         <div style={{display:'flex',flexDirection:'column',gap:1,marginBottom:24}}>
-          {[
-            ['Manejo de objeción: precio','hoy 16:08',84],
-            ['Apertura en frío','ayer 11:22',81],
-            ['Discovery: detectar dolor','lun 17:05',78],
-            ['Cierre consultivo','23 mar 11:30',76],
-          ].map(([t,d,s],i) => {
-            const sc = s >= 80 ? '#9ef5be' : s >= 65 ? '#fbbf24' : '#fca5a5';
+          {(person._rawEvals || []).slice(0,5).map((e) => {
+            const s = e.status === 'completed' && e.score !== null ? (e.score > 1 ? Math.round(e.score) : Math.round((e.score||0)*100)) : null;
+            const sc = s !== null ? (s >= 80 ? '#9ef5be' : s >= 65 ? '#fbbf24' : '#fca5a5') : 'var(--ink-40)';
+            const d = new Date(e.created_at);
+            const now = new Date();
+            const diffH = Math.floor((now-d)/3600000);
+            const dateStr = diffH < 24 ? `hoy ${d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}` : diffH < 48 ? `ayer ${d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}` : d.toLocaleDateString('es-AR',{day:'2-digit',month:'short'});
+            const statusLabel = e.status === 'completed' ? 'completada' : e.status === 'failed' ? 'falló' : 'procesando';
             return (
-              <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',borderRadius:8,background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.05)'}}>
+              <div key={e.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',borderRadius:8,background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.05)'}}>
                 <div style={{width:36,height:36,borderRadius:'50%',border:`2px solid ${sc}33`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                  <span style={{fontSize:12,fontWeight:300,color:sc}}>{s}</span>
+                  <span style={{fontSize:12,fontWeight:300,color:sc}}>{s !== null ? s : '—'}</span>
                 </div>
                 <div style={{flex:1}}>
-                  <div style={{fontSize:12.5,color:'var(--ink-75)'}}>{t}</div>
-                  <div className="mono" style={{fontSize:10,color:'var(--ink-35)',marginTop:2}}>{d}</div>
+                  <div style={{fontSize:12.5,color:'var(--ink-75)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:360}}>{e.title || 'Evaluación'}</div>
+                  <div className="mono" style={{fontSize:10,color:'var(--ink-35)',marginTop:2}}>{dateStr} · {statusLabel}</div>
                 </div>
               </div>
             );
@@ -984,10 +985,10 @@ const AjustesView = ({ onLogout }) => {
 };
 
 /* ----------------------------- PERFIL EMPRESA ----------------------------- */
-const PerfilEmpresa = ({ user, onGoAjustes }) => {
-  const teamAvg = Math.round(TEAM.reduce((s,p) => s + p.score, 0) / TEAM.length);
-  const totalEvals = TEAM.reduce((s,p) => s + p.evals, 0);
-  const topPerformer = TEAM.slice().sort((a,b) => b.score - a.score)[0];
+const PerfilEmpresa = ({ user, onGoAjustes, team = TEAM }) => {
+  const teamAvg = team.length ? Math.round(team.reduce((s,p) => s + p.score, 0) / team.length) : 0;
+  const totalEvals = team.reduce((s,p) => s + p.evals, 0);
+  const topPerformer = team.length ? team.slice().sort((a,b) => b.score - a.score)[0] : { score: 0, name: '—' };
 
   const StatCard = ({ label, value, sub, color }) => (
     <div style={{padding:'18px 20px',borderRadius:12,background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.07)',flex:1}}>
@@ -1046,7 +1047,7 @@ const PerfilEmpresa = ({ user, onGoAjustes }) => {
       {/* stats del equipo */}
       <div className="mono" style={{fontSize:9,color:'var(--ink-28)',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:10}}>Resumen del equipo</div>
       <div style={{display:'flex',gap:10,marginBottom:12}}>
-        <StatCard label="Vendedores" value={TEAM.length} sub="100% activos" />
+        <StatCard label="Vendedores" value={team.length} sub="100% activos" />
         <StatCard label="Score promedio" value={teamAvg} sub="vs 70 benchmark" color={teamAvg >= 75 ? '#9ef5be' : teamAvg >= 65 ? '#fbbf24' : '#fca5a5'}/>
         <StatCard label="Evaluaciones totales" value={totalEvals} sub="últimos 30 días"/>
         <StatCard label="Top performer" value={topPerformer.score} sub={topPerformer.name} color="#9ef5be"/>
@@ -1074,6 +1075,46 @@ const AdminApp = () => {
   const [period, setPeriod] = useState('30d');
   const [page, setPage] = useState('equipo');
   const [roleFilter, setRoleFilter] = useState('Todos');
+  const [teamData, setTeamData] = useState(TEAM);
+  const [recentEvals, setRecentEvals] = useState([]);
+  const [highlightId, setHighlightId] = useState(() => new URLSearchParams(window.location.search).get('eval') || null);
+
+  useEffect(() => {
+    if (!window.ApexAPI) return;
+    const DIM_KEYS = ['confianza','claridad','lenguaje_corporal','ritmo_voz','escucha_activa'];
+    window.ApexAPI.listAdminEvaluations().then(evals => {
+      const byUser = {};
+      evals.forEach(e => {
+        const key = e.user_id;
+        if (!byUser[key]) byUser[key] = { email: e.seller_email, evals: [] };
+        byUser[key].evals.push(e);
+      });
+      // Normaliza score: valores <= 1 están en escala 0-1 (multiplicar ×100),
+      // valores > 1 ya están en escala 0-100 (usar directamente).
+      const norm = s => s > 1 ? Math.round(s) : Math.round((s||0) * 100);
+      const team = Object.values(byUser).map((u, i) => {
+        const completed = u.evals.filter(e => e.status === 'completed' && e.score !== null);
+        const scores = completed.map(e => norm(e.score));
+        const avgScore = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : 0;
+        const skills = DIM_KEYS.map(k => {
+          const ds = completed.filter(e=>e.features?.dimensions?.[k]).map(e=>e.features.dimensions[k].score);
+          return ds.length ? Math.round(ds.reduce((a,b)=>a+b,0)/ds.length) : 0;
+        });
+        const trend = scores.length >= 2 ? (scores[0]-scores[1]) : 0;
+        const trendStr = trend > 0 ? `+${trend}` : String(trend);
+        const status = avgScore >= 80 ? 'on-track' : avgScore >= 70 ? 'improving' : avgScore >= 60 ? 'watch' : 'needs-coaching';
+        const lastDate = new Date(u.evals[0].created_at);
+        const diffH = Math.floor((new Date()-lastDate)/3600000);
+        const last = diffH < 24 ? `hoy ${lastDate.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}` : diffH < 48 ? 'ayer' : `${Math.floor(diffH/24)} días`;
+        const rawName = u.email.split('@')[0];
+        const name = rawName.split('.').map(s=>s.charAt(0).toUpperCase()+s.slice(1)).join(' ');
+        return { id: i+1, name, role: 'Vendedor', evals: u.evals.length, score: avgScore, trend: trendStr, skills, status, last, _rawEvals: u.evals };
+      });
+      if (team.length) setTeamData(team);
+      // Guardar últimas 10 evaluaciones para la vista de recientes
+      setRecentEvals(evals.slice(0, 10));
+    }).catch(() => {});
+  }, []);
 
   // ── Token system (basado en plan financiero: $0.01/token) ─────────────────
   // Costos: 5 tokens/evaluación ($0.05) · 20 tokens/plan coaching IA ($0.20)
@@ -1112,7 +1153,7 @@ const AdminApp = () => {
     // Cada recomendación se ancla en una métrica concreta detectada en el desempeño.
     await new Promise(r => setTimeout(r, 800));
 
-    const teamAvg = Math.round(TEAM.reduce((s,p) => s + p.score, 0) / TEAM.length);
+    const teamAvg = teamData.length ? Math.round(teamData.reduce((s,p) => s + p.score, 0) / teamData.length) : 0;
     const skillNames = ['Confianza','Claridad','Manejo objeciones','Ritmo de voz','Lenguaje corporal'];
 
     const buildItem = (p) => {
@@ -1143,11 +1184,11 @@ const AdminApp = () => {
       };
     };
 
-    const targets = TEAM.filter(p => p.status === 'needs-coaching' || p.status === 'watch' || p.score < 75);
+    const targets = teamData.filter(p => p.status === 'needs-coaching' || p.status === 'watch' || p.score < 75);
 
     const plan = {
       generatedAt: new Date().toLocaleString('es-AR'),
-      summary: `Equipo ${TEAM.length} vendedores · score promedio ${teamAvg}/100 · ${targets.length} requieren intervención (criterio: score<75 o status watch/needs-coaching)`,
+      summary: `Equipo ${teamData.length} vendedores · score promedio ${teamAvg}/100 · ${targets.length} requieren intervención (criterio: score<75 o status watch/needs-coaching)`,
       items: targets.sort((a,b) => a.score - b.score).map(buildItem),
       methodology: 'Cada recomendación se ancla en la dimensión más débil del vendedor con métricas concretas y meta de mejora medible.',
     };
@@ -1184,9 +1225,9 @@ const AdminApp = () => {
     return () => clearInterval(t);
   }, []);
 
-  const teamAvg = Math.round(TEAM.reduce((s,p) => s + p.score, 0) / TEAM.length);
-  const totalEvals = TEAM.reduce((s,p) => s + p.evals, 0);
-  const needsCoach = TEAM.filter(p => p.status === 'needs-coaching').length;
+  const teamAvg = teamData.length ? Math.round(teamData.reduce((s,p) => s + p.score, 0) / teamData.length) : 0;
+  const totalEvals = teamData.reduce((s,p) => s + p.evals, 0);
+  const needsCoach = teamData.filter(p => p.status === 'needs-coaching').length;
 
   return (
     <div id="app">
@@ -1195,7 +1236,7 @@ const AdminApp = () => {
         {page === 'preguntas' && <PreguntasView/>}
         {page === 'reportes'  && <ReportesView/>}
         {page === 'ajustes'   && <AjustesView onLogout={handleLogout}/>}
-        {page === 'perfil'    && <PerfilEmpresa user={user} onGoAjustes={() => setPage('ajustes')}/>}
+        {page === 'perfil'    && <PerfilEmpresa user={user} onGoAjustes={() => setPage('ajustes')} team={teamData}/>}
         {page === 'equipo' && <div className="s-stage">
           <div className="s-wrap" style={{maxWidth:1280}}>
             {/* header compacto */}
@@ -1203,7 +1244,7 @@ const AdminApp = () => {
               <div>
                 <div style={{fontSize:16,fontWeight:300,letterSpacing:'-0.01em'}}>Equipo</div>
                 <div className="mono" style={{fontSize:10,color:'var(--ink-30)',marginTop:3}}>
-                  {user.tenant} · {TEAM.length} vendedores · {needsCoach} requieren coaching
+                  {user.tenant} · {teamData.length} vendedores · {needsCoach} requieren coaching
                 </div>
               </div>
               <button className="btn" style={{display:'flex',alignItems:'center',gap:6,fontSize:11.5}}>
@@ -1226,7 +1267,7 @@ const AdminApp = () => {
             <div className="kpis" style={{marginBottom:18}}>
               <Kpi label="Score promedio del equipo" value={teamAvg} unit="/100" delta="+ 4 vs mes anterior" deltaDir="up" sparkId="a1" data={[68,70,69,72,73,72,75,74,76,75,76,teamAvg]}/>
               <Kpi label="Evaluaciones · 30d" value={totalEvals} unit="" delta="↑ 18% participación" deltaDir="up" sparkId="a2" data={[6,8,12,9,14,18,16,20,22,19,24,totalEvals]}/>
-              <Kpi label="Vendedores activos" value={TEAM.length} unit={`/${TEAM.length}`} delta="100% activos esta semana" deltaDir="neutral" sparkId="a3" data={[5,6,6,7,7,8,8,8,8,8,8,8]}/>
+              <Kpi label="Vendedores activos" value={teamData.length} unit={`/${teamData.length}`} delta="100% activos esta semana" deltaDir="neutral" sparkId="a3" data={[5,6,6,7,7,8,8,8,8,8,8,8]}/>
               <Kpi label="Requieren coaching" value={needsCoach} unit="" delta="↑ 2 desde la semana pasada" deltaDir="warn" sparkId="a4" data={[1,1,2,1,2,2,2,3,2,2,2,needsCoach]}/>
             </div>
 
@@ -1243,7 +1284,7 @@ const AdminApp = () => {
                   </div>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
-                  {TEAM.filter(p => roleFilter==='Todos' || p.role===roleFilter)
+                  {teamData.filter(p => roleFilter==='Todos' || p.role===roleFilter)
                        .map(p => <TeamCard key={p.id} p={p} onOpen={setDrawer}/>)}
                 </div>
               </div>
@@ -1277,6 +1318,56 @@ const AdminApp = () => {
                 {tokenError && <div className="mono" style={{fontSize:10,color:'#fca5a5',lineHeight:1.5}}>{tokenError}</div>}
               </div>
             </div>
+
+            {/* EVALUACIONES RECIENTES DEL EQUIPO */}
+            {recentEvals.length > 0 && (
+              <div style={{marginTop:20}}>
+                <div className="mono" style={{fontSize:9,color:'var(--ink-28)',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:12}}>
+                  Evaluaciones recientes del equipo
+                </div>
+                <div className="glass" style={{padding:0,overflow:'hidden'}}>
+                  {recentEvals.map((e, i) => {
+                    const s = e.score != null ? (e.score > 1 ? Math.round(e.score) : Math.round(e.score * 100)) : null;
+                    const sc = s != null ? (s >= 70 ? '#9ef5be' : s >= 50 ? '#fbbf24' : '#fca5a5') : 'var(--ink-30)';
+                    const isHL = e.id === highlightId;
+                    const d = new Date(e.created_at);
+                    const diffH = Math.floor((new Date()-d)/3600000);
+                    const dateStr = diffH < 24 ? `hoy ${d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}` : diffH < 48 ? `ayer ${d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}` : d.toLocaleDateString('es-AR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+                    const sellerName = (e.seller_email||'').split('@')[0].split('.').map(x=>x.charAt(0).toUpperCase()+x.slice(1)).join(' ');
+                    const statusLabel = e.status === 'completed' ? 'Completada' : e.status === 'failed' ? 'Falló' : 'Procesando';
+                    const statusColor = e.status === 'completed' ? '#9ef5be' : e.status === 'failed' ? '#fca5a5' : '#fbbf24';
+                    return (
+                      <div key={e.id} style={{
+                        display:'grid', gridTemplateColumns:'36px 1fr auto auto',
+                        alignItems:'center', gap:14, padding:'12px 18px',
+                        borderBottom: i < recentEvals.length-1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                        background: isHL ? 'rgba(158,245,190,0.07)' : 'transparent',
+                        borderLeft: isHL ? '3px solid rgba(158,245,190,0.6)' : '3px solid transparent',
+                        transition:'background 300ms',
+                      }}>
+                        {/* score circle */}
+                        <div style={{width:36,height:36,borderRadius:'50%',border:`2px solid ${sc}44`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                          <span style={{fontSize:11,fontWeight:300,color:sc}}>{s != null ? s : '—'}</span>
+                        </div>
+                        {/* info */}
+                        <div>
+                          <div style={{fontSize:12.5,color: isHL ? 'rgba(158,245,190,0.95)' : 'var(--ink-75)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:420}}>
+                            {e.title || 'Evaluación libre'}
+                            {isHL && <span className="mono" style={{fontSize:9,marginLeft:8,padding:'2px 7px',background:'rgba(158,245,190,0.15)',borderRadius:4,color:'#9ef5be',letterSpacing:'0.1em'}}>NUEVA</span>}
+                          </div>
+                          <div className="mono" style={{fontSize:9.5,color:'var(--ink-35)',marginTop:2}}>{sellerName} · {dateStr}</div>
+                        </div>
+                        {/* status */}
+                        <span className="mono" style={{fontSize:9,color:statusColor,letterSpacing:'0.1em',textTransform:'uppercase',whiteSpace:'nowrap'}}>{statusLabel}</span>
+                        {/* score badge */}
+                        <div style={{minWidth:42,textAlign:'right',fontSize:20,fontWeight:200,color:sc}}>{s != null ? s : '—'}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
           </div>
         </div>}
       </div>
