@@ -104,6 +104,12 @@ services:
       MINIO_USE_SSL: "false"
       MINIO_PUBLIC_USE_SSL: "false"
       CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN:-http://localhost:8090}
+      # Live conversational agent (STT + LLM + TTS)
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID:-EXAVITQu4vr4xnSDxMaL}
+      ELEVENLABS_MODEL_ID: ${ELEVENLABS_MODEL_ID:-eleven_multilingual_v2}
     depends_on:
       postgres:
         condition: service_healthy

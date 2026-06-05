@@ -114,6 +114,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Live conversational agent (real-time STT -> LLM -> TTS over WebSocket).
+from app.live.router import router as live_router  # noqa: E402
+
+app.include_router(live_router)
+
 COACH_SYSTEM_PROMPT = """You are Apex Voice Coach, an executive bilingual (Spanish/English) sales coach.
 Default language is Spanish unless the user asks otherwise.
 

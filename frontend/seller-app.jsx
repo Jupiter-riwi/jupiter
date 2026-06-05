@@ -1,5 +1,6 @@
 const { useState, useEffect } = React;
-const { PublicTopBar, PublicLanding, ScenarioSelector, RecordingStage, SellerResults, SIcon, ApexLogo, SellerDashboard, SellerProgress, SellerCoaching, SellerPlan, SellerSettings, SellerProfile, SellerMainDashboard } = window;
+const { PublicTopBar, PublicLanding, ScenarioSelector, RecordingStage, SellerResults, SIcon, ApexLogo, SellerDashboard, SellerProgress, SellerCoaching, SellerPlan, SellerSettings, SellerProfile, SellerMainDashboard, LiveRoom, LangToggle } = window;
+const T = (k) => window.I18N.t(k);
 
 const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
 
@@ -12,6 +13,8 @@ function ApexApp() {
   const [tab, setTab]             = useState('dashboard'); // dashboard | home | progress | coaching | plan | settings
   const [scenario, setScenario]   = useState(null);
   const [recording, setRecording] = useState(false);
+  const [liveMode, setLiveMode]   = useState(null);   // null | 'presentacion' | 'entrevista'
+  const lang = window.useLang();
   const [evaluationData, setEvalData] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
 
@@ -36,7 +39,7 @@ function ApexApp() {
     window.ApexAPI.logout();
     setAuthChecked(true);
     const onExpired = () => {
-      setLoginError('Tu sesion expiro. Volve a iniciar sesion.');
+      setLoginError(T('auth.expired'));
       setPage('login');
       setScenario(null);
       setRecording(false);
@@ -61,9 +64,9 @@ function ApexApp() {
     } catch (err) {
       const msg = err.message || '';
       if (msg.includes('401') || msg.includes('Login failed')) {
-        setLoginError('Email o contraseña incorrectos.');
+        setLoginError(T('auth.err.badCreds'));
       } else {
-        setLoginError('No se pudo conectar con el servidor. Verificá tu conexión.');
+        setLoginError(T('auth.err.server'));
       }
     } finally {
       setLoginBusy(false);
@@ -74,8 +77,8 @@ function ApexApp() {
   const handleRegister = async (e) => {
     e.preventDefault();
     setRegError('');
-    if (regPassword !== regConfirm) { setRegError('Las contraseñas no coinciden.'); return; }
-    if (regPassword.length < 6) { setRegError('La contraseña debe tener al menos 6 caracteres.'); return; }
+    if (regPassword !== regConfirm) { setRegError(T('auth.err.mismatch')); return; }
+    if (regPassword.length < 6) { setRegError(T('auth.err.short')); return; }
     setRegBusy(true);
     try {
       await window.ApexAPI.register(regEmail, regPassword, DEMO_TENANT_ID);
@@ -84,9 +87,9 @@ function ApexApp() {
     } catch (err) {
       const msg = err.message || '';
       if (msg.includes('already registered')) {
-        setRegError('Ese email ya tiene una cuenta. Iniciá sesión.');
+        setRegError(T('auth.err.exists'));
       } else {
-        setRegError('No se pudo crear la cuenta. Verificá tu conexión.');
+        setRegError(T('auth.err.create'));
       }
     } finally {
       setRegBusy(false);
@@ -142,7 +145,7 @@ function ApexApp() {
               </div>
               <div style={{fontSize:22,fontWeight:200,letterSpacing:'-0.02em',marginBottom:4}}>Apex Vision</div>
               <div className="mono" style={{fontSize:10,color:'var(--ink-40)',marginBottom:28,letterSpacing:'0.2em',textTransform:'uppercase'}}>
-                Evaluación comercial con IA
+                {T('auth.tagline')}
               </div>
               {children}
             </div>
@@ -170,10 +173,10 @@ function ApexApp() {
       <AuthCard>
         <form onSubmit={handleLogin} style={{display:'grid',gap:12,textAlign:'left'}}>
           <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-            placeholder="Email" required autoComplete="email" style={inputStyle} />
+            placeholder={T('auth.email')} required autoComplete="email" style={inputStyle} />
           <div style={{position:'relative'}}>
             <input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
-              placeholder="Contraseña" required autoComplete="current-password"
+              placeholder={T('auth.password')} required autoComplete="current-password"
               style={{...inputStyle, padding:'11px 42px 11px 14px'}} />
             <button type="button" onClick={() => setShowPass(v => !v)}
               style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'var(--ink-40)',padding:4,display:'flex',alignItems:'center'}}>
@@ -182,15 +185,15 @@ function ApexApp() {
           </div>
           <button type="submit" className="btn btn-primary" disabled={loginBusy}
             style={{width:'100%',justifyContent:'center',padding:'13px',opacity:loginBusy?0.7:1,transition:'opacity 150ms'}}>
-            {loginBusy ? <span style={{display:'flex',alignItems:'center',gap:8,justifyContent:'center'}}><Spinner /> Conectando…</span> : 'Ingresar'}
+            {loginBusy ? <span style={{display:'flex',alignItems:'center',gap:8,justifyContent:'center'}}><Spinner /> {T('auth.connecting')}</span> : T('auth.login')}
           </button>
           <ErrorBox msg={loginError} />
         </form>
         <div style={{marginTop:20,textAlign:'center'}}>
-          <span style={{fontSize:12,color:'var(--ink-40)'}}>¿No tenés cuenta? </span>
+          <span style={{fontSize:12,color:'var(--ink-40)'}}>{T('auth.noAccount')} </span>
           <button onClick={() => { setLoginError(''); setPage('register'); }}
             style={{background:'none',border:'none',cursor:'pointer',fontSize:12,color:'var(--ink-70)',textDecoration:'underline',textUnderlineOffset:3,padding:0}}>
-            Registrate
+            {T('auth.register')}
           </button>
         </div>
       </AuthCard>
@@ -202,10 +205,10 @@ function ApexApp() {
       <AuthCard>
         <form onSubmit={handleRegister} style={{display:'grid',gap:12,textAlign:'left'}}>
           <input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)}
-            placeholder="Email" required autoComplete="email" style={inputStyle} />
+            placeholder={T('auth.email')} required autoComplete="email" style={inputStyle} />
           <div style={{position:'relative'}}>
             <input type={showRegPass ? 'text' : 'password'} value={regPassword} onChange={e => setRegPassword(e.target.value)}
-              placeholder="Contraseña (mín. 6 caracteres)" required autoComplete="new-password"
+              placeholder={T('auth.passwordMin')} required autoComplete="new-password"
               style={{...inputStyle, padding:'11px 42px 11px 14px'}} />
             <button type="button" onClick={() => setShowRegPass(v => !v)}
               style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'var(--ink-40)',padding:4,display:'flex',alignItems:'center'}}>
@@ -213,18 +216,18 @@ function ApexApp() {
             </button>
           </div>
           <input type="password" value={regConfirm} onChange={e => setRegConfirm(e.target.value)}
-            placeholder="Confirmá la contraseña" required autoComplete="new-password" style={inputStyle} />
+            placeholder={T('auth.confirm')} required autoComplete="new-password" style={inputStyle} />
           <button type="submit" className="btn btn-primary" disabled={regBusy}
             style={{width:'100%',justifyContent:'center',padding:'13px',opacity:regBusy?0.7:1,transition:'opacity 150ms'}}>
-            {regBusy ? <span style={{display:'flex',alignItems:'center',gap:8,justifyContent:'center'}}><Spinner /> Creando cuenta…</span> : 'Crear cuenta'}
+            {regBusy ? <span style={{display:'flex',alignItems:'center',gap:8,justifyContent:'center'}}><Spinner /> {T('auth.creating')}</span> : T('auth.createAccount')}
           </button>
           <ErrorBox msg={regError} />
         </form>
         <div style={{marginTop:20,textAlign:'center'}}>
-          <span style={{fontSize:12,color:'var(--ink-40)'}}>¿Ya tenés cuenta? </span>
+          <span style={{fontSize:12,color:'var(--ink-40)'}}>{T('auth.haveAccount')} </span>
           <button onClick={() => { setRegError(''); setPage('login'); }}
             style={{background:'none',border:'none',cursor:'pointer',fontSize:12,color:'var(--ink-70)',textDecoration:'underline',textUnderlineOffset:3,padding:0}}>
-            Iniciá sesión
+            {T('auth.signin')}
           </button>
         </div>
       </AuthCard>
@@ -236,13 +239,13 @@ function ApexApp() {
     const displayName = user?.name || user?.email?.split('@')[0] || 'Vendedor';
     const isMain = page === 'landing';
     const TABS = [
-      { id: 'dashboard', label: 'Dashboard' },
-      { id: 'home',      label: 'Evaluaciones' },
-      { id: 'progress',  label: 'Progreso' },
-      { id: 'coaching',  label: 'Coaching IA' },
-      { id: 'plan',      label: 'Mi Plan' },
-      { id: 'profile',   label: 'Perfil' },
-      { id: 'settings',  label: 'Configuración' },
+      { id: 'dashboard', label: T('nav.dashboard') },
+      { id: 'home',      label: T('nav.evaluations') },
+      { id: 'progress',  label: T('nav.progress') },
+      { id: 'coaching',  label: T('nav.coaching') },
+      { id: 'plan',      label: T('nav.plan') },
+      { id: 'profile',   label: T('nav.profile') },
+      { id: 'settings',  label: T('nav.settings') },
     ];
     return (
       <div style={{backdropFilter:'blur(20px) saturate(140%)', background:'rgba(10,10,12,0.55)', borderBottom:'1px solid rgba(255,255,255,0.07)', position:'relative', zIndex:5}}>
@@ -257,6 +260,7 @@ function ApexApp() {
           </div>
           <div style={{flex:1}} />
           <div style={{display:'flex',alignItems:'center',gap:10}}>
+            {LangToggle && <LangToggle />}
             <div onClick={() => { setPage('landing'); setTab('profile'); }}
               style={{display:'flex',alignItems:'center',gap:7,padding:'6px 12px',borderRadius:999,background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.08)',cursor:'pointer',transition:'background 150ms'}}
               onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.09)'}
@@ -267,7 +271,7 @@ function ApexApp() {
             <button className="btn" onClick={handleLogout}
               style={{display:'flex',alignItems:'center',gap:6,fontSize:11.5,padding:'6px 14px',opacity:0.75}}>
               <SIcon name="logout" size={13} stroke={1.5} />
-              Salir
+              {T('nav.logout')}
             </button>
           </div>
         </div>
@@ -315,6 +319,25 @@ function ApexApp() {
           onComplete={handleFinishRec}
         />
       )}
+
+      {/* Floating entries: dos productos en vivo (ventas · entrevista) */}
+      {page === 'landing' && !liveMode && (
+        <div style={{ position: 'fixed', right: 24, bottom: 24, zIndex: 200, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
+          <button onClick={() => setLiveMode('entrevista')} title={T('entry.live.interviewDesc')}
+            style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '12px 18px', borderRadius: 999,
+              border: '1px solid rgba(52,211,153,0.4)', background: 'rgba(52,211,153,0.14)', backdropFilter: 'blur(12px)',
+              color: '#a7f3d0', cursor: 'pointer', fontSize: 12.5, boxShadow: '0 8px 30px rgba(52,211,153,0.2)' }}>
+            <SIcon name="user" size={15} /> {T('entry.live.interview')}
+          </button>
+          <button onClick={() => setLiveMode('presentacion')} title={T('entry.live.salesDesc')}
+            style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '13px 20px', borderRadius: 999,
+              border: '1px solid rgba(96,165,250,0.4)', background: 'rgba(96,165,250,0.16)', backdropFilter: 'blur(12px)',
+              color: '#bfdbfe', cursor: 'pointer', fontSize: 13, boxShadow: '0 8px 30px rgba(96,165,250,0.25)' }}>
+            <SIcon name="sparkle" size={16} /> {T('entry.live.sales')}
+          </button>
+        </div>
+      )}
+      {liveMode && LiveRoom && <LiveRoom initialMode={liveMode} onClose={() => setLiveMode(null)} />}
     </div>
   );
 }

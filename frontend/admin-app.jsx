@@ -18,13 +18,13 @@ const TEAM = [
   { id: 8, name: 'Ricardo Pena',      role: 'Junior',     evals: 7,  score: 58, trend: '−6', skills: [55,60,52,68,55], status: 'needs-coaching', last: '4 días' },
 ];
 
-const DIMENSIONS = ['Confianza', 'Claridad', 'Lenguaje corporal', 'Ritmo de voz', 'Escucha activa'];
-const STATUS_LABEL = {
-  'on-track':       'En camino',
-  'improving':      'Mejorando',
-  'watch':          'Observar',
-  'needs-coaching': 'Requiere coaching',
-};
+const DIMENSIONS = () => [window.L('Confianza','Confidence'), window.L('Claridad','Clarity'), window.L('Lenguaje corporal','Body language'), window.L('Ritmo de voz','Voice pace'), window.L('Escucha activa','Active listening')];
+const statusLabel = (s) => ({
+  'on-track':       window.L('En camino','On track'),
+  'improving':      window.L('Mejorando','Improving'),
+  'watch':          window.L('Observar','Watch'),
+  'needs-coaching': window.L('Requiere coaching','Needs coaching'),
+}[s]);
 
 /* ----------------------------- KPI ----------------------------- */
 const Kpi = ({ label, value, unit, delta, deltaDir, sparkId, data }) => {
@@ -43,9 +43,10 @@ const Kpi = ({ label, value, unit, delta, deltaDir, sparkId, data }) => {
 
 /* ----------------------------- TOP BAR ----------------------------- */
 const NAV_ITEMS = ['equipo', 'preguntas', 'reportes', 'ajustes'];
-const NAV_LABELS = { equipo: 'Equipo', preguntas: 'Preguntas', reportes: 'Reportes', ajustes: 'Ajustes' };
+const navLabel = (id) => ({ equipo: window.L('Equipo','Team'), preguntas: window.L('Preguntas','Questions'), reportes: window.L('Reportes','Reports'), ajustes: window.L('Ajustes','Settings') }[id]);
 
 const AdminTop = ({ user, page, onNav, onLogout, onProfile, tokens, onRecharge }) => {
+  const lang = window.useLang(); const L = window.L;
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
@@ -68,9 +69,13 @@ const AdminTop = ({ user, page, onNav, onLogout, onProfile, tokens, onRecharge }
         </div>
         <div style={{flex:1}}/>
         <div ref={ref} style={{display:'flex',alignItems:'center',gap:10,position:'relative'}}>
+          <button onClick={() => window.I18N.toggle()} title="ES / EN"
+            style={{display:'flex',alignItems:'center',gap:5,padding:'5px 11px',borderRadius:999,border:'1px solid rgba(255,255,255,0.14)',background:'rgba(255,255,255,0.05)',color:'var(--ink-70)',cursor:'pointer',fontSize:11,letterSpacing:'0.06em'}}>
+            <SIcon name="wave" size={12}/> {lang.toUpperCase()} · {L('EN','ES')}
+          </button>
           <div
             onClick={() => onNav('perfil')}
-            title="Ver perfil de la empresa"
+            title={L('Ver perfil de la empresa', 'View company profile')}
             style={{display:'flex',alignItems:'center',gap:7,padding:'6px 12px',borderRadius:999,
               background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.08)',
               cursor:'pointer',transition:'background 150ms,border-color 150ms'}}
@@ -118,7 +123,7 @@ const AdminTop = ({ user, page, onNav, onLogout, onProfile, tokens, onRecharge }
               onMouseOver={(e) => e.currentTarget.style.background='rgba(255,255,255,0.05)'}
               onMouseOut={(e) => e.currentTarget.style.background='transparent'}
             >
-              <SIcon name="sparkle" size={13}/> Mi perfil
+              <SIcon name="sparkle" size={13}/> {L('Mi perfil', 'My profile')}
             </button>
             <button
               onClick={() => { setOpen(false); onNav('ajustes'); }}
@@ -126,7 +131,7 @@ const AdminTop = ({ user, page, onNav, onLogout, onProfile, tokens, onRecharge }
               onMouseOver={(e) => e.currentTarget.style.background='rgba(255,255,255,0.05)'}
               onMouseOut={(e) => e.currentTarget.style.background='transparent'}
             >
-              <SIcon name="download" size={13}/> Configuración
+              <SIcon name="download" size={13}/> {L('Configuración', 'Settings')}
             </button>
             <div style={{height:1,background:'var(--glass-border)',margin:'4px 0'}}/>
             <button
@@ -135,7 +140,7 @@ const AdminTop = ({ user, page, onNav, onLogout, onProfile, tokens, onRecharge }
               onMouseOver={(e) => e.currentTarget.style.background='rgba(255,80,80,0.08)'}
               onMouseOut={(e) => e.currentTarget.style.background='transparent'}
             >
-              <SIcon name="close" size={13}/> Cerrar sesión
+              <SIcon name="close" size={13}/> {L('Cerrar sesión', 'Log out')}
             </button>
           </div>
         )}
@@ -150,7 +155,7 @@ const AdminTop = ({ user, page, onNav, onLogout, onProfile, tokens, onRecharge }
             borderBottom: page === id ? '2px solid rgba(255,255,255,0.7)' : '2px solid transparent',
             marginBottom:-1, letterSpacing:'0.02em', transition:'color 150ms',
           }}>
-            {NAV_LABELS[id]}
+            {navLabel(id)}
           </button>
         ))}
       </div>
@@ -192,7 +197,7 @@ const TeamCard = ({ p, onOpen }) => {
 
       {/* habilidades en mini barras */}
       <div style={{display:'flex', flexDirection:'column', gap:5}}>
-        {DIMENSIONS.map((d, i) => (
+        {DIMENSIONS().map((d, i) => (
           <div key={d} style={{display:'flex', alignItems:'center', gap:8}}>
             <div className="mono" style={{fontSize:8.5, color:'var(--ink-35)', width:80, letterSpacing:'0.06em', textOverflow:'ellipsis', overflow:'hidden', whiteSpace:'nowrap', flexShrink:0}}>{d}</div>
             <div style={{flex:1, height:3, borderRadius:2, background:'rgba(255,255,255,0.06)'}}>
@@ -206,7 +211,7 @@ const TeamCard = ({ p, onOpen }) => {
       {/* status badge */}
       <div style={{display:'flex', alignItems:'center', gap:6}}>
         <span style={{width:5, height:5, borderRadius:'50%', background:col, flexShrink:0}}/>
-        <span className="mono" style={{fontSize:9.5, color:col, letterSpacing:'0.1em', textTransform:'uppercase'}}>{STATUS_LABEL[p.status]}</span>
+        <span className="mono" style={{fontSize:9.5, color:col, letterSpacing:'0.1em', textTransform:'uppercase'}}>{statusLabel(p.status)}</span>
         <div style={{flex:1}}/>
         <SIcon name="arrow" size={11} stroke={1.5} style={{color:'var(--ink-30)'}}/>
       </div>
@@ -242,7 +247,7 @@ const Heatmap = () => {
     <div className="hmap">
       <div className="hmap-row hmap-head">
         <div></div>
-        {DIMENSIONS.map(d => <div key={d} className="hmap-col-label">{d}</div>)}
+        {DIMENSIONS().map(d => <div key={d} className="hmap-col-label">{d}</div>)}
         <div className="hmap-col-label">Global</div>
       </div>
       {TEAM.map(p => (
@@ -289,7 +294,7 @@ const PersonModal = ({ person, onClose }) => {
               <div style={{display:'flex',alignItems:'center',gap:8,marginTop:4}}>
                 <span className="mono" style={{fontSize:10,color:'var(--ink-45)'}}>{person.role} · {person.evals} evaluaciones · última {person.last}</span>
                 <span style={{width:4,height:4,borderRadius:'50%',background:col}}/>
-                <span className="mono" style={{fontSize:10,color:col,textTransform:'uppercase',letterSpacing:'0.08em'}}>{STATUS_LABEL[person.status]}</span>
+                <span className="mono" style={{fontSize:10,color:col,textTransform:'uppercase',letterSpacing:'0.08em'}}>{statusLabel(person.status)}</span>
               </div>
             </div>
           </div>
@@ -301,9 +306,9 @@ const PersonModal = ({ person, onClose }) => {
         {/* score + tendencia */}
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:24}}>
           {[
-            {label:'Score global', value:person.score, unit:'/100', color:scoreCol},
-            {label:'Tendencia', value:person.trend, unit:'pts', color: trendNum > 0 ? '#9ef5be' : trendNum < 0 ? '#fca5a5' : 'var(--ink-40)'},
-            {label:'Evaluaciones', value:person.evals, unit:'total', color:'var(--ink-70)'},
+            {label:window.L('Score global','Overall score'), value:person.score, unit:'/100', color:scoreCol},
+            {label:window.L('Tendencia','Trend'), value:person.trend, unit:'pts', color: trendNum > 0 ? '#9ef5be' : trendNum < 0 ? '#fca5a5' : 'var(--ink-40)'},
+            {label:window.L('Evaluaciones','Evaluations'), value:person.evals, unit:'total', color:'var(--ink-70)'},
           ].map(({label,value,unit,color}) => (
             <div key={label} style={{padding:'16px',borderRadius:10,background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.07)',textAlign:'center'}}>
               <div className="mono" style={{fontSize:9,color:'var(--ink-30)',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:8}}>{label}</div>
@@ -313,9 +318,9 @@ const PersonModal = ({ person, onClose }) => {
         </div>
 
         {/* dimensiones */}
-        <div className="mono" style={{fontSize:9,color:'var(--ink-30)',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:12}}>Habilidades por dimensión</div>
+        <div className="mono" style={{fontSize:9,color:'var(--ink-30)',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:12}}>{window.L('Habilidades por dimensión','Skills by dimension')}</div>
         <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:24}}>
-          {DIMENSIONS.map((d,i) => (
+          {DIMENSIONS().map((d,i) => (
             <div key={d} style={{display:'grid',gridTemplateColumns:'140px 1fr 32px',alignItems:'center',gap:12}}>
               <div style={{fontSize:12,color:'var(--ink-60)'}}>{d}</div>
               <div style={{height:6,borderRadius:3,background:'rgba(255,255,255,0.06)'}}>
@@ -329,7 +334,7 @@ const PersonModal = ({ person, onClose }) => {
         </div>
 
         {/* evaluaciones recientes */}
-        <div className="mono" style={{fontSize:9,color:'var(--ink-30)',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:12}}>Evaluaciones recientes</div>
+        <div className="mono" style={{fontSize:9,color:'var(--ink-30)',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:12}}>{window.L('Evaluaciones recientes','Recent evaluations')}</div>
         <div style={{display:'flex',flexDirection:'column',gap:1,marginBottom:24}}>
           {(person._rawEvals || []).slice(0,5).map((e) => {
             const s = e.status === 'completed' && e.score !== null ? (e.score > 1 ? Math.round(e.score) : Math.round((e.score||0)*100)) : null;
@@ -354,7 +359,7 @@ const PersonModal = ({ person, onClose }) => {
         </div>
 
         {/* sugerencias IA */}
-        <div className="mono" style={{fontSize:9,color:'var(--ink-30)',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:12}}>Sugerencias IA</div>
+        <div className="mono" style={{fontSize:9,color:'var(--ink-30)',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:12}}>{window.L('Sugerencias IA','AI suggestions')}</div>
         <div style={{display:'flex',flexDirection:'column',gap:8}}>
           {[
             ['Bajar la velocidad al hablar de precio','WPM promedio 184 vs objetivo 150 cuando menciona costos.'],
@@ -1070,6 +1075,7 @@ const PerfilEmpresa = ({ user, onGoAjustes, team = TEAM }) => {
 
 /* ----------------------------- MAIN VIEW ----------------------------- */
 const AdminApp = () => {
+  window.useLang(); const L = window.L;
   const [time, setTime] = useState(new Date());
   const [drawer, setDrawer] = useState(null);
   const [period, setPeriod] = useState('30d');
@@ -1242,13 +1248,13 @@ const AdminApp = () => {
             {/* header compacto */}
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
               <div>
-                <div style={{fontSize:16,fontWeight:300,letterSpacing:'-0.01em'}}>Equipo</div>
+                <div style={{fontSize:16,fontWeight:300,letterSpacing:'-0.01em'}}>{L('Equipo','Team')}</div>
                 <div className="mono" style={{fontSize:10,color:'var(--ink-30)',marginTop:3}}>
-                  {user.tenant} · {teamData.length} vendedores · {needsCoach} requieren coaching
+                  {user.tenant} · {teamData.length} {L('vendedores','sellers')} · {needsCoach} {L('requieren coaching','need coaching')}
                 </div>
               </div>
               <button className="btn" style={{display:'flex',alignItems:'center',gap:6,fontSize:11.5}}>
-                <SIcon name="download" size={12}/> Exportar
+                <SIcon name="download" size={12}/> {L('Exportar','Export')}
               </button>
             </div>
 
@@ -1260,15 +1266,15 @@ const AdminApp = () => {
                 <button className={period==='90d'?'on':''} onClick={()=>setPeriod('90d')}>90D</button>
               </div>
               <div className="mono" style={{fontSize:9.5,color:'var(--ink-28)'}}>
-                {period==='7d' ? 'Últimos 7 días' : period==='30d' ? 'Últimos 30 días' : 'Últimos 90 días'}
+                {period==='7d' ? L('Últimos 7 días','Last 7 days') : period==='30d' ? L('Últimos 30 días','Last 30 days') : L('Últimos 90 días','Last 90 days')}
               </div>
             </div>
 
             <div className="kpis" style={{marginBottom:18}}>
-              <Kpi label="Score promedio del equipo" value={teamAvg} unit="/100" delta="+ 4 vs mes anterior" deltaDir="up" sparkId="a1" data={[68,70,69,72,73,72,75,74,76,75,76,teamAvg]}/>
-              <Kpi label="Evaluaciones · 30d" value={totalEvals} unit="" delta="↑ 18% participación" deltaDir="up" sparkId="a2" data={[6,8,12,9,14,18,16,20,22,19,24,totalEvals]}/>
-              <Kpi label="Vendedores activos" value={teamData.length} unit={`/${teamData.length}`} delta="100% activos esta semana" deltaDir="neutral" sparkId="a3" data={[5,6,6,7,7,8,8,8,8,8,8,8]}/>
-              <Kpi label="Requieren coaching" value={needsCoach} unit="" delta="↑ 2 desde la semana pasada" deltaDir="warn" sparkId="a4" data={[1,1,2,1,2,2,2,3,2,2,2,needsCoach]}/>
+              <Kpi label={L('Score promedio del equipo','Team average score')} value={teamAvg} unit="/100" delta={L('+ 4 vs mes anterior','+ 4 vs last month')} deltaDir="up" sparkId="a1" data={[68,70,69,72,73,72,75,74,76,75,76,teamAvg]}/>
+              <Kpi label={L('Evaluaciones · 30d','Evaluations · 30d')} value={totalEvals} unit="" delta={L('↑ 18% participación','↑ 18% participation')} deltaDir="up" sparkId="a2" data={[6,8,12,9,14,18,16,20,22,19,24,totalEvals]}/>
+              <Kpi label={L('Vendedores activos','Active sellers')} value={teamData.length} unit={`/${teamData.length}`} delta={L('100% activos esta semana','100% active this week')} deltaDir="neutral" sparkId="a3" data={[5,6,6,7,7,8,8,8,8,8,8,8]}/>
+              <Kpi label={L('Requieren coaching','Need coaching')} value={needsCoach} unit="" delta={L('↑ 2 desde la semana pasada','↑ 2 since last week')} deltaDir="warn" sparkId="a4" data={[1,1,2,1,2,2,2,3,2,2,2,needsCoach]}/>
             </div>
 
             <div style={{display:'grid',gridTemplateColumns:'1fr 280px',gap:14,alignItems:'start'}}>
@@ -1276,10 +1282,10 @@ const AdminApp = () => {
               {/* GRID DE TARJETAS */}
               <div>
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
-                  <div className="mono" style={{fontSize:9,color:'var(--ink-28)',letterSpacing:'0.16em',textTransform:'uppercase'}}>Vendedores · clic para ver detalle</div>
+                  <div className="mono" style={{fontSize:9,color:'var(--ink-28)',letterSpacing:'0.16em',textTransform:'uppercase'}}>{L('Vendedores · clic para ver detalle','Sellers · click to view detail')}</div>
                   <div className="pillbar">
-                    {['Todos','Senior','Mid','Junior'].map(r => (
-                      <button key={r} className={roleFilter===r?'on':''} onClick={()=>setRoleFilter(r)}>{r}</button>
+                    {[['Todos','All'],['Senior','Senior'],['Mid','Mid'],['Junior','Junior']].map(([r,rl]) => (
+                      <button key={r} className={roleFilter===r?'on':''} onClick={()=>setRoleFilter(r)}>{L(r,rl)}</button>
                     ))}
                   </div>
                 </div>
@@ -1294,10 +1300,10 @@ const AdminApp = () => {
                 <div style={{padding:'18px 20px',borderRadius:12,background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.07)'}}>
                   <div className="mono" style={{fontSize:9,color:'var(--ink-28)',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:14}}>Insights</div>
                   {[
-                    {label:'Fortaleza',       value:'Escucha activa',  meta:'79 prom · +6 vs mes ant.'},
-                    {label:'Punto débil',      value:'Ritmo de voz',    meta:'68 prom · 5 hablan >170 WPM'},
-                    {label:'Top performer',   value:'Mariana Aimar',   meta:'84 score · racha 7 días'},
-                    {label:'Mayor mejora',    value:'Tomás Iriarte',   meta:'+11 pts · Junior → Mid'},
+                    {label:L('Fortaleza','Strength'),       value:L('Escucha activa','Active listening'),  meta:L('79 prom · +6 vs mes ant.','79 avg · +6 vs last month')},
+                    {label:L('Punto débil','Weak point'),      value:L('Ritmo de voz','Voice pace'),    meta:L('68 prom · 5 hablan >170 WPM','68 avg · 5 speak >170 WPM')},
+                    {label:L('Top performer','Top performer'),   value:'Mariana Aimar',   meta:L('84 score · racha 7 días','84 score · 7-day streak')},
+                    {label:L('Mayor mejora','Most improved'),    value:'Tomás Iriarte',   meta:'+11 pts · Junior → Mid'},
                   ].map(({label,value,meta}) => (
                     <div key={label} style={{marginBottom:14,paddingBottom:14,borderBottom:'1px solid rgba(255,255,255,0.05)'}}>
                       <div className="mono" style={{fontSize:9,color:'var(--ink-30)',letterSpacing:'0.12em',textTransform:'uppercase',marginBottom:3}}>{label}</div>
@@ -1313,7 +1319,7 @@ const AdminApp = () => {
                   onClick={generateCoachingPlan}
                   disabled={coachingBusy||tokens<TOKEN_COSTS.coachingPlan}>
                   <SIcon name="sparkle" size={12}/>
-                  {coachingBusy ? 'Generando…' : `Plan coaching IA · ${TOKEN_COSTS.coachingPlan} tokens`}
+                  {coachingBusy ? L('Generando…','Generating…') : `${L('Plan coaching IA','AI coaching plan')} · ${TOKEN_COSTS.coachingPlan} tokens`}
                 </button>
                 {tokenError && <div className="mono" style={{fontSize:10,color:'#fca5a5',lineHeight:1.5}}>{tokenError}</div>}
               </div>
@@ -1323,7 +1329,7 @@ const AdminApp = () => {
             {recentEvals.length > 0 && (
               <div style={{marginTop:20}}>
                 <div className="mono" style={{fontSize:9,color:'var(--ink-28)',letterSpacing:'0.16em',textTransform:'uppercase',marginBottom:12}}>
-                  Evaluaciones recientes del equipo
+                  {L('Evaluaciones recientes del equipo','Recent team evaluations')}
                 </div>
                 <div className="glass" style={{padding:0,overflow:'hidden'}}>
                   {recentEvals.map((e, i) => {
@@ -1577,6 +1583,7 @@ const AdminApp = () => {
    ADMIN LOGIN — pantalla de autenticación para el panel admin
    ============================================================ */
 const AdminLogin = ({ onSuccess }) => {
+  window.useLang(); const L = window.L;
   const [email, setEmail]       = useState('admin.demo@jupiter.local');
   const [password, setPassword] = useState('Demo1234!');
   const [showPass, setShowPass] = useState(false);
@@ -1593,9 +1600,9 @@ const AdminLogin = ({ onSuccess }) => {
     } catch (err) {
       const msg = err.message || '';
       if (msg.includes('401') || msg.includes('Login failed')) {
-        setError('Email o contraseña incorrectos.');
+        setError(L('Email o contraseña incorrectos.', 'Incorrect email or password.'));
       } else {
-        setError('No se pudo conectar con el servidor. Verificá tu conexión.');
+        setError(L('No se pudo conectar con el servidor. Verificá tu conexión.', 'Could not reach the server. Check your connection.'));
       }
     } finally {
       setBusy(false);
@@ -1617,7 +1624,7 @@ const AdminLogin = ({ onSuccess }) => {
               </div>
               <div style={{ fontSize: 22, fontWeight: 200, letterSpacing: '-0.02em', marginBottom: 4 }}>Apex Vision</div>
               <div className="mono" style={{ fontSize: 10, color: 'var(--ink-40)', marginBottom: 6, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
-                Panel de administración
+                {L('Panel de administración', 'Admin panel')}
               </div>
               <div className="mono" style={{ fontSize: 9, color: 'rgba(158,245,190,0.5)', marginBottom: 28, letterSpacing: '0.16em', textTransform: 'uppercase', padding: '4px 10px', borderRadius: 4, background: 'rgba(158,245,190,0.05)', display: 'inline-block' }}>
                 Admin Console
@@ -1625,10 +1632,10 @@ const AdminLogin = ({ onSuccess }) => {
 
               <form onSubmit={handleLogin} style={{ display: 'grid', gap: 12, textAlign: 'left' }}>
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                  placeholder="Email de administrador" required autoComplete="email" style={inputStyle} />
+                  placeholder={L('Email de administrador', 'Admin email')} required autoComplete="email" style={inputStyle} />
                 <div style={{ position: 'relative' }}>
                   <input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
-                    placeholder="Contraseña" required autoComplete="current-password"
+                    placeholder={L('Contraseña', 'Password')} required autoComplete="current-password"
                     style={{ ...inputStyle, padding: '11px 42px 11px 14px' }} />
                   <button type="button" onClick={() => setShowPass(v => !v)}
                     style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-40)', padding: 4, display: 'flex', alignItems: 'center' }}>
@@ -1638,8 +1645,8 @@ const AdminLogin = ({ onSuccess }) => {
                 <button type="submit" className="btn" disabled={busy}
                   style={{ width: '100%', justifyContent: 'center', padding: '13px', opacity: busy ? 0.7 : 1, transition: 'opacity 150ms' }}>
                   {busy
-                    ? <span style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}><Spinner /> Conectando…</span>
-                    : 'Ingresar al panel'}
+                    ? <span style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}><Spinner /> {L('Conectando…', 'Connecting…')}</span>
+                    : L('Ingresar al panel', 'Sign in to panel')}
                 </button>
                 {error && (
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', borderRadius: 7, background: 'rgba(252,165,165,0.08)', border: '1px solid rgba(252,165,165,0.2)' }}>
@@ -1651,7 +1658,7 @@ const AdminLogin = ({ onSuccess }) => {
 
               <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                 <a href="/seller" style={{ fontSize: 12, color: 'var(--ink-35)', textDecoration: 'none' }}>
-                  ← Ir al portal de vendedores
+                  {L('← Ir al portal de vendedores', '← Go to the seller portal')}
                 </a>
               </div>
             </div>

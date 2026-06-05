@@ -5,6 +5,7 @@ const { SIcon } = window;
    RECORDING FLOW — Real camera → MinIO upload → backend workers
    ============================================================ */
 const RecordingStage = ({ question, onClose, onComplete }) => {
+  window.useLang(); const L = window.L;
   const [phase, setPhase] = useState('gate'); // gate | record | preview | processing
   const [seconds, setSeconds] = useState(0);
   const [recording, setRecording] = useState(false);
@@ -40,14 +41,14 @@ const RecordingStage = ({ question, onClose, onComplete }) => {
       reasonText.includes('credito');
 
     if (isInsufficientFunds) {
-      return 'Limite de tasa en la API de Groq. Espera unos segundos y vuelve a intentar.';
+      return L('Límite de tasa en la API de Groq. Esperá unos segundos y volvé a intentar.', 'Rate limit on the Groq API. Wait a few seconds and try again.');
     }
 
     if (reason) {
-      return `La evaluacion fallo durante el procesamiento: ${reason}`;
+      return `${L('La evaluación falló durante el procesamiento', 'The evaluation failed during processing')}: ${reason}`;
     }
 
-    return 'La evaluacion fallo durante el procesamiento. Intenta de nuevo.';
+    return L('La evaluación falló durante el procesamiento. Intentá de nuevo.', 'The evaluation failed during processing. Try again.');
   };
 
   useEffect(() => {
@@ -111,15 +112,15 @@ const RecordingStage = ({ question, onClose, onComplete }) => {
       const detail = name ? (name + ': ' + msg) : String(e);
       console.error('getUserMedia error:', e);
       if (name === 'NotAllowedError') {
-        setError('Permiso de camara denegado. Ve a configuracion del navegador > Privacidad > Camara y permite localhost:5173.');
+        setError(L('Permiso de cámara denegado. Ve a configuración del navegador > Privacidad > Cámara y permite localhost:5173.', 'Camera permission denied. Go to browser settings > Privacy > Camera and allow localhost:5173.'));
       } else if (name === 'NotFoundError') {
-        setError('No se detecto camara o microfono. Conecta un dispositivo y recarga.');
+        setError(L('No se detectó cámara o micrófono. Conectá un dispositivo y recargá.', 'No camera or microphone detected. Connect a device and reload.'));
       } else if (name === 'NotReadableError') {
-        setError('La camara no responde. Verifica: 1) Configuracion de Windows > Privacidad > Camara (activada), 2) Ninguna otra app la use, 3) Reinicia el navegador. Detalle: ' + detail);
+        setError(L('La cámara no responde. Verificá: 1) Configuración de Windows > Privacidad > Cámara (activada), 2) Ninguna otra app la use, 3) Reiniciá el navegador. Detalle: ', 'The camera is not responding. Check: 1) Windows Settings > Privacy > Camera (enabled), 2) No other app is using it, 3) Restart the browser. Detail: ') + detail);
       } else if (name === 'OverconstrainedError') {
-        setError('La camara no soporta los parametros solicitados. Intenta con otra camara.');
+        setError(L('La cámara no soporta los parámetros solicitados. Intentá con otra cámara.', 'The camera does not support the requested parameters. Try another camera.'));
       } else {
-        setError('Error de camara: ' + detail);
+        setError(L('Error de cámara: ', 'Camera error: ') + detail);
       }
     }
   };
@@ -161,7 +162,7 @@ const RecordingStage = ({ question, onClose, onComplete }) => {
 
     try {
       // 1) Create evaluation
-      const title = question?.prompt?.slice(0, 80) || question?.title || 'Evaluacion de practica';
+      const title = question?.prompt?.slice(0, 80) || question?.title || L('Evaluación de práctica', 'Practice evaluation');
       setProcSteps(s => ({ ...s, pose: 'active' }));
       const created = await window.ApexAPI.createEvaluation(title);
       setEvalId(created.evaluation.id);
@@ -188,7 +189,7 @@ const RecordingStage = ({ question, onClose, onComplete }) => {
           const elapsedMs = Date.now() - (startedAtRef.current || Date.now());
           if (elapsedMs > 180000) {
             clearInterval(pollRef.current);
-            setError('La evaluacion esta tardando demasiado. Reintenta en unos segundos. Si se repite, revisa logs del worker de pose.');
+            setError(L('La evaluación está tardando demasiado. Reintentá en unos segundos. Si se repite, revisá los logs del worker de pose.', 'The evaluation is taking too long. Retry in a few seconds. If it persists, check the pose worker logs.'));
             return;
           }
 
@@ -210,9 +211,9 @@ const RecordingStage = ({ question, onClose, onComplete }) => {
       console.error(e);
       const message = String(e?.message || 'Error inesperado');
       if (message.includes('401')) {
-        setError('Tu sesion expiro. Inicia sesion de nuevo y reintenta la evaluacion.');
+        setError(L('Tu sesión expiró. Iniciá sesión de nuevo y reintentá la evaluación.', 'Your session expired. Sign in again and retry the evaluation.'));
       } else {
-        setError('Error en el flujo create/upload/complete: ' + message);
+        setError(L('Error en el flujo create/upload/complete: ', 'Error in the create/upload/complete flow: ') + message);
       }
       setPhase('gate');
     }
@@ -225,10 +226,10 @@ const RecordingStage = ({ question, onClose, onComplete }) => {
       <div className="glass glass-strong rec-frame">
         <div className="rec-head">
           <div className="step">
-            {phase === 'gate' && '01 · Permisos'}
-            {phase === 'record' && '02 · Grabacion'}
-            {phase === 'preview' && '03 · Revisar'}
-            {phase === 'processing' && '04 · Analisis IA'}
+            {phase === 'gate' && L('01 · Permisos', '01 · Permissions')}
+            {phase === 'record' && L('02 · Grabación', '02 · Recording')}
+            {phase === 'preview' && L('03 · Revisar', '03 · Review')}
+            {phase === 'processing' && L('04 · Análisis IA', '04 · AI analysis')}
           </div>
           <div className="logo" style={{flex:1,justifyContent:'center'}}>
             <div className="brand" style={{fontSize:11}}>Apex<small>VISION</small></div>
@@ -240,17 +241,17 @@ const RecordingStage = ({ question, onClose, onComplete }) => {
           <div className="gate">
             <div>
               <div className="device-pulse"><SIcon name="mic" size={36} stroke={1.2}/></div>
-              <h2>Necesitamos tu camara y microfono</h2>
-              <p>Apex analiza tu lenguaje corporal, tu voz y lo que decis. El video se sube a tu cuenta y se procesa con IA.</p>
+              <h2>{L('Necesitamos tu cámara y micrófono', 'We need your camera and microphone')}</h2>
+              <p>{L('Apex analiza tu lenguaje corporal, tu voz y lo que decís. El video se sube a tu cuenta y se procesa con IA.', 'Apex analyzes your body language, your voice and what you say. The video is uploaded to your account and processed with AI.')}</p>
               {error && <p style={{color:'#fca5a5',fontSize:12}}>{error}</p>}
               <div style={{display:'flex',gap:10,justifyContent:'center'}}>
-                <button className="btn" onClick={onClose}>Ahora no</button>
+                <button className="btn" onClick={onClose}>{L('Ahora no', 'Not now')}</button>
                 <button className="btn btn-primary" onClick={requestCamera}>
-                  <SIcon name="check" size={13}/> Permitir y continuar
+                  <SIcon name="check" size={13}/> {L('Permitir y continuar', 'Allow and continue')}
                 </button>
               </div>
               <div className="mono" style={{marginTop:32,fontSize:10,color:'var(--ink-30)',letterSpacing:'0.2em',textTransform:'uppercase'}}>
-                CONEXION API GATEWAY · TU VIDEO ES PRIVADO
+                {L('CONEXIÓN API GATEWAY · TU VIDEO ES PRIVADO', 'API GATEWAY CONNECTION · YOUR VIDEO IS PRIVATE')}
               </div>
             </div>
           </div>
@@ -261,25 +262,25 @@ const RecordingStage = ({ question, onClose, onComplete }) => {
           <>
             <div className="rec-video">
               <video ref={videoRef} autoPlay muted playsInline style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:10}} />
-              <div className="rec-badge"><span className={`dot ${recording?'live':''}`}/>{recording?'REC':'LISTO'}</div>
+              <div className="rec-badge"><span className={`dot ${recording?'live':''}`}/>{recording?'REC':L('LISTO','READY')}</div>
               <div className="rec-time">{fmt(seconds)}</div>
               <div className="question-overlay">
                 <div className="mono" style={{fontSize:10,color:'rgba(255,255,255,0.55)',letterSpacing:'0.2em',textTransform:'uppercase',marginBottom:8}}>
-                  Pregunta {question?.category || 'Pitch'}
+                  {L('Pregunta', 'Question')} {question?.category || 'Pitch'}
                 </div>
                 <div className="q-text">{question?.prompt || question?.title}</div>
               </div>
             </div>
             <div className="rec-controls">
               <div className="rec-meters">
-                <div className="meter">Voz <div className="bars">{Array(9).fill(0).map((_,i)=>(<span key={i} style={{height:recording?Math.min(18,10+Math.sin(seconds+i)*4+4):4}}/>))}</div></div>
+                <div className="meter">{L('Voz','Voice')} <div className="bars">{Array(9).fill(0).map((_,i)=>(<span key={i} style={{height:recording?Math.min(18,10+Math.sin(seconds+i)*4+4):4}}/>))}</div></div>
                 <div className="meter">Pose <div className="bars">{Array(9).fill(0).map((_,i)=>(<span key={i} style={{height:recording?Math.min(18,10+Math.cos(seconds+i)*3+3):4}}/>))}</div></div>
               </div>
               <button className={`rec-btn ${recording?'recording':''}`} onClick={recording?stopRec:startRec}>
                 <div className="inner"/>
               </button>
               <div className="mono" style={{fontSize:10,color:'var(--ink-50)',letterSpacing:'0.16em',textTransform:'uppercase',textAlign:'right',width:120}}>
-                {recording ? 'LOCAL · HD' : 'LISTO PARA\nGRABAR'}
+                {recording ? 'LOCAL · HD' : L('LISTO PARA\nGRABAR', 'READY TO\nRECORD')}
               </div>
             </div>
           </>
@@ -296,14 +297,14 @@ const RecordingStage = ({ question, onClose, onComplete }) => {
               <div/>
               <div style={{display:'flex',gap:10}}>
                 <button className="btn" onClick={requestCamera}>
-                  <SIcon name="redo" size={13}/> Regrabar
+                  <SIcon name="redo" size={13}/> {L('Regrabar', 'Re-record')}
                 </button>
                 <button className="btn btn-primary" onClick={doUpload} style={{padding:'12px 22px'}}>
-                  <SIcon name="check" size={13}/> Enviar para analisis
+                  <SIcon name="check" size={13}/> {L('Enviar para análisis', 'Send for analysis')}
                 </button>
               </div>
               <div className="mono" style={{fontSize:10,color:'var(--ink-50)',letterSpacing:'0.16em',textTransform:'uppercase',textAlign:'right',width:120}}>
-                LISTO PARA{'\n'}ANALISIS IA
+                {L('LISTO PARA\nANÁLISIS IA', 'READY FOR\nAI ANALYSIS')}
               </div>
             </div>
           </>
@@ -322,23 +323,23 @@ const RecordingStage = ({ question, onClose, onComplete }) => {
                 </svg>
                 <div className="label">{Math.round(procPct)} %</div>
               </div>
-              <h2 style={{fontSize:22,fontWeight:300,letterSpacing:'-0.005em',marginBottom:8}}>Analizando con IA</h2>
+              <h2 style={{fontSize:22,fontWeight:300,letterSpacing:'-0.005em',marginBottom:8}}>{L('Analizando con IA', 'Analyzing with AI')}</h2>
               <p style={{color:'var(--ink-70)',maxWidth:'46ch',margin:'0 auto',lineHeight:1.55}}>
-                Procesando lenguaje corporal, transcribiendo audio y evaluando tu pitch.
+                {L('Procesando lenguaje corporal, transcribiendo audio y evaluando tu pitch.', 'Processing body language, transcribing audio and evaluating your pitch.')}
               </p>
               {evalId && <div className="mono" style={{fontSize:9,color:'var(--ink-30)',marginTop:12}}>ID: {evalId}</div>}
               {error && <p style={{color:'#fca5a5',marginTop:12,fontSize:12}}>{error}</p>}
               {error && (
                 <div style={{marginTop:10}}>
-                  <button className="btn" onClick={() => setPhase('gate')}>Volver a intentar</button>
+                  <button className="btn" onClick={() => setPhase('gate')}>{L('Volver a intentar', 'Try again')}</button>
                 </div>
               )}
               <div className="proc-steps">
                 {[
                   ['pose','Pose'],
-                  ['whisper','Transcripcion'],
-                  ['prosody','Prosodia'],
-                  ['scoring','Score IA'],
+                  ['whisper',L('Transcripción', 'Transcription')],
+                  ['prosody',L('Prosodia', 'Prosody')],
+                  ['scoring',L('Score IA', 'AI score')],
                 ].map(([k,l]) => (
                   <div key={k} className={`proc-step ${procSteps[k]}`}>
                     <div className="dot-lg">

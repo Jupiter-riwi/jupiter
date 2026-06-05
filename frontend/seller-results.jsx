@@ -59,21 +59,32 @@ const Radar = ({ values, max = 100, size = 320 }) => {
   );
 };
 
-// Mapeo de keys del backend a labels en español
-const DIMENSION_LABEL_ES = {
-  communication:      'Comunicación',
-  body_language:      'Lenguaje corporal',
-  prosody:            'Prosodia',
-  objection_handling: 'Manejo objeciones',
-  confidence:         'Confianza',
-  presence:           'Presencia',
-  clarity:            'Claridad',
-  pace:               'Ritmo',
+// Mapeo de keys del backend a labels (ES/EN)
+const DIMENSION_LABELS = {
+  communication:      ['Comunicación', 'Communication'],
+  body_language:      ['Lenguaje corporal', 'Body language'],
+  prosody:            ['Prosodia', 'Prosody'],
+  objection_handling: ['Manejo objeciones', 'Objection handling'],
+  confidence:         ['Confianza', 'Confidence'],
+  presence:           ['Presencia', 'Presence'],
+  clarity:            ['Claridad', 'Clarity'],
+  pace:               ['Ritmo', 'Pace'],
+  // claves en español que también llegan del scoring worker
+  claridad:           ['Claridad', 'Clarity'],
+  confianza:          ['Confianza', 'Confidence'],
+  ritmo_voz:          ['Ritmo de voz', 'Voice pace'],
+  escucha_activa:     ['Escucha activa', 'Active listening'],
+  lenguaje_corporal:  ['Lenguaje corporal', 'Body language'],
 };
-const labelize = (k) => DIMENSION_LABEL_ES[k] || k.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
+const labelize = (k) => {
+  const pair = DIMENSION_LABELS[k];
+  if (pair) return window.L(pair[0], pair[1]);
+  return k.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
+};
 
 /* ----------------------------- RESULTS PAGE ----------------------------- */
 const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
+  window.useLang(); const L = window.L;
   const cir = 2 * Math.PI * 90;
   const features = evaluationData?.features || {};
   // Backend devuelve score en 0-100 directo. Capeamos a 0-100 por seguridad.
@@ -87,11 +98,11 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
   const fallbackDims = (() => {
     const base = overall;
     return [
-      { name: 'Confianza',         score: Math.max(0, Math.min(100, base + 4)), evidence: '' },
-      { name: 'Comunicación',      score: Math.max(0, Math.min(100, base - 2)), evidence: '' },
-      { name: 'Lenguaje corporal', score: Math.max(0, Math.min(100, base + 2)), evidence: '' },
-      { name: 'Prosodia',          score: Math.max(0, Math.min(100, base - 5)), evidence: '' },
-      { name: 'Presencia',         score: Math.max(0, Math.min(100, base + 4)), evidence: '' },
+      { name: L('Confianza', 'Confidence'),         score: Math.max(0, Math.min(100, base + 4)), evidence: '' },
+      { name: L('Comunicación', 'Communication'),      score: Math.max(0, Math.min(100, base - 2)), evidence: '' },
+      { name: L('Lenguaje corporal', 'Body language'), score: Math.max(0, Math.min(100, base + 2)), evidence: '' },
+      { name: L('Prosodia', 'Prosody'),          score: Math.max(0, Math.min(100, base - 5)), evidence: '' },
+      { name: L('Presencia', 'Presence'),         score: Math.max(0, Math.min(100, base + 4)), evidence: '' },
     ];
   })();
   const dimensions = dimRaw
@@ -115,42 +126,42 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
   // Fallbacks ricos según rango de score — el usuario SIEMPRE recibe feedback útil
   const fallbackByScore = (s) => {
     if (s <= 15) return [
-      { area: 'Comunicación',   tip: 'No se detectó discurso. Activá el micrófono y grabá un pitch de al menos 60 segundos. Meta: superar 80 palabras transcritas.' },
-      { area: 'Estructura',     tip: 'Empezá con un hook (problema), seguí con tu solución y cerrá con una llamada a acción concreta.' },
-      { area: 'Lenguaje corporal', tip: 'Asegurate de aparecer frente a cámara con buena luz y pose estable. Sin video o sin persona no se evalúa.' },
-      { area: 'Setup',          tip: 'Probá el micrófono antes de grabar (los videos en silencio se descartan automáticamente).' },
+      { area: L('Comunicación', 'Communication'),   tip: L('No se detectó discurso. Activá el micrófono y grabá un pitch de al menos 60 segundos. Meta: superar 80 palabras transcritas.', 'No speech detected. Turn on your mic and record a pitch of at least 60 seconds. Goal: pass 80 transcribed words.') },
+      { area: L('Estructura', 'Structure'),     tip: L('Empezá con un hook (problema), seguí con tu solución y cerrá con una llamada a acción concreta.', 'Start with a hook (the problem), follow with your solution, and close with a concrete call to action.') },
+      { area: L('Lenguaje corporal', 'Body language'), tip: L('Asegurate de aparecer frente a cámara con buena luz y pose estable. Sin video o sin persona no se evalúa.', 'Make sure you appear on camera with good light and a stable pose. Without video or a person it cannot be evaluated.') },
+      { area: L('Setup', 'Setup'),          tip: L('Probá el micrófono antes de grabar (los videos en silencio se descartan automáticamente).', 'Test your mic before recording (silent videos are discarded automatically).') },
     ];
     if (s <= 35) return [
-      { area: 'Duración',       tip: 'Tu pitch fue muy corto. Usá los 90 segundos completos: cubrí problema + solución + diferencial + CTA.' },
-      { area: 'Comunicación',   tip: 'Agregá al menos 2 frases de contexto al inicio. Meta: superar 80 palabras totales.' },
-      { area: 'Propuesta de valor', tip: 'Hacé explícita tu propuesta de valor en una sola frase: "Ayudamos a [audiencia] a [beneficio] mediante [solución]".' },
-      { area: 'Cierre',         tip: 'Terminá con una llamada a acción específica: "¿Podemos agendar 15 minutos esta semana?"' },
+      { area: L('Duración', 'Duration'),       tip: L('Tu pitch fue muy corto. Usá los 90 segundos completos: cubrí problema + solución + diferencial + CTA.', 'Your pitch was too short. Use the full 90 seconds: cover problem + solution + differentiator + CTA.') },
+      { area: L('Comunicación', 'Communication'),   tip: L('Agregá al menos 2 frases de contexto al inicio. Meta: superar 80 palabras totales.', 'Add at least 2 sentences of context at the start. Goal: pass 80 total words.') },
+      { area: L('Propuesta de valor', 'Value proposition'), tip: L('Hacé explícita tu propuesta de valor en una sola frase: "Ayudamos a [audiencia] a [beneficio] mediante [solución]".', 'Make your value proposition explicit in one sentence: "We help [audience] to [benefit] through [solution]."') },
+      { area: L('Cierre', 'Closing'),         tip: L('Terminá con una llamada a acción específica: "¿Podemos agendar 15 minutos esta semana?"', 'End with a specific call to action: "Can we schedule 15 minutes this week?"') },
     ];
     if (s <= 60) return [
-      { area: 'Estructura',     tip: 'Reordená: hook (5s) → problema (15s) → solución (30s) → diferencial (20s) → CTA (10s).' },
-      { area: 'Manejo objeciones', tip: 'Anticipá una objeción común antes de que el prospecto la plantee. Ej: "Sé que el precio es una preocupación, pero..."' },
-      { area: 'Ritmo',          tip: 'Apuntá a 130-160 palabras por minuto. Si vas más rápido, agregá pausas estratégicas.' },
-      { area: 'Confianza',      tip: 'Practicá en voz alta 3 veces antes de grabar. La fluidez se nota.' },
+      { area: L('Estructura', 'Structure'),     tip: L('Reordená: hook (5s) → problema (15s) → solución (30s) → diferencial (20s) → CTA (10s).', 'Reorder: hook (5s) → problem (15s) → solution (30s) → differentiator (20s) → CTA (10s).') },
+      { area: L('Manejo objeciones', 'Objection handling'), tip: L('Anticipá una objeción común antes de que el prospecto la plantee. Ej: "Sé que el precio es una preocupación, pero..."', 'Anticipate a common objection before the prospect raises it. E.g.: "I know price is a concern, but..."') },
+      { area: L('Ritmo', 'Pace'),          tip: L('Apuntá a 130-160 palabras por minuto. Si vas más rápido, agregá pausas estratégicas.', 'Aim for 130-160 words per minute. If you go faster, add strategic pauses.') },
+      { area: L('Confianza', 'Confidence'),      tip: L('Practicá en voz alta 3 veces antes de grabar. La fluidez se nota.', 'Practice out loud 3 times before recording. Fluency shows.') },
     ];
     if (s <= 80) return [
-      { area: 'Refinamiento',   tip: 'Tu pitch está sólido. Pulí el cierre: termina con una pregunta abierta o agenda concreta.' },
-      { area: 'Diferenciación', tip: 'Agregá un dato cuantitativo que respalde tu diferencial (ej: "reducimos X un 40%").' },
-      { area: 'Lenguaje corporal', tip: 'Mantené contacto visual con la cámara durante 80% del tiempo. Mirar a un lado quita confianza.' },
-      { area: 'Personalización', tip: 'Si conocés al prospecto, abrí mencionando algo específico de su empresa.' },
+      { area: L('Refinamiento', 'Refinement'),   tip: L('Tu pitch está sólido. Pulí el cierre: termina con una pregunta abierta o agenda concreta.', 'Your pitch is solid. Polish the close: end with an open question or a concrete next step.') },
+      { area: L('Diferenciación', 'Differentiation'), tip: L('Agregá un dato cuantitativo que respalde tu diferencial (ej: "reducimos X un 40%").', 'Add a quantitative data point that backs your differentiator (e.g. "we reduce X by 40%").') },
+      { area: L('Lenguaje corporal', 'Body language'), tip: L('Mantené contacto visual con la cámara durante 80% del tiempo. Mirar a un lado quita confianza.', 'Keep eye contact with the camera 80% of the time. Looking away undermines confidence.') },
+      { area: L('Personalización', 'Personalization'), tip: L('Si conocés al prospecto, abrí mencionando algo específico de su empresa.', 'If you know the prospect, open by mentioning something specific about their company.') },
     ];
     return [
-      { area: 'Excelencia',     tip: 'Pitch excelente. Para llevarlo a 95+: incorporá un mini caso de éxito de 1 frase.' },
-      { area: 'Storytelling',   tip: 'Considerá abrir con una historia breve (15s) para crear conexión emocional.' },
-      { area: 'Cierre fuerte',  tip: 'Cerrá con confianza: enuncia la próxima acción esperada del prospecto.' },
+      { area: L('Excelencia', 'Excellence'),     tip: L('Pitch excelente. Para llevarlo a 95+: incorporá un mini caso de éxito de 1 frase.', 'Excellent pitch. To push it to 95+: add a one-sentence mini success story.') },
+      { area: L('Storytelling', 'Storytelling'),   tip: L('Considerá abrir con una historia breve (15s) para crear conexión emocional.', 'Consider opening with a brief story (15s) to create emotional connection.') },
+      { area: L('Cierre fuerte', 'Strong close'),  tip: L('Cerrá con confianza: enuncia la próxima acción esperada del prospecto.', 'Close with confidence: state the next action you expect from the prospect.') },
     ];
   };
 
   const recommendations = apiRecommendations.length > 0 ? apiRecommendations : fallbackByScore(overall);
-  const displayQuestion = scenario?.prompt || evaluationData?.title || 'Evaluacion completada';
+  const displayQuestion = scenario?.prompt || evaluationData?.title || L('Evaluación completada', 'Evaluation completed');
   const displayCategory = scenario?.category || 'Pitch';
   const dateStr = evaluationData?.created_at
-    ? new Date(evaluationData.created_at).toLocaleDateString('es', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })
-    : new Date().toLocaleDateString('es', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    ? new Date(evaluationData.created_at).toLocaleDateString(L('es', 'en-US'), { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })
+    : new Date().toLocaleDateString(L('es', 'en-US'), { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
   const status = evaluationData?.status || 'completed';
   const evalId = evaluationData?.id || '';
   const [coachInput, setCoachInput] = useState('');
@@ -166,10 +177,10 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
     setCoachInput('');
     try {
       const data = await window.ApexAPI.coachChat(evalId, text);
-      const reply = data?.reply || 'No pude generar respuesta en este momento.';
+      const reply = data?.reply || L('No pude generar respuesta en este momento.', "I couldn't generate a response right now.");
       const transcript = data?.transcript || '';
       const fullReply = transcript
-        ? `Tu transcripción original:\n"${transcript}"\n\n---\n\n${reply}`
+        ? `${L('Tu transcripción original', 'Your original transcript')}:\n"${transcript}"\n\n---\n\n${reply}`
         : reply;
       setCoachMessages(prev => [...prev, { role: 'assistant', content: fullReply }]);
       if (data?.audio_base64_mp3) {
@@ -180,7 +191,7 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
         }
       }
     } catch (err) {
-      setCoachMessages(prev => [...prev, { role: 'assistant', content: 'No pude responder ahora. Reintentá en unos segundos.' }]);
+      setCoachMessages(prev => [...prev, { role: 'assistant', content: L('No pude responder ahora. Reintentá en unos segundos.', "I couldn't respond now. Try again in a few seconds.") }]);
     } finally {
       setCoachBusy(false);
     }
@@ -191,26 +202,26 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
       <div className="s-wrap">
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-          <button className="btn" onClick={onBack}>← Evaluar otro pitch</button>
+          <button className="btn" onClick={onBack}>{L('← Evaluar otro pitch', '← Evaluate another pitch')}</button>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <span
               className="mono"
-              title="Esta evaluación ya quedó registrada en el panel del admin. Podés revisarla cuando quieras."
+              title={L('Esta evaluación ya quedó registrada en el panel del admin. Podés revisarla cuando quieras.', 'This evaluation is already recorded in the admin panel. You can review it anytime.')}
               style={{
                 fontSize: 10.5, color: '#9ef5be', letterSpacing: '0.16em', textTransform: 'uppercase',
                 padding: '6px 12px', border: '1px solid rgba(120,255,180,0.3)',
                 background: 'rgba(120,255,180,0.08)', borderRadius: 999
               }}
             >
-              ✓ Notificado al admin
+              {L('✓ Notificado al admin', '✓ Sent to admin')}
             </span>
-            <button className="btn btn-primary" onClick={onPractice}><SIcon name="redo" size={13} /> Volver a practicar</button>
+            <button className="btn btn-primary" onClick={onPractice}><SIcon name="redo" size={13} /> {L('Volver a practicar', 'Practice again')}</button>
             <button
               className="btn"
               onClick={() => { window.open('/admin?eval=' + evalId, '_blank'); }}
               style={{ background:'rgba(120,255,180,0.1)', borderColor:'rgba(120,255,180,0.3)', color:'#9ef5be' }}
             >
-              <SIcon name="arrow" size={13} /> Ver en panel admin
+              <SIcon name="arrow" size={13} /> {L('Ver en panel admin', 'View in admin panel')}
             </button>
           </div>
         </div>
@@ -226,16 +237,16 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
             <div className="center">
               <div>
                 <div className="v">{overall}</div>
-                <div className="l">SCORE GLOBAL</div>
+                <div className="l">{L('SCORE GLOBAL', 'OVERALL SCORE')}</div>
               </div>
             </div>
           </div>
           <div className="summary">
-            <div className="label-row">{displayCategory} · {dateStr} · Estado: {status}</div>
+            <div className="label-row">{displayCategory} · {dateStr} · {L('Estado', 'Status')}: {status}</div>
             <h2>{displayQuestion}</h2>
             {evalId && <div className="mono" style={{fontSize:9,color:'var(--ink-40)',marginTop:4}}>ID: {evalId}</div>}
             <div className="actions">
-              <span className="btn" style={{ cursor: 'default' }}>Analisis IA</span>
+              <span className="btn" style={{ cursor: 'default' }}>{L('Análisis IA', 'AI analysis')}</span>
               <span className="btn" style={{ cursor: 'default' }}>{displayCategory}</span>
               <span
                 className="btn"
@@ -263,10 +274,10 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
               letterSpacing: '0.04em'
             }}>
               <div>
-                <span style={{color:'var(--ink-70)'}}>Procesamiento IA:</span>
-                <span style={{marginLeft:10}}>Whisper (1) + Pose (1) + Prosodia (1) + LLaMA 3.3 70B (2) = <strong style={{color:'#9ef5be'}}>5 tokens</strong></span>
+                <span style={{color:'var(--ink-70)'}}>{L('Procesamiento IA:', 'AI processing:')}</span>
+                <span style={{marginLeft:10}}>Whisper (1) + Pose (1) + {L('Prosodia', 'Prosody')} (1) + LLaMA 3.3 70B (2) = <strong style={{color:'#9ef5be'}}>5 tokens</strong></span>
               </div>
-              <div>Costo: <strong style={{color:'var(--ink-80)'}}>$0.05 USD</strong></div>
+              <div>{L('Costo', 'Cost')}: <strong style={{color:'var(--ink-80)'}}>$0.05 USD</strong></div>
             </div>
           </div>
         </div>
@@ -274,7 +285,7 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
         <div className="r-grid">
           {/* RADAR */}
           <div className="glass radar-card">
-            <h3>Dimensiones</h3>
+            <h3>{L('Dimensiones', 'Dimensions')}</h3>
             <div className="radar-wrap">
               <Radar values={dimensions} />
               <div className="dim-list">
@@ -292,10 +303,10 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
           {/* RECOMENDACIONES */}
           <div className="glass recs-card">
             <h3 style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--ink-50)', marginBottom: 6, fontFamily: 'var(--font-mono)', fontWeight: 500 }}>
-              Recomendaciones
+              {L('Recomendaciones', 'Recommendations')}
             </h3>
             <div className="mono" style={{ fontSize: 10.5, color: 'var(--ink-50)', letterSpacing: '0.06em', marginBottom: 12 }}>
-              {apiRecommendations.length > 0 ? 'Generadas por Groq (LLaMA 3.3 70B) · personalizadas a tu pitch' : 'Sugerencias para tu proximo intento'}
+              {apiRecommendations.length > 0 ? L('Generadas por Groq (LLaMA 3.3 70B) · personalizadas a tu pitch', 'Generated by Groq (LLaMA 3.3 70B) · personalized to your pitch') : L('Sugerencias para tu próximo intento', 'Suggestions for your next attempt')}
             </div>
 
             {apiVerdict && (
@@ -306,7 +317,7 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
                 borderRadius: '0 8px 8px 0',
               }}>
                 <div className="mono" style={{ fontSize: 10, letterSpacing: '0.18em', color: 'var(--ink-50)', textTransform: 'uppercase', marginBottom: 6 }}>
-                  Veredicto
+                  {L('Veredicto', 'Verdict')}
                 </div>
                 <div style={{ fontSize: 13.5, color: 'var(--ink-90)', lineHeight: 1.5 }}>{apiVerdict}</div>
               </div>
@@ -315,7 +326,7 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
             {apiIssues.length > 0 && (
               <div style={{ marginBottom: 14 }}>
                 <div className="mono" style={{ fontSize: 10, letterSpacing: '0.18em', color: 'var(--ink-50)', textTransform: 'uppercase', marginBottom: 8 }}>
-                  Problemas detectados
+                  {L('Problemas detectados', 'Issues detected')}
                 </div>
                 {apiIssues.map((iss, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12.5, color: 'var(--ink-70)', marginBottom: 6, lineHeight: 1.5 }}>
@@ -330,7 +341,7 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
               <div key={i} className="rec">
                 <div className={`priority ${r.priority || (overall <= 35 ? 'high' : overall <= 60 ? 'medium' : 'low')}`}>
                   <span className="dot" />
-                  {r.area || (r.priority === 'high' ? 'Alta prioridad' : r.priority === 'medium' ? 'Prioridad media' : 'Sugerencia')}
+                  {r.area || (r.priority === 'high' ? L('Alta prioridad', 'High priority') : r.priority === 'medium' ? L('Prioridad media', 'Medium priority') : L('Sugerencia', 'Suggestion'))}
                 </div>
                 {r.problem && <div className="problem">{r.problem}</div>}
                 {r.impact && <div className="impact">{r.impact}</div>}
@@ -340,25 +351,25 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
               </div>
             ))}
             <button className="btn btn-primary" onClick={onPractice} style={{ width: '100%', justifyContent: 'center', marginTop: 18 }}>
-              <SIcon name="redo" size={13} /> Practicar con estas sugerencias
+              <SIcon name="redo" size={13} /> {L('Practicar con estas sugerencias', 'Practice with these suggestions')}
             </button>
           </div>
         </div>
 
         <div className="glass" style={{ marginTop: 16, padding: 16 }}>
           <h3 style={{ fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--ink-50)', marginBottom: 8, fontFamily: 'var(--font-mono)', fontWeight: 500 }}>
-            Voice Coach (Bilingüe Ejecutivo)
+            {L('Voice Coach (Bilingüe Ejecutivo)', 'Voice Coach (Executive Bilingual)')}
           </h3>
           <div className="mono" style={{ fontSize: 10.5, color: 'var(--ink-50)', marginBottom: 10 }}>
-            Escribí tu duda o pedí: "reescribí mi pitch y léelo con las correcciones".
+            {L('Escribí tu duda o pedí: "reescribí mi pitch y léelo con las correcciones".', 'Type your question or ask: "rewrite my pitch and read it back with corrections".')}
           </div>
           <div style={{ maxHeight: 220, overflow: 'auto', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 10, background: 'rgba(255,255,255,0.02)' }}>
             {coachMessages.length === 0 && (
-              <div style={{ color: 'var(--ink-50)', fontSize: 12 }}>Todavía no hay conversación.</div>
+              <div style={{ color: 'var(--ink-50)', fontSize: 12 }}>{L('Todavía no hay conversación.', 'No conversation yet.')}</div>
             )}
             {coachMessages.map((m, i) => (
               <div key={i} style={{ marginBottom: 8 }}>
-                <div className="mono" style={{ fontSize: 10, color: 'var(--ink-50)', textTransform: 'uppercase' }}>{m.role === 'user' ? 'Tú' : 'Coach'}</div>
+                <div className="mono" style={{ fontSize: 10, color: 'var(--ink-50)', textTransform: 'uppercase' }}>{m.role === 'user' ? L('Tú', 'You') : 'Coach'}</div>
                 <div style={{ whiteSpace: 'pre-wrap', fontSize: 12.5, color: 'var(--ink-85)', lineHeight: 1.45 }}>{m.content}</div>
               </div>
             ))}
@@ -368,7 +379,7 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
               value={coachInput}
               onChange={(e) => setCoachInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') sendCoachMessage(); }}
-              placeholder="Ej: Reescribe mi pitch para sonar más ejecutivo y convincente."
+              placeholder={L('Ej: Reescribe mi pitch para sonar más ejecutivo y convincente.', 'e.g. Rewrite my pitch to sound more executive and convincing.')}
               style={{
                 flex: 1,
                 padding: '10px 12px',
@@ -380,7 +391,7 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
               }}
             />
             <button className="btn btn-primary" onClick={sendCoachMessage} disabled={coachBusy || !evalId}>
-              {coachBusy ? 'Enviando...' : 'Chatear + voz'}
+              {coachBusy ? L('Enviando...', 'Sending...') : L('Chatear + voz', 'Chat + voice')}
             </button>
           </div>
           <audio ref={audioRef} controls style={{ width: '100%', marginTop: 10 }} />

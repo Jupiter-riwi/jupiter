@@ -186,6 +186,26 @@
     if (!res.ok) throw new Error('Coach chat failed: ' + res.status);
     return res.json();
   },
+
+  // ── Live conversational agent ──────────────────────────────────────────
+  // Builds the WebSocket URL for a real-time session. The JWT travels as a
+  // query param because browsers can't set headers on a WebSocket.
+  liveWsUrl({ mode, role, level, scenario } = {}) {
+    const wsBase = API_BASE.replace(/^http/, 'ws');
+    const p = new URLSearchParams();
+    p.set('token', this._token || localStorage.getItem('apex_access_token') || '');
+    if (mode) p.set('mode', mode);
+    if (role) p.set('role', role);
+    if (level) p.set('level', level);
+    if (scenario) p.set('scenario', scenario);
+    return wsBase + '/api/live/ws?' + p.toString();
+  },
+
+  async livePersonas() {
+    const res = await fetch(API_BASE + '/api/live/personas');
+    if (!res.ok) throw new Error('Live personas failed: ' + res.status);
+    return res.json();
+  },
   };
 
   window.ApexAPI = ApexAPI;
