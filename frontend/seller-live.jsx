@@ -110,7 +110,7 @@ function GeminiOrb({ state, amplitudeRef }) {
 }
 
 /* ════════ Live Room ════════ */
-window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore }) {
+window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore, initialVideoEval }) {
   const lang = window.useLang();
   const [phase, setPhase] = useState(initialScore !== undefined ? 'results' : 'setup');
   const [mode, setMode] = useState(initialMode || 'presentacion');
@@ -126,8 +126,12 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore }) {
   const [err, setErr] = useState('');
   const [scoring, setScoring] = useState(false);
   const [score, setScore] = useState(initialScore);   // undefined=none yet, null=too short, obj=result
+  const [videoEval, setVideoEval] = useState(initialVideoEval); // undefined=n/a · 'processing' · result obj · 'failed' · 'skipped'
 
   const wsRef = useRef(null);
+  const videoSelfRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const recordedChunksRef = useRef([]);
   const capCtxRef = useRef(null);
   const playCtxRef = useRef(null);
   const playAnalyserRef = useRef(null);
@@ -142,6 +146,8 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore }) {
   const capturingRef = useRef(false);
   const capBufRef = useRef([]);
   const stateRef = useRef('connecting');
+  const finishingRef = useRef(false);
+  const playGenRef = useRef(0);
   const amplitudeRef = useRef(0);
   const ampRafRef = useRef(0);
   const transcriptEndRef = useRef(null);
@@ -164,6 +170,7 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore }) {
   }, []);
 
   const stopPlayback = useCallback(() => {
+    playGenRef.current++;            // invalidate any in-flight decode
     decodeQueueRef.current = [];
     for (const s of activeSrcRef.current) { try { s.stop(); } catch (_) {} }
     activeSrcRef.current = []; nextStartRef.current = 0;
@@ -172,8 +179,10 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore }) {
     if (decodingRef.current) return; const ctx = playCtxRef.current; if (!ctx) return;
     decodingRef.current = true;
     while (decodeQueueRef.current.length) {
+      const gen = playGenRef.current;
       const bytes = decodeQueueRef.current.shift();
       let audioBuf; try { audioBuf = await ctx.decodeAudioData(bytes.slice(0)); } catch (_) { continue; }
+      if (finishingRef.current || playGenRef.current !== gen) continue;  // dropped after finish/barge-in
       const src = ctx.createBufferSource(); src.buffer = audioBuf; src.connect(playAnalyserRef.current);
       const start = Math.max(ctx.currentTime, nextStartRef.current); src.start(start);
       nextStartRef.current = start + audioBuf.duration; activeSrcRef.current.push(src);
@@ -181,9 +190,10 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore }) {
     }
     decodingRef.current = false;
   }, []);
-  const enqueueAudio = useCallback((b) => { decodeQueueRef.current.push(b); pumpDecode(); }, [pumpDecode]);
+  const enqueueAudio = useCallback((b) => { if (finishingRef.current) return; decodeQueueRef.current.push(b); pumpDecode(); }, [pumpDecode]);
   const sendUtterance = useCallback((f) => {
     const ws = wsRef.current;
+    if (finishingRef.current) return;   // drop any late VAD turn after "finish"
     if (!ws || ws.readyState !== WebSocket.OPEN || !f || f.length < 1600) return;
     ws.send(encodeWav(f, 16000));
   }, []);
@@ -211,6 +221,7 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore }) {
 
   const startLive = useCallback(async () => {
     setErr(''); setTurns([]); setPartial(''); setStateBoth('connecting');
+    finishingRef.current = false; capturingRef.current = false;
     const url = window.ApexAPI.liveWsUrl({ mode, role, level, lang, scenario: scenario.trim() || undefined });
     const ws = new WebSocket(url); ws.binaryType = 'arraybuffer'; wsRef.current = ws;
     ws.onmessage = onWsMessage; ws.onerror = () => setErr(t('live.err.connect'));
@@ -219,10 +230,34 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore }) {
     const playCtx = new PCtx(); playCtxRef.current = playCtx;
     const pAn = playCtx.createAnalyser(); pAn.fftSize = 512; pAn.connect(playCtx.destination); playAnalyserRef.current = pAn;
 
-    let stream;
-    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } }); }
-    catch (_) { setErr(t('live.err.mic')); return; }
+    // Request camera + mic. The camera feed is recorded for post-session body-language
+    // analysis (pose/prosody/whisper); the audio track drives the live conversation.
+    let stream; let hasVideo = true;
+    try { stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }, audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } }); }
+    catch (_) {
+      // fall back to audio-only (no body-language analysis)
+      try { stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } }); hasVideo = false; }
+      catch (__) { setErr(t('live.err.mic')); return; }
+    }
     streamRef.current = stream;
+
+    if (hasVideo) {
+      setVideoEval(undefined);
+      if (videoSelfRef.current) { try { videoSelfRef.current.srcObject = stream; videoSelfRef.current.play().catch(() => {}); } catch (_) {} }
+      // record the whole session (video+audio) for the evaluation pipeline
+      try {
+        const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
+          .find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || 'video/webm';
+        recordedChunksRef.current = [];
+        const rec = new MediaRecorder(stream, { mimeType: mime });
+        rec.ondataavailable = (e) => { if (e.data && e.data.size) recordedChunksRef.current.push(e.data); };
+        rec.start(1000);
+        mediaRecorderRef.current = rec;
+      } catch (_) { mediaRecorderRef.current = null; }
+    } else {
+      setVideoEval('skipped');
+    }
+
     let capCtx; try { capCtx = new PCtx({ sampleRate: 16000 }); } catch (_) { capCtx = new PCtx(); }
     capCtxRef.current = capCtx;
     const micSrc = capCtx.createMediaStreamSource(stream);
@@ -261,8 +296,56 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore }) {
     sendUtterance(merged);
   }, [inputMode, sendUtterance]);
 
+  // Stop recording and return the recorded video blob (or null).
+  const stopRecording = useCallback(() => new Promise((resolve) => {
+    const rec = mediaRecorderRef.current;
+    if (!rec || rec.state === 'inactive') { resolve(null); return; }
+    let done = false;
+    const finishUp = () => {
+      if (done) return; done = true;
+      const chunks = recordedChunksRef.current; recordedChunksRef.current = [];
+      resolve(chunks.length ? new Blob(chunks, { type: rec.mimeType || 'video/webm' }) : null);
+    };
+    rec.onstop = finishUp;
+    setTimeout(finishUp, 4000);   // safety: never hang if onstop doesn't fire
+    try { rec.stop(); } catch (_) { finishUp(); }
+    mediaRecorderRef.current = null;
+  }), []);
+
+  // Run the recorded video through the existing pipeline (pose/prosody/whisper/scoring)
+  // to get the body-language + voice dimensions, then surface them in the results card.
+  const processVideo = useCallback(async () => {
+    if (!mediaRecorderRef.current) { setVideoEval('skipped'); return; }  // no camera → audio-only
+    setVideoEval('processing');   // show the spinner immediately
+    const blob = await stopRecording();
+    // conversation is over — release camera + mic (turns the camera light off)
+    try { streamRef.current && streamRef.current.getTracks().forEach(t => t.stop()); } catch (_) {}
+    if (!blob || blob.size < 10000) { setVideoEval('failed'); return; }
+    try {
+      const roleMeta = (ROLE_DEF[mode] || ROLE_DEF.presentacion).find(r => r.id === role);
+      const roleLbl = roleMeta ? (roleMeta[lang] || roleMeta.es)[0] : '';
+      const prefix = mode === 'entrevista' ? (lang === 'en' ? 'Live interview' : 'Entrevista en vivo') : (lang === 'en' ? 'Live pitch' : 'Pitch en vivo');
+      const title = `${prefix} · ${roleLbl}${scenario.trim() ? ' · ' + scenario.trim().slice(0, 40) : ''}`;
+      const created = await window.ApexAPI.createEvaluation(title);
+      const evalId = created.evaluation.id;
+      await window.ApexAPI.uploadVideo(evalId, blob);
+      await window.ApexAPI.completeEvaluation(evalId);
+      const startedAt = Date.now();
+      const poll = setInterval(async () => {
+        try {
+          const data = await window.ApexAPI.getEvaluation(evalId);
+          if (data.status === 'completed') { clearInterval(poll); setVideoEval(data); }
+          else if (data.status === 'failed') { clearInterval(poll); setVideoEval('failed'); }
+          else if (Date.now() - startedAt > 180000) { clearInterval(poll); setVideoEval('failed'); }
+        } catch (_) {}
+      }, 3000);
+    } catch (_) { setVideoEval('failed'); }
+  }, [mode, role, lang, scenario, stopRecording]);
+
   const endSession = useCallback(() => {
     stopPlayback();
+    try { mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive' && mediaRecorderRef.current.stop(); } catch (_) {}
+    mediaRecorderRef.current = null;
     try { wsRef.current && wsRef.current.readyState === WebSocket.OPEN && wsRef.current.send(JSON.stringify({ type: 'end' })); } catch (_) {}
     try { wsRef.current && wsRef.current.close(); } catch (_) {}
     try { vadRef.current && vadRef.current.pause(); } catch (_) {}
@@ -279,13 +362,28 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore }) {
   const roleList = ROLE_DEF[mode] || ROLE_DEF.presentacion;
   const enterLive = () => { setPhase('live'); setTimeout(() => startLive(), 50); };
   const leave = () => { endSession(); onClose && onClose(); };
+  // Stop listening to the mic immediately (VAD + PTT capture) so no more turns are sent.
+  const stopListening = useCallback(() => {
+    finishingRef.current = true;
+    capturingRef.current = false;
+    try { vadRef.current && vadRef.current.pause(); } catch (_) {}
+    vadRef.current = null;
+    try { procRef.current && (procRef.current.onaudioprocess = null, procRef.current.disconnect()); } catch (_) {}
+    procRef.current = null;
+    try { micAnalyserRef.current && micAnalyserRef.current.disconnect(); } catch (_) {}
+  }, []);
+
   const finishAndScore = useCallback(() => {
     const ws = wsRef.current;
+    stopListening();                       // stop the mic the moment you click finish
+    stopPlayback();                        // clear the agent audio queue
+    try { playCtxRef.current && playCtxRef.current.suspend(); } catch (_) {}  // hard-silence anything scheduled
     if (!ws || ws.readyState !== WebSocket.OPEN) { leave(); return; }
-    stopPlayback(); setStateBoth('thinking'); setScoring(true);
+    setStateBoth('thinking'); setScoring(true);
     ws.send(JSON.stringify({ type: 'finish' }));
-  }, [stopPlayback]);
-  const restart = () => { setScore(undefined); setScoring(false); setTurns([]); setPartial(''); setPhase('setup'); endSession(); };
+    processVideo();   // upload recorded video → pose/prosody/whisper in parallel
+  }, [stopPlayback, processVideo, stopListening]);
+  const restart = () => { setScore(undefined); setScoring(false); setVideoEval(undefined); setTurns([]); setPartial(''); setPhase('setup'); endSession(); };
   const switchMode = (m) => { setMode(m); setRole((ROLE_DEF[m] || ROLE_DEF.presentacion)[0].id); };
   const isInt = mode === 'entrevista';
   const STATE_LABEL = { connecting: t('live.state.connecting'), listening: t('live.state.listening'), thinking: t('live.state.thinking'), speaking: t('live.state.speaking') };
@@ -431,12 +529,59 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore }) {
             </>
           )}
 
+          {/* ── lenguaje corporal y voz (del video, vía pipeline pose/prosody/whisper) ── */}
+          <div style={{ marginTop: 6, marginBottom: 22 }}>
+            <div className="mono" style={{ fontSize: 9, letterSpacing: '0.16em', color: 'var(--ink-30)', textTransform: 'uppercase', marginBottom: 10 }}>
+              {t('live.results.body')}
+            </div>
+            {videoEval === 'processing' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <span style={{ width: 14, height: 14, border: '2px solid rgba(129,140,248,0.3)', borderTopColor: '#818cf8', borderRadius: '50%', display: 'inline-block', animation: 'liveSpin 0.7s linear infinite' }} />
+                <span className="mono" style={{ fontSize: 11.5, color: 'var(--ink-55)' }}>{t('live.results.bodyProcessing')}</span>
+              </div>
+            )}
+            {(videoEval === 'skipped' || videoEval === undefined) && (
+              <div className="mono" style={{ fontSize: 11, color: 'var(--ink-40)', padding: '10px 0' }}>{t('live.results.bodySkipped')}</div>
+            )}
+            {videoEval === 'failed' && (
+              <div className="mono" style={{ fontSize: 11, color: '#fca5a5', padding: '10px 0' }}>{t('live.results.bodyFailed')}</div>
+            )}
+            {videoEval && typeof videoEval === 'object' && (() => {
+              const dims = (videoEval.features && videoEval.features.dimensions) || {};
+              const entries = Object.entries(dims);
+              const DIM_LBL = { confianza:['Confianza','Confidence'], claridad:['Claridad','Clarity'], ritmo_voz:['Ritmo de voz','Voice pace'], escucha_activa:['Escucha activa','Active listening'], lenguaje_corporal:['Lenguaje corporal','Body language'] };
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {entries.map(([k, v]) => {
+                    const sv = Math.round((v && (v.score ?? v)) || 0);
+                    const c = sv >= 75 ? '#34d399' : sv >= 55 ? '#fbbf24' : '#fca5a5';
+                    const pair = DIM_LBL[k];
+                    const label = pair ? (lang === 'en' ? pair[1] : pair[0]) : k;
+                    return (
+                      <div key={k} style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                          <span style={{ fontSize: 12.5, color: 'var(--ink-80)' }}>{label}</span>
+                          <span style={{ fontSize: 13.5, fontWeight: 300, color: c }}>{sv}</span>
+                        </div>
+                        <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)' }}>
+                          <div style={{ width: `${sv}%`, height: '100%', borderRadius: 2, background: c }} />
+                        </div>
+                        {v && v.evidence && <div className="mono" style={{ fontSize: 10, color: 'var(--ink-45)', lineHeight: 1.5, marginTop: 6 }}>{v.evidence}</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="btn" onClick={restart} style={{ flex: 1, justifyContent: 'center', padding: '12px' }}>
               <SIcon name="redo" size={13} /> {t('live.results.again')}
             </button>
             <button className="btn btn-primary" onClick={leave} style={{ flex: 1, justifyContent: 'center', padding: '12px' }}>{t('live.results.close')}</button>
           </div>
+          <style>{`@keyframes liveSpin { to { transform: rotate(360deg); } }`}</style>
         </div>
       </div>
     );
@@ -458,6 +603,15 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore }) {
   const modeLbl = isInt ? t('mode.interview') : t('mode.sales');
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'radial-gradient(circle at 50% 30%, rgba(30,27,55,0.6), rgba(8,8,11,0.98))', backdropFilter: 'blur(16px)', display: 'flex', flexDirection: 'column' }}>
+      {/* self-view: confirma que la cámara graba para el análisis de lenguaje corporal */}
+      <div style={{ position: 'absolute', left: 18, bottom: 18, width: 150, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)', display: videoEval === 'skipped' ? 'none' : 'block', zIndex: 5 }}>
+        <video ref={videoSelfRef} autoPlay muted playsInline style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block', transform: 'scaleX(-1)', background: '#000' }} />
+        <div style={{ position: 'absolute', top: 7, left: 8, display: 'flex', alignItems: 'center', gap: 5, fontSize: 9, color: '#fff', background: 'rgba(0,0,0,0.45)', padding: '2px 7px', borderRadius: 999 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', animation: 'liveRecBlink 1.2s infinite' }} />
+          <span className="mono" style={{ letterSpacing: '0.1em' }}>{t('live.rec')}</span>
+        </div>
+      </div>
+      <style>{`@keyframes liveRecBlink { 0%,100%{opacity:1} 50%{opacity:0.3} }`}</style>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px' }}>
         <span className="mono" style={{ fontSize: 11, color: 'var(--ink-55)', letterSpacing: '0.08em' }}>
           {modeLbl} · {roleLbl} · {t('level.' + level)} · {lang.toUpperCase()}

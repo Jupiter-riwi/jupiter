@@ -5,6 +5,59 @@ const T = (k) => window.I18N.t(k);
 const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
 
 /* ============================================================
+   NUEVA EVALUACIÓN — selector: pitch en vivo · entrevista · grabar
+   ============================================================ */
+function NewEvalChooser({ onLive, onRecord, onBack }) {
+  window.useLang(); const L = window.L;
+  const OPTIONS = [
+    { id: 'pitch', icon: 'sparkle', accent: '#60a5fa',
+      title: L('Pitch en vivo', 'Live pitch'),
+      desc: L('Presentá a un comprador IA que te escucha, repregunta y objeta en tiempo real. Con cámara y análisis de lenguaje corporal.', 'Pitch to an AI buyer that listens, follows up and objects in real time. With camera and body-language analysis.'),
+      badge: L('NUEVO', 'NEW'), onClick: () => onLive('presentacion') },
+    { id: 'interview', icon: 'user', accent: '#34d399',
+      title: L('Entrevista en vivo', 'Live interview'),
+      desc: L('Practicá una entrevista laboral con un entrevistador IA (reclutador, hiring manager, líder técnico…). Con cámara.', 'Practice a job interview with an AI interviewer (recruiter, hiring manager, tech lead…). With camera.'),
+      badge: L('NUEVO', 'NEW'), onClick: () => onLive('entrevista') },
+    { id: 'record', icon: 'video', accent: 'rgba(255,255,255,0.4)',
+      title: L('Grabar y subir', 'Record & upload'),
+      desc: L('El modo clásico: grabás un pitch de 60–90s y la IA lo analiza (cuerpo, voz, discurso). Sin conversación.', 'The classic mode: record a 60–90s pitch and the AI analyzes it (body, voice, delivery). No conversation.'),
+      badge: null, onClick: onRecord },
+  ];
+  return (
+    <div className="s-stage">
+      <div className="s-wrap" style={{ maxWidth: 760, padding: '24px' }}>
+        <button className="btn" onClick={onBack} style={{ marginBottom: 22 }}>{L('← Volver', '← Back')}</button>
+        <h1 style={{ fontSize: 28, fontWeight: 200, letterSpacing: '-0.02em', marginBottom: 6 }}>{L('Nueva evaluación', 'New evaluation')}</h1>
+        <p style={{ fontSize: 14, color: 'var(--ink-50)', lineHeight: 1.6, marginBottom: 28 }}>
+          {L('Elegí cómo querés practicar tu comunicación comercial hoy.', 'Choose how you want to practice your sales communication today.')}
+        </p>
+        <div style={{ display: 'grid', gap: 14 }}>
+          {OPTIONS.map(o => (
+            <div key={o.id} onClick={o.onClick}
+              style={{ display: 'flex', alignItems: 'center', gap: 18, padding: '20px 22px', borderRadius: 14, cursor: 'pointer',
+                background: 'rgba(255,255,255,0.03)', border: `1px solid ${o.accent}44`, transition: 'all 150ms' }}
+              onMouseEnter={e => { e.currentTarget.style.background = `${o.accent}14`; e.currentTarget.style.borderColor = `${o.accent}99`; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = `${o.accent}44`; }}>
+              <div style={{ width: 46, height: 46, borderRadius: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${o.accent}1f`, color: o.accent }}>
+                <SIcon name={o.icon} size={22} stroke={1.4} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span style={{ fontSize: 15.5, fontWeight: 400, color: 'var(--ink-90)' }}>{o.title}</span>
+                  {o.badge && <span className="mono" style={{ fontSize: 8.5, letterSpacing: '0.14em', padding: '2px 7px', borderRadius: 5, background: `${o.accent}22`, color: o.accent }}>{o.badge}</span>}
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--ink-50)', lineHeight: 1.5 }}>{o.desc}</div>
+              </div>
+              <SIcon name="arrow" size={16} stroke={1.4} style={{ color: 'var(--ink-30)', flexShrink: 0 }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
    APEX VISION — app conectada al API Gateway real
    Flujo: login → landing → selector → grabacion real → resultados reales
    ============================================================ */
@@ -118,6 +171,8 @@ function ApexApp() {
     }, 50);
   };
   const goScenario  = () =>  setPage('scenario');
+  const goNewEval   = () =>  setPage('chooser');   // selector: pitch en vivo / entrevista / grabar
+  const openLive    = (m) => { setPage('landing'); setLiveMode(m); };
   const handleLogout = () => { window.ApexAPI.logout(); setUser(null); setPage('login'); };
 
   const handleSelectScenario = (s) => {
@@ -301,15 +356,16 @@ function ApexApp() {
       <div className="s-shell">
         <AuthTopBar />
 
-        {page === 'landing'   && tab === 'dashboard' && <SellerMainDashboard user={user} onStart={goScenario} onGoTab={setTab} />}
-        {page === 'landing'   && tab === 'home'     && <SellerDashboard user={user} onStart={goScenario} />}
+        {page === 'landing'   && tab === 'dashboard' && <SellerMainDashboard user={user} onStart={goNewEval} onGoTab={setTab} />}
+        {page === 'landing'   && tab === 'home'     && <SellerDashboard user={user} onStart={goNewEval} />}
         {page === 'landing'   && tab === 'progress' && <SellerProgress user={user} />}
         {page === 'landing'   && tab === 'coaching' && <SellerCoaching user={user} onGoToPlan={() => setTab('plan')} />}
         {page === 'landing'   && tab === 'plan'     && <SellerPlan user={user} />}
         {page === 'landing'   && tab === 'profile'  && <SellerProfile user={user} onGoTab={setTab} />}
         {page === 'landing'   && tab === 'settings' && <SellerSettings user={user} onUserUpdate={u => setUser(u)} />}
-        {page === 'scenario'  && <ScenarioSelector onSelect={handleSelectScenario} onBack={goLanding} />}
-        {page === 'results'   && <SellerResults scenario={scenario} evaluationData={evaluationData} onBack={goLanding} onPractice={goScenario} />}
+        {page === 'chooser'   && <NewEvalChooser onLive={openLive} onRecord={goScenario} onBack={goLanding} />}
+        {page === 'scenario'  && <ScenarioSelector onSelect={handleSelectScenario} onBack={goNewEval} />}
+        {page === 'results'   && <SellerResults scenario={scenario} evaluationData={evaluationData} onBack={goLanding} onPractice={goNewEval} />}
       </div>
 
       {recording && scenario && (
