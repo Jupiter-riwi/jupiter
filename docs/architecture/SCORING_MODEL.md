@@ -1,6 +1,6 @@
 # Modelo de Scoring · Jupiter Apex Vision
 
-> Versión: **2.0** · Fecha: 2026-05-08
+> Versión: **2.1** · Fecha: 2026-05-27
 > Estado: en producción (sentinel + scoring worker)
 
 ## 1. Filosofía del modelo
@@ -8,8 +8,8 @@
 El scorer es **crítico, evidence-based y honesto**. Reglas inviolables:
 
 - Rango de output: **0–100** estricto. Cualquier valor fuera del rango es bug.
-- Cada `issue` debe citar un dato concreto (palabras, segundos, métrica).
-- Cada `recommendation` debe ser accionable: verbo + qué hacer + cómo medirlo.
+- Cada dimensión debe citar un dato concreto (palabras, segundos, métrica o frase).
+- Cada `recommendation` debe ser accionable: problema + impacto + acción + ejercicio + métrica.
 - Si no hay evidencia para una dimensión (worker stub, audio silente), se marca explícitamente y la dimensión cap a ≤ 50.
 - No se otorgan puntajes >75 sin: contenido sustancial (>100 palabras) + pose real + prosody real.
 
@@ -32,38 +32,38 @@ El scorer es **crítico, evidence-based y honesto**. Reglas inviolables:
 - Duración 20–40s sin estructura → máximo 50
 
 ### 3.3 Workers stub (no analizados)
-- `pose.stub_by` presente → `body_language ≤ 45`
-- `prosody.stub_by` presente → `prosody ≤ 45`
+- `pose.stub_by` presente → `lenguaje_corporal ≤ 45`
+- `prosody.stub_by` presente → `ritmo_voz ≤ 45`
 
 ### 3.4 Calidad del discurso
-- Sin propuesta de valor → `communication ≤ 50`
-- Sin estructura (apertura-desarrollo-cierre) → `communication ≤ 60`
-- Repetitivo / muletillas excesivas → `prosody ≤ 60`
-- Sin manejo anticipado de objeciones → `objection_handling ≤ 40`
+- Sin propuesta de valor → `claridad ≤ 50`
+- Sin estructura (apertura-desarrollo-cierre) → `claridad ≤ 60`
+- Repetitivo / muletillas excesivas → `ritmo_voz ≤ 60`
+- Sin preguntas consultivas o reformulación → `escucha_activa ≤ 40`
 
 ## 4. Output schema
 
 ```json
 {
   "overall": 0,
-  "verdict": "Frase honesta máx 80 chars",
   "dimensions": {
-    "communication": 0,
-    "body_language": 0,
-    "prosody": 0,
-    "objection_handling": 0,
-    "confidence": 0
+    "confianza": { "score": 0, "evidence": "..." },
+    "claridad": { "score": 0, "evidence": "..." },
+    "lenguaje_corporal": { "score": 0, "evidence": "..." },
+    "ritmo_voz": { "score": 0, "evidence": "..." },
+    "escucha_activa": { "score": 0, "evidence": "..." }
   },
-  "evidence": {
-    "word_count": 0,
-    "duration_sec": 0.0,
-    "speech_density": 0.0,
-    "has_structure": false,
-    "has_value_prop": false,
-    "has_cta": false
-  },
-  "issues": ["..."],
-  "recommendations": [{ "area": "...", "tip": "..." }]
+  "recommendations": [
+    {
+      "priority": "high",
+      "area": "ritmo_voz",
+      "problem": "Hablas a 185 WPM, por encima del rango recomendado.",
+      "impact": "El prospecto puede percibir ansiedad y perder partes clave.",
+      "tip": "Reduce velocidad y marca pausas entre ideas.",
+      "drill": "Graba el mismo pitch 3 veces intentando llegar a 150 WPM.",
+      "success_metric": "WPM entre 130 y 160 durante al menos 80% del pitch."
+    }
+  ]
 }
 ```
 
@@ -72,10 +72,10 @@ El scorer es **crítico, evidence-based y honesto**. Reglas inviolables:
 | Componente | Archivo | Modelo |
 |---|---|---|
 | Sentinel (fallback) | [`infra/sentinel.py`](../infra/sentinel.py) | GPT-4.1 + heurística |
-| Scoring worker | [`ai-workers/scoring/llm.py`](../ai-workers/scoring/llm.py) | GPT-4.1 |
+| Scoring worker | [`ai-workers/scoring/llm.py`](../ai-workers/scoring/llm.py) | GPT-4o primario + Groq fallback |
 | Frontend cap | [`frontend/seller-results.jsx`](../frontend/seller-results.jsx) | clamp 0–100 |
 
-El sentinel actúa como fallback: si una evaluación queda en `processing > 45s`, lo levanta, ejecuta el scorer GPT-4.1 sobre las features disponibles (reales o stub) y completa.
+El worker usa `ai-workers/scoring/prompts/v2.md` por defecto (`SCORING_PROMPT_VERSION` permite cambiarlo). OpenAI se llama con JSON schema y el resultado se valida con Pydantic antes de persistir. El sentinel actúa como fallback: si una evaluación queda en `processing > 45s`, lo levanta, ejecuta el scorer sobre las features disponibles (reales o stub) y completa.
 
 ## 6. Testing del modelo
 
