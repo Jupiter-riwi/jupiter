@@ -96,14 +96,16 @@ services:
       JWT_EXPIRY_MINUTES: ${JWT_EXPIRY_MINUTES:-15}
       JWT_REFRESH_EXPIRY_HOURS: ${JWT_REFRESH_EXPIRY_HOURS:-168}
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/
-      MINIO_ENDPOINT: host.docker.internal:9000
+      MINIO_ENDPOINT: minio:9000
       MINIO_PUBLIC_ENDPOINT: localhost:9000
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
       MINIO_BUCKET: ${MINIO_BUCKET:-jupiter-videos}
       MINIO_USE_SSL: "false"
       MINIO_PUBLIC_USE_SSL: "false"
-      CORS_ALLOW_ORIGIN: http://localhost:5173
+      CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN:-http://localhost:8090}
+      # Live conversational agent (STT + LLM + TTS)
+      GROQ_API_KEY: ${GROQ_API_KEY}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
       ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
       ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID:-EXAVITQu4vr4xnSDxMaL}
@@ -151,11 +153,7 @@ services:
       migrate:
         condition: service_completed_successfully
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "python -c \"import pathlib,sys; sys.exit(0 if b'pose_worker' in pathlib.Path('/proc/1/cmdline').read_bytes() else 1)\"",
-        ]
+      test: ["CMD-SHELL", "pgrep -f pose_worker || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -179,8 +177,9 @@ services:
       AWS_REGION: us-east-1
       WHISPER_JOBS_QUEUE: whisper.jobs
       FEATURES_RESULTS_QUEUE: features.results
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
       GROQ_API_KEY: ${GROQ_API_KEY}
-      WHISPER_MODEL: whisper-large-v3
+      WHISPER_MODEL: whisper-1
       WHISPER_MAX_VIDEO_SECONDS: 480
       WHISPER_CHUNK_SECONDS: 120
     depends_on:
@@ -189,11 +188,7 @@ services:
       migrate:
         condition: service_completed_successfully
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "python -c \"import pathlib,sys; sys.exit(0 if b'whisper_worker' in pathlib.Path('/proc/1/cmdline').read_bytes() else 1)\"",
-        ]
+      test: ["CMD-SHELL", "pgrep -f whisper_worker || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -214,10 +209,6 @@ services:
       RABBITMQ_PASS: ${RABBITMQ_PASS:-guest}
       DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-jupiter}
       PROSODY_QUEUE: prosody.jobs
-      S3_ENDPOINT_URL: http://minio:9000
-      AWS_ACCESS_KEY_ID: ${MINIO_ACCESS_KEY:-minioadmin}
-      AWS_SECRET_ACCESS_KEY: ${MINIO_SECRET_KEY:-minioadmin}
-      AWS_REGION: us-east-1
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -249,6 +240,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       DB_NAME: ${DB_NAME:-jupiter}
       SCORING_QUEUE: scoring.jobs
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
       GROQ_API_KEY: ${GROQ_API_KEY}
     depends_on:
       rabbitmq:
@@ -276,7 +268,7 @@ services:
       gateway:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/seller || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80 || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -285,3 +277,10 @@ volumes:
   postgres_data:
   rabbitmq_data:
   minio_data:
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16

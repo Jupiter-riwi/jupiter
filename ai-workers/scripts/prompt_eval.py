@@ -6,7 +6,7 @@ Uso:
     python scripts/prompt_eval.py --fixture vendedor_solido    # fixture especifico
     python scripts/prompt_eval.py --fixture vendedor_nervioso --output result.json
 
-Requiere: GROQ_API_KEY en entorno o .env
+Requiere: OPENAI_API_KEY o GROQ_API_KEY en entorno o .env
 """
 
 import argparse
@@ -32,7 +32,7 @@ def load_fixture(name: str) -> dict:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Evalua el prompt de scoring con Groq (LLaMA 3.3 70B)")
+    parser = argparse.ArgumentParser(description="Evalua el prompt de scoring con OpenAI o Groq")
     parser.add_argument(
         "--fixture", default="vendedor_solido",
         help="Nombre del fixture sin extension (default: vendedor_solido)",
@@ -43,8 +43,8 @@ def main():
     )
     args = parser.parse_args()
 
-    if not os.getenv("GROQ_API_KEY"):
-        print("ERROR: GROQ_API_KEY no configurada. Configurala en el entorno o .env")
+    if not os.getenv("OPENAI_API_KEY") and not os.getenv("GROQ_API_KEY"):
+        print("ERROR: configura OPENAI_API_KEY o GROQ_API_KEY en el entorno o .env")
         sys.exit(1)
 
     data = load_fixture(args.fixture)
@@ -59,7 +59,8 @@ def main():
     )
 
     print(f"Prompt construido: {len(prompt)} caracteres")
-    print("Llamando a Groq (LLaMA 3.3 70B)...")
+    provider = "OpenAI GPT-4o" if os.getenv("OPENAI_API_KEY") else "Groq"
+    print(f"Llamando a {provider}...")
     print()
 
     try:

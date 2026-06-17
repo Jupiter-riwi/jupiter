@@ -1,4 +1,11 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(git fetch:*)"
+    ]
+  },
   "enabledMcpjsonServers": [
     "supabase"
   ]

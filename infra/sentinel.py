@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Sentinel: scorer critico que evalua pitches usando Groq (LLaMA 3.3 70B).
+Sentinel: scorer crítico que evalúa pitches usando GPT-4.1.
 
 Reemplaza al worker de scoring cuando se queda atascado y aplica un
-sistema critico real basado en features whisper + pose + prosody.
-Si las features son stub (worker no corrio), penaliza la dimension correspondiente.
+sistema crítico real basado en features whisper + pose + prosody.
+Si las features son stub (worker no corrió), penaliza la dimensión correspondiente.
 """
 import json
 import os
@@ -20,11 +20,10 @@ DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "postgresql://jupiter:jupiter_secret@localhost:5432/jupiter_db",
 )
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1")
 STALE_AFTER_SECONDS = int(os.getenv("SENTINEL_STALE_SECONDS", "45"))
 POLL_INTERVAL_SECONDS = int(os.getenv("SENTINEL_POLL_SECONDS", "10"))
-GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 PROMPT = """Eres un coach SENIOR de ventas con 20 años de experiencia. Tu trabajo es dar feedback HONESTO y EXIGENTE, no complaciente.
 
@@ -123,8 +122,8 @@ def has_score(conn, eval_id):
         return cur.fetchone() is not None
 
 
-def call_groq(transcript, duration, pose, prosody):
-    if not GROQ_API_KEY:
+def call_gpt(transcript, duration, pose, prosody):
+    if not OPENAI_API_KEY:
         return None
     prompt = (PROMPT
               .replace("{transcript}", json.dumps(transcript, ensure_ascii=False))
@@ -132,18 +131,18 @@ def call_groq(transcript, duration, pose, prosody):
               .replace("{pose}", json.dumps(pose, ensure_ascii=False))
               .replace("{prosody}", json.dumps(prosody, ensure_ascii=False)))
     body = json.dumps({
-        "model": GROQ_MODEL,
+        "model": OPENAI_MODEL,
         "messages": [
-            {"role": "system", "content": "Eres un coach exigente. Solo respondes JSON valido."},
+            {"role": "system", "content": "Eres un coach exigente. Solo respondes JSON válido."},
             {"role": "user", "content": prompt},
         ],
         "response_format": {"type": "json_object"},
         "temperature": 0.2,
     }).encode("utf-8")
     req = urllib.request.Request(
-        GROQ_API_URL,
+        "https://api.openai.com/v1/chat/completions",
         data=body,
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {GROQ_API_KEY}"},
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {OPENAI_API_KEY}"},
     )
     try:
         with urllib.request.urlopen(req, timeout=60) as resp:
@@ -151,21 +150,21 @@ def call_groq(transcript, duration, pose, prosody):
         content = data["choices"][0]["message"]["content"]
         return json.loads(content)
     except Exception as exc:
-        print(f"Groq error: {exc}", flush=True)
+        print(f"GPT error: {exc}", flush=True)
         return None
 
 
 def heuristic_score(transcript_text, duration, pose_stub, prosody_stub):
-    """Fallback si Groq no esta disponible — sigue siendo critico."""
+    """Fallback si GPT no está disponible — sigue siendo crítico."""
     word_count = len(transcript_text.split()) if transcript_text else 0
     if word_count < 5:
         return {
             "overall": 8,
             "verdict": "Sin pitch detectable: el audio no contiene discurso comercial.",
             "dimensions": {"communication": 5, "body_language": 30, "prosody": 10, "objection_handling": 0, "confidence": 5},
-            "issues": ["Transcripcion vacia o casi vacia", "No se detecto propuesta de valor"],
+            "issues": ["Transcripción vacía o casi vacía", "No se detectó propuesta de valor"],
             "recommendations": [
-                {"area": "Contenido", "tip": "Graba un pitch de al menos 60 segundos con apertura, valor y cierre"},
+                {"area": "Contenido", "tip": "Grabá un pitch de al menos 60 segundos con apertura, valor y cierre"},
             ],
         }
     if word_count < 30:
@@ -175,8 +174,8 @@ def heuristic_score(transcript_text, duration, pose_stub, prosody_stub):
             "dimensions": {"communication": 20, "body_language": 40, "prosody": 25, "objection_handling": 10, "confidence": 18},
             "issues": [f"Transcript de {word_count} palabras: insuficiente", "Falta estructura de pitch"],
             "recommendations": [
-                {"area": "Contenido", "tip": "Estructura tu pitch: problema → solucion → diferencial → CTA"},
-                {"area": "Duracion", "tip": "Usa los 90s completos para desarrollar tu propuesta"},
+                {"area": "Contenido", "tip": "Estructura tu pitch: problema → solución → diferencial → CTA"},
+                {"area": "Duración", "tip": "Usa los 90s completos para desarrollar tu propuesta"},
             ],
         }
     base = min(60, 35 + word_count // 4)
@@ -184,7 +183,7 @@ def heuristic_score(transcript_text, duration, pose_stub, prosody_stub):
     if prosody_stub: base = min(base, 55)
     return {
         "overall": base,
-        "verdict": f"Pitch parcial . {word_count} palabras . {duration:.0f}s",
+        "verdict": f"Pitch parcial · {word_count} palabras · {duration:.0f}s",
         "dimensions": {
             "communication": base + 5,
             "body_language": 45 if pose_stub else base,
@@ -197,7 +196,7 @@ def heuristic_score(transcript_text, duration, pose_stub, prosody_stub):
             *(["Prosodia no analizada (worker stub)"] if prosody_stub else []),
         ],
         "recommendations": [
-            {"area": "Estructura", "tip": "Asegurate de cubrir problema-solucion-CTA"},
+            {"area": "Estructura", "tip": "Asegurate de cubrir problema-solución-CTA"},
         ],
     }
 
@@ -231,7 +230,7 @@ def unblock(conn, eval_id, tenant_id):
                 if kind == "pose": pose_stub = True
                 if kind == "prosody": prosody_stub = True
 
-    breakdown = call_groq(transcript_text, duration, pose_obj, prosody_obj)
+    breakdown = call_gpt(transcript_text, duration, pose_obj, prosody_obj)
     if breakdown is None:
         breakdown = heuristic_score(transcript_text, duration, pose_stub, prosody_stub)
 
@@ -250,6 +249,8 @@ def unblock(conn, eval_id, tenant_id):
                 "INSERT INTO scores (evaluation_id, tenant_id, value, breakdown) VALUES (%s,%s,%s,%s::jsonb)",
                 (eval_id, tenant_id, overall, json.dumps(breakdown, ensure_ascii=False)),
             )
+        # También copiamos breakdown a evaluations.features para que el frontend lo vea
+        # (el gateway no hace JOIN con scores, devuelve solo evaluations row + features JSONB).
         cur.execute(
             "UPDATE evaluations SET status='completed', score=%s, features=%s::jsonb, updated_at=NOW() WHERE id=%s",
             (overall, json.dumps(breakdown, ensure_ascii=False), eval_id),
@@ -265,8 +266,8 @@ def unblock(conn, eval_id, tenant_id):
 
 def main():
     print(
-        f"Sentinel started . model={GROQ_MODEL if GROQ_API_KEY else 'heuristic'} "
-        f". poll={POLL_INTERVAL_SECONDS}s . stale_after={STALE_AFTER_SECONDS}s",
+        f"Sentinel started · model={OPENAI_MODEL if OPENAI_API_KEY else 'heuristic'} "
+        f"· poll={POLL_INTERVAL_SECONDS}s · stale_after={STALE_AFTER_SECONDS}s",
         flush=True,
     )
     while True:

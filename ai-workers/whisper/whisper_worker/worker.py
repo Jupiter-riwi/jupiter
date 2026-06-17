@@ -49,6 +49,9 @@ class WhisperWorker:
         self.transcriber = GroqWhisperClient(
             api_key=settings.groq_api_key,
             api_base=settings.groq_api_base,
+            openai_api_key=settings.openai_api_key,
+            openai_api_base=settings.openai_api_base,
+            groq_api_key=settings.groq_api_key,
             model=settings.whisper_model,
             temperature=settings.whisper_temperature,
             default_language=settings.whisper_language,

@@ -6,9 +6,8 @@
 /* Single-column layout for seller */
 .s-shell {
   height: 100vh;
-  display: grid;
-  grid-template-rows: 64px 1fr;
-  gap: 0;
+  display: flex;
+  flex-direction: column;
 }
 .s-topbar {
   display: flex; align-items: center; justify-content: space-between;
@@ -32,6 +31,7 @@
 .s-nav a.on { color: var(--ink-100); background: rgba(255,255,255,0.07); }
 
 .s-stage {
+  flex: 1;
   overflow-y: auto;
   padding: 36px 28px 64px;
   position: relative;
@@ -508,9 +508,15 @@
 }
 .rec .priority.high { color: var(--ink-100); }
 .rec .priority.high .dot { background: #fff; }
+.rec .problem { font-size: 14px; font-weight: 600; line-height: 1.4; color: var(--ink-100); }
+.rec .impact { margin-top: 6px; font-size: 12.5px; color: var(--ink-65); line-height: 1.55; }
 .rec .tip { font-size: 14px; font-weight: 500; line-height: 1.4; }
+.rec .problem + .tip,
+.rec .impact + .tip { margin-top: 10px; }
 .rec .drill { margin-top: 8px; font-size: 12.5px; color: var(--ink-70); line-height: 1.55; }
 .rec .drill::before { content: '→ '; color: var(--ink-50); font-family: var(--font-mono); }
+.rec .metric { margin-top: 8px; font-size: 11.5px; color: var(--ink-50); line-height: 1.45; font-family: var(--font-mono); }
+.rec .metric::before { content: 'META '; color: var(--ink-70); }
 
 /* Transcript card */
 .transcript-card { padding: 26px; grid-column: 1 / 3; }
@@ -552,4 +558,56 @@
   font-size: 11px;
   letter-spacing: 0.05em;
   color: var(--ink-90);
+}
+
+/* ── Animación de entrada por pantalla ───────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.s-stage {
+  animation: fadeUp 240ms ease both;
+}
+
+/* ── Hover en cards de features / escenarios ─────────────────────────────── */
+.card-hover {
+  transition: background 160ms, border-color 160ms, transform 160ms, box-shadow 160ms;
+  cursor: pointer;
+}
+.card-hover:hover {
+  background: rgba(255,255,255,0.07) !important;
+  border-color: rgba(255,255,255,0.22) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px -8px rgba(0,0,0,0.5);
+}
+.card-hover:active {
+  transform: translateY(0);
+}
+
+/* ── Escenario seleccionado ──────────────────────────────────────────────── */
+.scenario-card {
+  transition: background 160ms, border-color 160ms, box-shadow 160ms;
+  cursor: pointer;
+}
+.scenario-card:hover:not(.selected) {
+  background: rgba(255,255,255,0.06) !important;
+  border-color: rgba(255,255,255,0.2) !important;
+}
+.scenario-card.selected {
+  background: rgba(158,245,190,0.07) !important;
+  border-color: rgba(158,245,190,0.45) !important;
+  box-shadow: 0 0 0 1px rgba(158,245,190,0.15), 0 8px 32px -8px rgba(0,0,0,0.4);
+}
+
+/* ── Botón "Comenzar grabación" prominente cuando hay selección ──────────── */
+.btn-record-ready {
+  background: white !important;
+  color: #111 !important;
+  border-color: white !important;
+  box-shadow: 0 0 28px rgba(255,255,255,0.12);
+}
+.btn-record-ready:hover {
+  background: #f0f0f0 !important;
+  box-shadow: 0 0 40px rgba(255,255,255,0.2);
+  transform: translateY(-1px);
 }

@@ -51,6 +51,8 @@ class Settings:
     whisper_word_timestamps: bool
     groq_api_key: str
     groq_api_base: str
+    openai_api_key: str
+    openai_api_base: str
     whisper_model: str
     whisper_temperature: float
     whisper_language: str | None
@@ -83,7 +85,9 @@ class Settings:
             whisper_word_timestamps=_get_bool("WHISPER_WORD_TIMESTAMPS", False),
             groq_api_key=os.getenv("GROQ_API_KEY", ""),
             groq_api_base=os.getenv("GROQ_API_BASE", ""),
-            whisper_model=os.getenv("WHISPER_MODEL", "whisper-large-v3"),
+            openai_api_key=os.getenv("OPENAI_API_KEY", ""),
+            openai_api_base=os.getenv("OPENAI_API_BASE", ""),
+            whisper_model=os.getenv("WHISPER_MODEL", "whisper-1"),
             whisper_temperature=_get_float("WHISPER_TEMPERATURE", 0.0),
             whisper_language=os.getenv("WHISPER_LANGUAGE"),
             log_level=os.getenv("LOG_LEVEL", "INFO").upper(),

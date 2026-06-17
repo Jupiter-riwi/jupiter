@@ -212,3 +212,69 @@ def update_evaluation_status(
                 ),
             )
         c.commit()
+
+
+# =============================================================================
+# Evaluation helpers
+# =============================================================================
+
+def mark_evaluation_failed(
+    evaluation_id: str,
+    error_code: str = "",
+    error_message: str = "",
+    error_detail: str = "",
+    conn=None,
+) -> None:
+    error_info = {
+        "error_code": error_code,
+        "error_message": error_message,
+        "error_detail": error_detail,
+    }
+    with _ensure_connection(conn) as c:
+        with c.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE evaluations
+                SET status = 'failed',
+                    features = coalesce(features, '{}'::jsonb) || %s::jsonb,
+                    updated_at = %s
+                WHERE id = %s
+                """,
+                (
+                    json.dumps(error_info, ensure_ascii=False),
+                    datetime.now(timezone.utc),
+                    evaluation_id,
+                ),
+            )
+        c.commit()
+    logger.info(
+        "UPDATE evaluations → failed | evaluation_id=%s | error_code=%s",
+        evaluation_id, error_code,
+    )
+
+
+def get_evaluation_status(
+    evaluation_id: str,
+    conn=None,
+) -> dict | None:
+    with _ensure_connection(conn) as c:
+        with c.cursor() as cur:
+            cur.execute(
+                """
+                SELECT status, score, features
+                FROM evaluations
+                WHERE id = %s
+                """,
+                (evaluation_id,),
+            )
+            row = cur.fetchone()
+
+    if row is None:
+        return None
+
+    status, score, features = row
+    return {
+        "status": status,
+        "score": score,
+        "features": features if isinstance(features, dict) else (json.loads(features) if features else None),
+    }

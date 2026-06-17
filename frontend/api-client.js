@@ -18,6 +18,23 @@
     return h;
   },
 
+  async register(email, password, tenantId) {
+    const res = await fetch(API_BASE + '/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, tenant_id: tenantId }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || 'Register failed: ' + res.status);
+    }
+    const data = await res.json();
+    this.setToken(data.access_token);
+    localStorage.setItem('apex_access_token', data.access_token);
+    localStorage.setItem('apex_refresh_token', data.refresh_token);
+    return data;
+  },
+
   async login(email, password) {
     const res = await fetch(API_BASE + '/api/auth/login', {
       method: 'POST',
@@ -96,6 +113,12 @@
     return res.json();
   },
 
+  async getEvaluations(page = 1, limit = 10) {
+    const res = await this._fetchAuth(API_BASE + `/api/evaluations?page=${page}&limit=${limit}`, {});
+    if (!res.ok) throw new Error('Evaluations failed');
+    return res.json();
+  },
+
   async getQuestions() {
     const res = await fetch(API_BASE + '/api/questions', { headers: this._headers() });
     if (!res.ok) throw new Error('Questions failed');
@@ -137,6 +160,13 @@
     return body.data || body;
   },
 
+  async listAdminEvaluations() {
+    const res = await this._fetchAuth(API_BASE + '/api/admin/evaluations?limit=500', { method: 'GET' });
+    if (!res.ok) throw new Error('List admin evaluations failed: ' + res.status);
+    const body = await res.json();
+    return body.data || body;
+  },
+
   async uploadVideo(evalId, blob) {
     const url = API_BASE + '/api/evaluations/' + evalId + '/upload';
     const res = await this._fetchAuth(url, {
@@ -154,6 +184,26 @@
       body: JSON.stringify({ message }),
     });
     if (!res.ok) throw new Error('Coach chat failed: ' + res.status);
+    return res.json();
+  },
+
+  // ── Live conversational agent ──────────────────────────────────────────
+  // Builds the WebSocket URL for a real-time session. The JWT travels as a
+  // query param because browsers can't set headers on a WebSocket.
+  liveWsUrl({ mode, role, level, scenario } = {}) {
+    const wsBase = API_BASE.replace(/^http/, 'ws');
+    const p = new URLSearchParams();
+    p.set('token', this._token || localStorage.getItem('apex_access_token') || '');
+    if (mode) p.set('mode', mode);
+    if (role) p.set('role', role);
+    if (level) p.set('level', level);
+    if (scenario) p.set('scenario', scenario);
+    return wsBase + '/api/live/ws?' + p.toString();
+  },
+
+  async livePersonas() {
+    const res = await fetch(API_BASE + '/api/live/personas');
+    if (!res.ok) throw new Error('Live personas failed: ' + res.status);
     return res.json();
   },
   };
