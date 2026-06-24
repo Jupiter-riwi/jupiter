@@ -17,9 +17,9 @@ _Fecha: 2026-06-03_
 1. **Desalineacion entre documentacion y codigo real**
    - `docs/ARCHITECTURE.md` declara decisiones que no estan cerradas en codigo (por ejemplo, Supabase), mientras el entorno real actual usa Postgres + MinIO + RabbitMQ local.
 
-2. **Doble implementacion en API Gateway (Go y Python)**
-   - Existe `api-gateway/cmd/api/main.go` con referencias a paquetes internos no presentes y tambien `api-gateway/app/main.py` operativo.
-   - Esto agrega deuda tecnica y confusion para onboarding, CI y soporte.
+2. **Doble implementacion en API Gateway (Go y Python)** — RESUELTO
+   - Se elimino el esqueleto Go (`api-gateway/cmd/api/main.go`), que no compilaba (sin `go.mod` ni paquetes `internal/` presentes) y duplicaba las rutas del gateway FastAPI operativo en `api-gateway/app/main.py`.
+   - Queda una unica implementacion (FastAPI), eliminando la deuda tecnica y la confusion para onboarding, CI y soporte.
 
 3. **Contrato Frontend/API incompleto**
    - Frontend consume `GET /api/questions` (`frontend/src/services/api.ts`) pero el endpoint no existe en FastAPI actual.

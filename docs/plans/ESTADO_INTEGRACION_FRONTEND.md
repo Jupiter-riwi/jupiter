@@ -35,7 +35,7 @@ Implementado en Go con rutas base funcionales:
 - `GET /evaluations/:id/stream`
 - `GET /questions`
 
-Referencia: `api-gateway/cmd/api/main.go`.
+Referencia: `api-gateway/app/main.py` (gateway FastAPI operativo). El antiguo esqueleto Go (`api-gateway/cmd/api/main.go`) fue eliminado.
 
 ## 2.2 Persistencia y multi-tenant
 

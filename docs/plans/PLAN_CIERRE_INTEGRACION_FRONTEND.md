@@ -111,7 +111,7 @@ Entregable:
    - Impacto: `docker-compose` y build de frontend no son ejecutables hoy.
 
 2. **Seed no crea usuarios de login**
-   - `api-gateway/cmd/seed/main.go` siembra tenant y preguntas, pero no usuarios.
+   - `api-gateway/seed.py` siembra tenant y preguntas, pero no usuarios.
    - Impacto: no hay credenciales de entrada para validar flujo E2E de frontend sin registro manual.
 
 3. **Progreso en vivo no esta integrado por WebSocket en frontend**
