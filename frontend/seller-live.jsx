@@ -194,7 +194,13 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore, initia
   const sendUtterance = useCallback((f) => {
     const ws = wsRef.current;
     if (finishingRef.current) return;   // drop any late VAD turn after "finish"
-    if (!ws || ws.readyState !== WebSocket.OPEN || !f || f.length < 1600) return;
+    if (!ws || ws.readyState !== WebSocket.OPEN || !f) return;
+    // gate: ignore too-short clips and near-silence (breaths/noise) so Whisper
+    // never hallucinates a fake "Gracias" from non-speech.
+    if (f.length < 4800) return;        // < ~0.3s @ 16kHz
+    let sum = 0; for (let i = 0; i < f.length; i++) sum += f[i] * f[i];
+    const rms = Math.sqrt(sum / f.length);
+    if (rms < 0.012) return;            // near-silent → drop
     ws.send(encodeWav(f, 16000));
   }, []);
   const bargeIn = useCallback(() => {
@@ -325,7 +331,8 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore, initia
       const roleMeta = (ROLE_DEF[mode] || ROLE_DEF.presentacion).find(r => r.id === role);
       const roleLbl = roleMeta ? (roleMeta[lang] || roleMeta.es)[0] : '';
       const prefix = mode === 'entrevista' ? (lang === 'en' ? 'Live interview' : 'Entrevista en vivo') : (lang === 'en' ? 'Live pitch' : 'Pitch en vivo');
-      const title = `${prefix} · ${roleLbl}${scenario.trim() ? ' · ' + scenario.trim().slice(0, 40) : ''}`;
+      // embed the difficulty so the batch scorer can grade harder for tougher personas
+      const title = `${prefix} · ${roleLbl} · nivel:${level}${scenario.trim() ? ' · ' + scenario.trim().slice(0, 40) : ''}`;
       const created = await window.ApexAPI.createEvaluation(title);
       const evalId = created.evaluation.id;
       await window.ApexAPI.uploadVideo(evalId, blob);

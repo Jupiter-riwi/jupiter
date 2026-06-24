@@ -42,9 +42,13 @@ class Settings:
     tracking_confidence: float
     eye_contact_yaw_threshold: float
     hand_motion_threshold: float
+    target_analysis_fps: float
+    face_enabled: bool
     temp_dir: Path
     mediapipe_model_path: Path
     mediapipe_model_url: str
+    face_model_path: Path
+    face_model_url: str
     log_level: str
 
     @classmethod
@@ -54,6 +58,12 @@ class Settings:
             os.getenv(
                 "MEDIAPIPE_MODEL_PATH",
                 str(temp_dir / "models" / "pose_landmarker_full.task"),
+            )
+        )
+        face_model_path = Path(
+            os.getenv(
+                "MEDIAPIPE_FACE_MODEL_PATH",
+                str(temp_dir / "models" / "face_landmarker.task"),
             )
         )
 
@@ -78,13 +88,21 @@ class Settings:
             detection_confidence=_get_float("POSE_DETECTION_CONFIDENCE", 0.5),
             tracking_confidence=_get_float("POSE_TRACKING_CONFIDENCE", 0.5),
             eye_contact_yaw_threshold=_get_float("POSE_EYE_CONTACT_YAW_THRESHOLD", 0.35),
-            hand_motion_threshold=_get_float("POSE_HAND_MOTION_THRESHOLD", 0.08),
+            hand_motion_threshold=_get_float("POSE_HAND_MOTION_THRESHOLD", 0.02),
+            target_analysis_fps=_get_float("POSE_ANALYSIS_FPS", 8.0),
+            face_enabled=os.getenv("POSE_FACE_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"},
             temp_dir=temp_dir,
             mediapipe_model_path=model_path,
             mediapipe_model_url=os.getenv(
                 "MEDIAPIPE_MODEL_URL",
                 "https://storage.googleapis.com/mediapipe-models/pose_landmarker/"
                 "pose_landmarker_full/float16/latest/pose_landmarker_full.task",
+            ),
+            face_model_path=face_model_path,
+            face_model_url=os.getenv(
+                "MEDIAPIPE_FACE_MODEL_URL",
+                "https://storage.googleapis.com/mediapipe-models/face_landmarker/"
+                "face_landmarker/float16/latest/face_landmarker.task",
             ),
             log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
         )

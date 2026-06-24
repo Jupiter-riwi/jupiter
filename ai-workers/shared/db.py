@@ -278,3 +278,12 @@ def get_evaluation_status(
         "score": score,
         "features": features if isinstance(features, dict) else (json.loads(features) if features else None),
     }
+
+
+def get_evaluation_title(evaluation_id: str, conn=None) -> str:
+    """Title of the evaluation (carries the live-session difficulty as `nivel:<x>`)."""
+    with _ensure_connection(conn) as c:
+        with c.cursor() as cur:
+            cur.execute("SELECT title FROM evaluations WHERE id = %s", (evaluation_id,))
+            row = cur.fetchone()
+    return (row[0] if row and row[0] else "") or ""
