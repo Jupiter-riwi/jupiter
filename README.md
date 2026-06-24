@@ -33,7 +33,14 @@ apex-vision/
 Preparar dependencias locales y validar Docker:
 
 ```powershell
+# Windows PowerShell
 powershell -ExecutionPolicy Bypass -File .\scripts\setup-local.ps1
+```
+
+```bash
+# macOS / Linux
+chmod +x ./scripts/setup-local.sh
+./scripts/setup-local.sh
 ```
 
 ```bash
