@@ -30,6 +30,12 @@ apex-vision/
 
 ## Cómo arrancar (cuando Fase 0 esté lista)
 
+Preparar dependencias locales y validar Docker:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\setup-local.ps1
+```
+
 ```bash
 docker compose up -d        # levanta Postgres, RabbitMQ, MinIO, gateway, workers, frontend
 make seed                   # crea tenant demo + usuarios + preguntas
