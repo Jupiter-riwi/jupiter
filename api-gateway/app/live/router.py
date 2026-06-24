@@ -61,6 +61,27 @@ async def live_ws(ws: WebSocket) -> None:
     scenario = ws.query_params.get("scenario") or None
     persona = get_persona(mode, role, level, lang, scenario)
 
+    # Billing pre-check: tenant must have at least 3 AT (1 minute of live) to
+    # start a session. Refuse with 4402 (custom code for "payment required" over WS).
+    tenant_id = claims.get("tenant_id", "")
+    if tenant_id:
+        try:
+            from app.main import db_conn  # noqa: WPS433
+            from app.billing.db import tenant_scope  # noqa: WPS433
+            from app.billing.evaluation import precheck_live_balance  # noqa: WPS433
+            from app.billing.wallet import InsufficientBalance  # noqa: WPS433
+            with db_conn() as conn:
+                with tenant_scope(conn, tenant_id):
+                    precheck_live_balance(conn, tenant_id)
+        except InsufficientBalance as exc:
+            logger.info("live refused for tenant=%s: %s", tenant_id, exc)
+            await ws.close(code=4402)  # payment required
+            return
+        except Exception as exc:  # pragma: no cover
+            # If the wallet check itself fails (DB down, etc.), do NOT block live;
+            # log and continue — better to lose a few AT than to deny service.
+            logger.warning("live precheck non-fatal error: %s", exc)
+
     await ws.accept()
     session = LiveSession(
         ws, persona,

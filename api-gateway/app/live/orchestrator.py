@@ -49,6 +49,8 @@ class LiveSession:
         self.history: list[dict[str, str]] = []
         self._agent_task: asyncio.Task | None = None
         self._scored = False
+        self._started_at = time.monotonic()
+        self._charged = False
 
     # ── outbound helpers ────────────────────────────────────────────────
     async def _send_json(self, payload: dict[str, Any]) -> None:
@@ -122,6 +124,23 @@ class LiveSession:
 
     async def close(self) -> None:
         await self.cancel_agent()
+        # Charge the live session in AT (3 AT per minute, see FINANCIAL_PLAN).
+        # Run only once per session. Failures must never break the WS teardown.
+        if not self._charged and self.tenant_id:
+            self._charged = True
+            try:
+                duration = max(0.0, time.monotonic() - self._started_at)
+                from app.main import db_conn  # noqa: WPS433
+                from app.billing.db import tenant_scope  # noqa: WPS433
+                from app.billing.evaluation import charge_live  # noqa: WPS433
+                # The router uses the websocket connection id; fall back to a
+                # synthetic id from started_at if not set.
+                session_id = f"live-{self.user_id}-{int(self._started_at)}"
+                with db_conn() as conn:
+                    with tenant_scope(conn, self.tenant_id):
+                        charge_live(conn, self.tenant_id, session_id, duration_seconds=duration)
+            except Exception as exc:  # pragma: no cover
+                logger.warning("live charge failed (non-fatal): %s", exc)
 
     # ── agent generation ────────────────────────────────────────────────
     def _spawn_agent(self, *, opener: bool) -> None:

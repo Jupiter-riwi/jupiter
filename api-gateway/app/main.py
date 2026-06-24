@@ -119,6 +119,27 @@ from app.live.router import router as live_router  # noqa: E402
 
 app.include_router(live_router)
 
+# Billing (Stripe subscriptions + AT top-ups + webhook).
+from app.billing.routes import router as billing_router  # noqa: E402
+from app.billing.webhooks import router as billing_webhook_router  # noqa: E402
+from app.billing.wallet import InsufficientBalance  # noqa: E402
+
+app.include_router(billing_router)
+app.include_router(billing_webhook_router)
+
+
+@app.exception_handler(InsufficientBalance)
+async def _insufficient_balance_handler(_request, exc: InsufficientBalance):
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=402,
+        content={
+            "detail": "insufficient_at_balance",
+            "needed": exc.needed,
+            "available": exc.available,
+        },
+    )
+
 COACH_SYSTEM_PROMPT = """You are Apex Voice Coach, an executive bilingual (Spanish/English) sales coach.
 Default language is Spanish unless the user asks otherwise.
 
@@ -705,6 +726,13 @@ def complete_evaluation(
 
     with db_conn() as conn:
         ensure_evaluations_table(conn)
+        # Billing pre-check: refuse the job if the tenant has no AT. Mapped to
+        # HTTP 402 by the InsufficientBalance exception handler in main.
+        from app.billing.evaluation import precheck_evaluation_balance  # noqa: WPS433
+        from app.billing.db import tenant_scope  # noqa: WPS433
+        with tenant_scope(conn, tenant_id):
+            precheck_evaluation_balance(conn, tenant_id)
+
         with conn.cursor() as cur:
             cur.execute(
                 "SELECT status::text FROM evaluations WHERE id = %s::uuid FOR UPDATE",
