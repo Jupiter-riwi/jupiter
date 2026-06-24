@@ -51,8 +51,24 @@ def _dialogue_text(history: list[dict]) -> str:
     return "\n".join(lines)
 
 
-async def score_session(*, mode: str, lang: str, persona_name: str, history: list[dict]) -> dict | None:
-    """Score the dialogue. Returns None if there isn't enough to score."""
+_DIFFICULTY = {
+    "es": {
+        "accesible": "NIVEL accesible: sé indulgente, valorá el esfuerzo y no penalices errores menores. Las notas pueden ser generosas.",
+        "neutral": "NIVEL neutral: evaluá con una vara profesional estándar.",
+        "exigente": "NIVEL exigente: sé MUY estricto, como un evaluador senior en una entrevista/venta de alto nivel. Subí la vara, penalizá respuestas vagas, falta de estructura o evidencia, y NO regales puntos. Un desempeño promedio acá merece nota baja-media.",
+    },
+    "en": {
+        "accesible": "EASYGOING level: be lenient, reward effort and don't penalize minor mistakes. Scores can be generous.",
+        "neutral": "NEUTRAL level: grade with a standard professional bar.",
+        "exigente": "DEMANDING level: be VERY strict, like a senior evaluator in a high-stakes interview/sale. Raise the bar, penalize vague answers, lack of structure or evidence, and do NOT give away points. An average performance here deserves a low-to-mid score.",
+    },
+}
+
+
+async def score_session(*, mode: str, lang: str, persona_name: str, history: list[dict], level: str = "neutral") -> dict | None:
+    """Score the dialogue. Returns None if there isn't enough to score.
+
+    `level` (accesible/neutral/exigente) makes the grading stricter as difficulty rises."""
     user_turns = [m for m in history if m["role"] == "user"]
     if len(user_turns) < 1:
         return None
@@ -63,6 +79,7 @@ async def score_session(*, mode: str, lang: str, persona_name: str, history: lis
     rubric = _rubric_for(mode, lang)
     dim_keys = ", ".join(d["key"] for d in rubric)
     en = lang == "en"
+    difficulty = _DIFFICULTY.get(lang, _DIFFICULTY["es"]).get(level, _DIFFICULTY[lang if en else "es"]["neutral"])
     product = ("a job interview" if mode == "entrevista" else "a sales pitch") if en else \
               ("una entrevista laboral" if mode == "entrevista" else "una presentación de ventas")
     subject = ("the candidate" if mode == "entrevista" else "the seller") if en else \
@@ -73,7 +90,8 @@ async def score_session(*, mode: str, lang: str, persona_name: str, history: lis
             f"You are a strict but fair evaluator of {product}. You scored a live, voice conversation between "
             f"{subject} and an interviewer/buyer agent ({persona_name}). Be evidence-based and concrete: cite what "
             f"{subject} actually said. Score each dimension 0-100 and give one short, actionable comment per dimension. "
-            f"Then give an overall 0-100, 2-3 strengths and 2-3 improvements. Respond ONLY with JSON. Write all text in English."
+            f"Then give an overall 0-100, 2-3 strengths and 2-3 improvements. Respond ONLY with JSON. Write all text in English.\n"
+            f"{difficulty}"
         )
         instr = (
             f"Dimensions to score (use these exact keys): {dim_keys}.\n"
@@ -85,7 +103,8 @@ async def score_session(*, mode: str, lang: str, persona_name: str, history: lis
             f"Sos un evaluador estricto pero justo de {product}. Evaluaste una conversación de voz en vivo entre "
             f"{subject} y un agente entrevistador/comprador ({persona_name}). Sé evidence-based y concreto: citá lo que "
             f"{subject} realmente dijo. Puntuá cada dimensión 0-100 con un comentario corto y accionable. Después un "
-            f"overall 0-100, 2-3 fortalezas y 2-3 mejoras. Respondé SOLO con JSON. Escribí todo en español."
+            f"overall 0-100, 2-3 fortalezas y 2-3 mejoras. Respondé SOLO con JSON. Escribí todo en español.\n"
+            f"{difficulty}"
         )
         instr = (
             f"Dimensiones a puntuar (usá estas claves exactas): {dim_keys}.\n"

@@ -31,15 +31,26 @@ def load_prompt(version: str = "v1") -> str:
     return path.read_text(encoding="utf-8")
 
 
+# Difficulty directive injected into the prompt — stricter grading for harder personas.
+_DIFFICULTY = {
+    "accesible": "NIVEL DE EXIGENCIA: accesible. Sé indulgente, valorá el esfuerzo y no penalices errores menores. Las notas pueden ser generosas.",
+    "neutral": "NIVEL DE EXIGENCIA: neutral. Evaluá con una vara profesional estándar.",
+    "exigente": "NIVEL DE EXIGENCIA: exigente. Sé MUY estricto, como un evaluador senior de alto nivel. Subí la vara, penalizá con fuerza la falta de estructura, evidencia o energía, y NO regales puntos: un desempeño promedio merece nota baja-media.",
+}
+
+
 def build_prompt(
     pose_features: dict,
     transcript_features: dict,
     prosody_features: dict,
     version: str = DEFAULT_PROMPT_VERSION,
+    difficulty: str | None = None,
 ) -> str:
     template = load_prompt(version)
+    directive = _DIFFICULTY.get((difficulty or "neutral").lower(), _DIFFICULTY["neutral"])
     return (
         template
+        .replace("{{difficulty}}", directive)
         .replace("{{pose_features}}", json.dumps(pose_features, indent=2, ensure_ascii=False))
         .replace("{{transcript_features}}", json.dumps(transcript_features, indent=2, ensure_ascii=False))
         .replace("{{prosody_features}}", json.dumps(prosody_features, indent=2, ensure_ascii=False))

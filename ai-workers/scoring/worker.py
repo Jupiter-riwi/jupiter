@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import threading
 import time
 from datetime import datetime, timezone
@@ -19,12 +20,23 @@ from shared.db import (
     fetch_features_by_evaluation,
     all_features_ready,
     get_evaluation_status,
+    get_evaluation_title,
     insert_score,
     update_evaluation_status,
     mark_evaluation_failed,
 )
 
 logger = logging.getLogger(__name__)
+
+_LEVEL_RE = re.compile(r"nivel:\s*(accesible|neutral|exigente)", re.IGNORECASE)
+
+
+def _difficulty_from_title(evaluation_id: str) -> str:
+    try:
+        m = _LEVEL_RE.search(get_evaluation_title(evaluation_id) or "")
+        return m.group(1).lower() if m else "neutral"
+    except Exception:
+        return "neutral"
 
 
 def _classify_scoring_error(exc: Exception) -> tuple[str, str, str]:
@@ -178,11 +190,14 @@ def on_scoring_job(channel, method, properties, body: bytes) -> None:
             channel.basic_ack(delivery_tag=delivery_tag)
             return
 
+        difficulty = _difficulty_from_title(job.evaluation_id)
+        logger.info("scoring difficulty=%s | evaluation_id=%s", difficulty, job.evaluation_id)
         score = call_llm(
             prompt=build_prompt(
                 pose_features=features.get("pose", {}),
                 transcript_features=features.get("transcript", {}),
                 prosody_features=features.get("prosody", {}),
+                difficulty=difficulty,
             ),
         )
     except Exception as exc:

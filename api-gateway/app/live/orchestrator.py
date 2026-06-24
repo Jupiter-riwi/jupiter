@@ -109,6 +109,7 @@ class LiveSession:
         result = await scoring.score_session(
             mode=self.persona.mode, lang=self.persona.lang,
             persona_name=self.persona.name, history=self.history,
+            level=self.persona.level,
         )
         await self._send_json({"type": "session_score", "data": result})
         if self.user_id and self.tenant_id:
