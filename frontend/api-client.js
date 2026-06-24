@@ -206,6 +206,51 @@
     if (!res.ok) throw new Error('Live personas failed: ' + res.status);
     return res.json();
   },
+
+  // ── Billing (Stripe) ───────────────────────────────────────────────────
+  // The backend returns { url } from each checkout/portal call; the frontend
+  // redirects to that URL so Stripe's hosted UI handles card data (PCI).
+  async getBillingBalance() {
+    const res = await this._fetchAuth(API_BASE + '/api/billing/balance', { method: 'GET' });
+    if (!res.ok) throw new Error('Billing balance failed: ' + res.status);
+    return res.json();
+  },
+
+  async getBillingSubscription() {
+    const res = await this._fetchAuth(API_BASE + '/api/billing/subscription', { method: 'GET' });
+    if (!res.ok) throw new Error('Billing subscription failed: ' + res.status);
+    return res.json();
+  },
+
+  async getBillingLedger(limit = 50) {
+    const res = await this._fetchAuth(API_BASE + '/api/billing/ledger?limit=' + encodeURIComponent(limit), { method: 'GET' });
+    if (!res.ok) throw new Error('Billing ledger failed: ' + res.status);
+    return res.json();
+  },
+
+  async startSubscriptionCheckout(plan) {
+    const res = await this._fetchAuth(API_BASE + '/api/billing/checkout/subscription', {
+      method: 'POST',
+      body: JSON.stringify({ plan }),
+    });
+    if (!res.ok) throw new Error('Checkout subscription failed: ' + res.status);
+    return res.json();
+  },
+
+  async startTopupCheckout(pack) {
+    const res = await this._fetchAuth(API_BASE + '/api/billing/checkout/topup', {
+      method: 'POST',
+      body: JSON.stringify({ pack }),
+    });
+    if (!res.ok) throw new Error('Checkout topup failed: ' + res.status);
+    return res.json();
+  },
+
+  async openBillingPortal() {
+    const res = await this._fetchAuth(API_BASE + '/api/billing/portal', { method: 'POST' });
+    if (!res.ok) throw new Error('Billing portal failed: ' + res.status);
+    return res.json();
+  },
   };
 
   window.ApexAPI = ApexAPI;
