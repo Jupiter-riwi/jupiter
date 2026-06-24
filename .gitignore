@@ -83,3 +83,6 @@ logs/
 *.log
 tmp/
 temp/
+
+# graphify knowledge-graph output (tool artifact)
+graphify-out/
