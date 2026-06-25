@@ -1,5 +1,5 @@
 const { useState, useEffect } = React;
-const { PublicTopBar, PublicLanding, ScenarioSelector, RecordingStage, SellerResults, SIcon, ApexLogo, SellerDashboard, SellerProgress, SellerCoaching, SellerPlan, SellerSettings, SellerProfile, SellerMainDashboard, LiveRoom, LangToggle } = window;
+const { PublicTopBar, PublicLanding, ScenarioSelector, RecordingStage, SellerResults, SIcon, ApexLogo, SellerDashboard, SellerProgress, SellerCoaching, SellerPlan, SellerBilling, SellerSettings, SellerProfile, SellerMainDashboard, LiveRoom, LangToggle } = window;
 const T = (k) => window.I18N.t(k);
 
 const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
@@ -360,7 +360,7 @@ function ApexApp() {
         {page === 'landing'   && tab === 'home'     && <SellerDashboard user={user} onStart={goNewEval} />}
         {page === 'landing'   && tab === 'progress' && <SellerProgress user={user} />}
         {page === 'landing'   && tab === 'coaching' && <SellerCoaching user={user} onGoToPlan={() => setTab('plan')} />}
-        {page === 'landing'   && tab === 'plan'     && <SellerPlan user={user} />}
+        {page === 'landing'   && tab === 'plan'     && <SellerBilling user={user} />}
         {page === 'landing'   && tab === 'profile'  && <SellerProfile user={user} onGoTab={setTab} />}
         {page === 'landing'   && tab === 'settings' && <SellerSettings user={user} onUserUpdate={u => setUser(u)} />}
         {page === 'chooser'   && <NewEvalChooser onLive={openLive} onRecord={goScenario} onBack={goLanding} />}
