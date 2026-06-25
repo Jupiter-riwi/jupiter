@@ -28,26 +28,36 @@ apex-vision/
         └── generate-arch/   ← skill para mantener ARCHITECTURE.md actualizado
 ```
 
-## Cómo arrancar (cuando Fase 0 esté lista)
+## Cómo arrancar
 
-Preparar dependencias locales y validar Docker:
+Dos scripts de Python multiplataforma (Windows / macOS / Linux). No requieren PowerShell ni bash.
 
-```powershell
-# Windows PowerShell
-powershell -ExecutionPolicy Bypass -File .\scripts\setup-local.ps1
-```
+**1. Instalar dependencias** (crea un venv por proyecto e instala todo):
 
 ```bash
-# macOS / Linux
-chmod +x ./scripts/setup-local.sh
-./scripts/setup-local.sh
+python scripts/setup.py
 ```
 
+**2. Levantar todos los servicios y dejarlos corriendo:**
+
 ```bash
-docker compose up -d        # levanta Postgres, RabbitMQ, MinIO, gateway, workers, frontend
-make seed                   # crea tenant demo + usuarios + preguntas
-open http://localhost:5173  # frontend
+python scripts/run.py
 ```
+
+`run.py` corre el gateway y los workers **de forma nativa** (sin Docker para el código Python). La infraestructura (Postgres, RabbitMQ, MinIO) se controla con `--infra`:
+
+```bash
+python scripts/run.py                  # default: intenta levantar solo la infra con Docker
+python scripts/run.py --infra external # si ya tenés Postgres/RabbitMQ/MinIO corriendo (local o nube)
+python scripts/run.py --infra none     # no toca la infra
+python scripts/run.py --no-workers     # solo gateway + frontend
+```
+
+El script aplica migraciones, siembra datos demo, multiplexa los logs de todos los servicios y los apaga limpiamente con Ctrl+C.
+
+URLs: frontend en `http://localhost:5173/`, API docs en `http://localhost:8080/docs`.
+
+> Si preferís Docker completo y te funciona: `docker compose up -d --build` + `make seed` sigue siendo válido.
 
 Ver detalle por servicio en cada subcarpeta (`api-gateway/README.md`, `ai-workers/README.md`, `frontend/README.md`).
 
