@@ -110,6 +110,20 @@ services:
       ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
       ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID:-EXAVITQu4vr4xnSDxMaL}
       ELEVENLABS_MODEL_ID: ${ELEVENLABS_MODEL_ID:-eleven_multilingual_v2}
+      # Billing (Stripe). Optional: the gateway boots without these; only the
+      # /api/billing/* and webhook endpoints need them at call time.
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_STARTER: ${STRIPE_PRICE_STARTER:-}
+      STRIPE_PRICE_GROWTH: ${STRIPE_PRICE_GROWTH:-}
+      STRIPE_PRICE_PRO: ${STRIPE_PRICE_PRO:-}
+      STRIPE_PRICE_SCALE: ${STRIPE_PRICE_SCALE:-}
+      STRIPE_PRICE_TOPUP_S: ${STRIPE_PRICE_TOPUP_S:-}
+      STRIPE_PRICE_TOPUP_M: ${STRIPE_PRICE_TOPUP_M:-}
+      STRIPE_PRICE_TOPUP_L: ${STRIPE_PRICE_TOPUP_L:-}
+      BILLING_SUCCESS_URL: ${BILLING_SUCCESS_URL:-http://localhost:5173/billing-success.html}
+      BILLING_CANCEL_URL: ${BILLING_CANCEL_URL:-http://localhost:5173/billing-cancel.html}
     depends_on:
       postgres:
         condition: service_healthy
