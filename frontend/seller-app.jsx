@@ -17,6 +17,8 @@ function ApexApp() {
   const [password, setPassword]   = useState('Demo1234!');
   const [loginError, setLoginError] = useState('');
   const [loginBusy, setLoginBusy] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [name, setName] = useState('');
 
   // ── always start at login for fresh token ─────────────────────────────────
   useEffect(() => {
@@ -33,16 +35,21 @@ function ApexApp() {
     return () => window.removeEventListener('apex:session-expired', onExpired);
   }, []);
 
-  // ── login ─────────────────────────────────────────────────────────────────
+  // ── login & register ────────────────────────────────────────────────────────
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoginError('');
     setLoginBusy(true);
     try {
-      await window.ApexAPI.login(email, password);
+      if (isRegistering) {
+        if (!name.trim()) throw new Error('El nombre es requerido');
+        await window.ApexAPI.register(name, email, password, 'SELLER');
+      } else {
+        await window.ApexAPI.login(email, password);
+      }
       setPage('landing');
     } catch (err) {
-      setLoginError('Credenciales invalidas o gateway no disponible. Usa: seller.demo@jupiter.local / Demo1234!');
+      setLoginError(err.message || 'Error al conectar');
     } finally {
       setLoginBusy(false);
     }
@@ -100,6 +107,13 @@ function ApexApp() {
                   Evaluacion comercial con IA
                 </div>
                 <form onSubmit={handleLogin} style={{display:'grid',gap:12,textAlign:'left'}}>
+                  {isRegistering && (
+                    <input
+                      type="text" value={name} onChange={e => setName(e.target.value)}
+                      placeholder="Nombre completo" required
+                      style={{width:'100%',padding:'10px 14px',borderRadius:8,border:'1px solid rgba(255,255,255,0.12)',background:'rgba(255,255,255,0.04)',color:'#fff',fontSize:13}}
+                    />
+                  )}
                   <input
                     type="email" value={email} onChange={e => setEmail(e.target.value)}
                     placeholder="email" required
@@ -111,9 +125,14 @@ function ApexApp() {
                     style={{width:'100%',padding:'10px 14px',borderRadius:8,border:'1px solid rgba(255,255,255,0.12)',background:'rgba(255,255,255,0.04)',color:'#fff',fontSize:13}}
                   />
                   <button type="submit" className="btn btn-primary" disabled={loginBusy} style={{width:'100%',justifyContent:'center',padding:'13px'}}>
-                    {loginBusy ? 'Conectando...' : 'Ingresar'}
+                    {loginBusy ? 'Conectando...' : (isRegistering ? 'Crear cuenta' : 'Ingresar')}
                   </button>
                   {loginError && <div className="mono" style={{fontSize:10.5,color:'#fca5a5',lineHeight:1.5,marginTop:4}}>{loginError}</div>}
+                  <div style={{textAlign:'center', marginTop:10}}>
+                    <a href="#" onClick={(e) => { e.preventDefault(); setIsRegistering(!isRegistering); setLoginError(''); }} style={{color:'var(--ink-50)', fontSize:12}}>
+                      {isRegistering ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}
+                    </a>
+                  </div>
                 </form>
                 <div className="mono" style={{marginTop:20,fontSize:10,color:'var(--ink-30)',letterSpacing:'0.15em'}}>
                   API Gateway: localhost:8080

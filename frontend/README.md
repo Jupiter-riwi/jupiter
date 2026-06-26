@@ -1,45 +1,28 @@
-# Apex Vision - Portal Multimodal (React + Vite)
+# Apex Vision - Frontend
 
-Interfaz de usuario para la evaluación de oradores, visualización de métricas de IA en tiempo real y gestión de perfiles de Riwers.
+Este directorio contiene el frontend de la aplicación **Apex Vision**. Dado que la aplicación se ejecuta de manera independiente para fines de demostración y evaluación, cuenta con una arquitectura de "Mock Backend" completamente integrada en el cliente.
 
-## Stack Técnico
+## Estructura de Archivos
 
-- **Librería UI:** React 18
-- **Lenguaje:** TypeScript
-- **Bundler:** Vite
-- **Estilos:** Tailwind CSS
-- **Peticiones HTTP:** Axios
-- **Iconografía:** Lucide React
+- **`api-client.js`**: Este es el núcleo de las comunicaciones y la seguridad. Actúa como un interceptor y simula el backend directamente en el navegador. Gestiona la creación de usuarios, la validación de credenciales (hasheo), la emisión de tokens JWT simulados (Access Token de 15 minutos y Refresh Token de 7 días) y almacena todos los datos en `localStorage` (usuarios, métricas, tokens y evaluaciones).
+- **`admin-app.jsx`**: Panel de control de administración. Cuenta con una capa de autenticación que protege las rutas. Desde aquí, los directores pueden visualizar las métricas del equipo, el score promedio, las evaluaciones recientes y descontar tokens de IA para generar "Planes de Coaching" automatizados.
+- **`seller-app.jsx`**: Aplicación para el vendedor/usuario. Permite iniciar sesión, registrar una nueva cuenta y ejecutar simulaciones de venta que descuentan saldo global de IA y se registran dinámicamente en el panel de administrador.
+- **`*.html`**: Puntos de entrada principales (`Apex Vision Console.html` para admin y `Apex Vision Vendedor.html` para vendedores). Utilizan Babel Standalone para compilar React/JSX en tiempo de ejecución.
+- **`styles.css` / `styles-admin.css` / `styles-seller.css`**: Hojas de estilo que proveen el diseño visual premium, dark mode y layout de componentes tipo glassmorphism.
 
-## Características Principales
+## Seguridad Implementada (Mock)
 
-- **Dashboard de métricas**: Telemetría de IA en tiempo real.
-- **Módulo de evaluación**: Herramientas integradas con captura de streaming (audio/video).
-- **Seguridad**: Autenticación segura mediante JSON Web Tokens (JWT).
+A pesar de ser una aplicación puramente frontend en este repositorio, cuenta con seguridad implementada a nivel lógico:
+1. **Hasheo de Contraseñas:** Las contraseñas de los usuarios no se guardan en texto plano. Se procesan usando `crypto.subtle.digest('SHA-256')` nativo del navegador antes de almacenarse en `localStorage`.
+2. **Tokens de Sesión (JWT Mock):**
+   - El sistema emite un **Access Token** corto que expira en 15 minutos.
+   - El sistema también emite un **Refresh Token** de larga duración.
+   - Si el *Access Token* caduca, el cliente automáticamente usa el *Refresh Token* para obtener una sesión fresca sin interrumpir al usuario.
+3. **Control de Roles:** Un usuario tipo "SELLER" no puede iniciar sesión en la consola del administrador. Se requiere el rol "ADMIN".
 
-## Guía de Inicio Rápido
+## Uso y Métricas
+- Los botones de acciones como exportar PDF y generar CSV son funcionales en el Admin App, compilando datos directamente del estado local.
+- Las evaluaciones realizadas en `seller-app.jsx` reducen los tokens de IA (saldo almacenado en `apex_tokens`) y las interacciones se comparten de forma global con el admin usando `apex_db_evaluations`.
 
-1. **Instalar dependencias:**
-   ```bash
-   npm install
-   ```
-
-2. **Correr en desarrollo:**
-   ```bash
-   npm run dev
-   ```
-
-3. **Construir para producción:**
-   ```bash
-   npm run build
-   ```
-
-## Conexión al Backend
-
-Por defecto, la instancia del servicio base de axios (`src/services/api.ts`) está configurada para apuntar al API Gateway corriendo localmente bajo el puerto protegido:
-`http://localhost:8080`
-
-## Reglas de Git y Flujo de Trabajo
-
-* Por lineamientos estrictos (acorde a nuestro archivo `skill-git.md`), el desarrollo y características nuevas requieren aislarse.
-* **Nota importante para el equipo:** Solo **Juanes (Tech Lead)** tiene permiso para aprobar Pull Requests y hacer merges finales hacia la rama vital `main`.
+## Consideraciones
+* Esta arquitectura está diseñada para evaluación y prueba (demo mode). En un entorno de producción real, toda la lógica de validación criptográfica, emisión de JWT y verificación debe trasladarse al backend (API Gateway).

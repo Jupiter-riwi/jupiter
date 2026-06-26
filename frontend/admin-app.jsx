@@ -803,11 +803,50 @@ const AjustesView = ({ onLogout }) => {
 
 /* ----------------------------- MAIN VIEW ----------------------------- */
 const AdminApp = () => {
+  const [authChecked, setAuthChecked] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [email, setEmail] = useState('admin@jupiter.local');
+  const [password, setPassword] = useState('Admin1234!');
+  const [loginError, setLoginError] = useState('');
+  const [loginBusy, setLoginBusy] = useState(false);
+
   const [time, setTime] = useState(new Date());
   const [drawer, setDrawer] = useState(null);
   const [period, setPeriod] = useState('30d');
   const [page, setPage] = useState('equipo');
   const [roleFilter, setRoleFilter] = useState('Todos');
+
+  useEffect(() => {
+    if (window.ApexAPI) {
+      window.ApexAPI.restoreToken().then(ok => {
+        setIsLoggedIn(ok);
+        setAuthChecked(true);
+      });
+    } else {
+      setAuthChecked(true);
+    }
+    const onExpired = () => setIsLoggedIn(false);
+    window.addEventListener('apex:session-expired', onExpired);
+    return () => window.removeEventListener('apex:session-expired', onExpired);
+  }, []);
+
+  const handleAdminLogin = async (e) => {
+    e.preventDefault();
+    setLoginError('');
+    setLoginBusy(true);
+    try {
+      const data = await window.ApexAPI.login(email, password);
+      if (data.user && data.user.role !== 'ADMIN') {
+        window.ApexAPI.logout();
+        throw new Error('Acceso denegado: Se requiere rol de administrador');
+      }
+      setIsLoggedIn(true);
+    } catch (err) {
+      setLoginError(err.message || 'Error al conectar');
+    } finally {
+      setLoginBusy(false);
+    }
+  };
 
   // ── Token system (basado en plan financiero: $0.01/token) ─────────────────
   // Costos: 5 tokens/evaluación ($0.05) · 20 tokens/plan coaching IA ($0.20)
@@ -910,19 +949,60 @@ const AdminApp = () => {
   };
   const handleLogout = () => {
     if (window.ApexAPI) window.ApexAPI.logout();
-    localStorage.removeItem('apex_access_token');
-    localStorage.removeItem('apex_refresh_token');
-    window.location.href = '/seller';
+    setIsLoggedIn(false);
   };
 
   useEffect(() => {
-    const t = setInterval(() => setTime(new Date()), 1000);
+    const t = setInterval(() => {
+      setTime(new Date());
+      // Sincronizar tokens globales desde localStorage para que sea real
+      const currentTokens = parseInt(localStorage.getItem('apex_tokens') || '500', 10);
+      if (Number.isFinite(currentTokens)) setTokens(currentTokens);
+    }, 1000);
     return () => clearInterval(t);
   }, []);
 
   const teamAvg = Math.round(TEAM.reduce((s,p) => s + p.score, 0) / TEAM.length);
-  const totalEvals = TEAM.reduce((s,p) => s + p.evals, 0);
+  const evalsDb = JSON.parse(localStorage.getItem('apex_db_evaluations') || '[]');
+  const totalEvals = TEAM.reduce((s,p) => s + p.evals, 0) + evalsDb.length;
   const needsCoach = TEAM.filter(p => p.status === 'needs-coaching').length;
+
+  if (!authChecked) return null;
+  if (!isLoggedIn) {
+    return (
+      <div id="app">
+        <div className="s-shell">
+          <div style={{padding:'40px 24px'}}></div>
+          <div className="s-stage">
+            <div className="s-wrap" style={{maxWidth:420}}>
+              <div className="glass" style={{padding:32,textAlign:'center'}}>
+                <div style={{fontSize:28,fontWeight:200,letterSpacing:'-0.02em',marginBottom:8}}>Apex Vision Admin</div>
+                <div className="mono" style={{fontSize:10,color:'var(--ink-40)',marginBottom:28,letterSpacing:'0.2em',textTransform:'uppercase'}}>
+                  Panel de control seguro
+                </div>
+                <form onSubmit={handleAdminLogin} style={{display:'grid',gap:12,textAlign:'left'}}>
+                  <input
+                    type="email" value={email} onChange={e => setEmail(e.target.value)}
+                    placeholder="admin@jupiter.local" required
+                    style={{width:'100%',padding:'10px 14px',borderRadius:8,border:'1px solid rgba(255,255,255,0.12)',background:'rgba(255,255,255,0.04)',color:'#fff',fontSize:13}}
+                  />
+                  <input
+                    type="password" value={password} onChange={e => setPassword(e.target.value)}
+                    placeholder="password" required
+                    style={{width:'100%',padding:'10px 14px',borderRadius:8,border:'1px solid rgba(255,255,255,0.12)',background:'rgba(255,255,255,0.04)',color:'#fff',fontSize:13}}
+                  />
+                  <button type="submit" className="btn btn-primary" disabled={loginBusy} style={{width:'100%',justifyContent:'center',padding:'13px'}}>
+                    {loginBusy ? 'Conectando...' : 'Ingresar'}
+                  </button>
+                  {loginError && <div className="mono" style={{fontSize:10.5,color:'#fca5a5',lineHeight:1.5,marginTop:4}}>{loginError}</div>}
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div id="app">
