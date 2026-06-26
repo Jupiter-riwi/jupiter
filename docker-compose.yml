@@ -60,16 +60,18 @@ services:
   # ── Migrations ─────────────────────────────────────────────────────────────
 
   migrate:
-    image: python:3.12-slim
+    build:
+      context: ./infra/migrations
+      dockerfile: Dockerfile
+    image: jupiter-migrate
     container_name: jupiter-migrate
     working_dir: /migrations
     volumes:
       - ./infra/migrations:/migrations
     environment:
       DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-jupiter}
-    command: >
-      sh -c "pip install -q -r requirements.txt &&
-             alembic upgrade head"
+    # Deps are baked into the image; the command is just the migration run.
+    # (alembic upgrade head is the image CMD.)
     depends_on:
       postgres:
         condition: service_healthy
