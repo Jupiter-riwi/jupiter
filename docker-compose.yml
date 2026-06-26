@@ -284,9 +284,10 @@ services:
       gateway:
         condition: service_healthy
     healthcheck:
-      # Hit /seller directly: "/" returns a 302 to an absolute :5173 URL that
-      # wget can't follow from inside the container (port is 80 here).
-      test: ["CMD-SHELL", "wget -qO- http://localhost:80/seller || exit 1"]
+      # Use 127.0.0.1 (not localhost): nginx listens IPv4-only and busybox wget
+      # resolves localhost to ::1 first -> connection refused. Hit /seller
+      # directly because "/" 302-redirects to an absolute :5173 URL.
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/seller || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
