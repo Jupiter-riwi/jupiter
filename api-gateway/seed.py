@@ -10,6 +10,9 @@ import bcrypt
 import psycopg2
 
 
+DEFAULT_DEMO_AT_CREDITS = 200
+
+
 def _conn():
     return psycopg2.connect(
         host=os.getenv("DB_HOST", "postgres"),
@@ -18,6 +21,15 @@ def _conn():
         password=os.getenv("DB_PASSWORD", "postgres"),
         dbname=os.getenv("DB_NAME", "jupiter"),
     )
+
+
+def _demo_at_credits() -> int:
+    raw = os.getenv("SEED_DEMO_AT_CREDITS", str(DEFAULT_DEMO_AT_CREDITS)).strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        value = DEFAULT_DEMO_AT_CREDITS
+    return max(0, value)
 
 
 def main() -> None:
@@ -32,9 +44,15 @@ def main() -> None:
         with conn.cursor() as cur:
             # ── Tenant ──────────────────────────────────────────────────
             cur.execute(
-                "INSERT INTO tenants (id, name, domain) VALUES (%s::uuid, %s, %s) ON CONFLICT (name) DO NOTHING",
+                """
+                INSERT INTO tenants (id, name, domain)
+                VALUES (%s::uuid, %s, %s)
+                ON CONFLICT (name) DO UPDATE SET domain = EXCLUDED.domain
+                RETURNING id::text
+                """,
                 (tenant_id, "Demo Company", "demo.jupiter.local"),
             )
+            tenant_id = cur.fetchone()[0]
 
             # ── Seller user ─────────────────────────────────────────────
             seller_hash = bcrypt.hashpw(seller_pass.encode(), bcrypt.gensalt()).decode()
@@ -69,10 +87,29 @@ def main() -> None:
                 )
 
         conn.commit()
+
+        demo_credits = _demo_at_credits()
+        if demo_credits > 0:
+            from app.billing import wallet
+            from app.billing.db import tenant_scope
+
+            with tenant_scope(conn, tenant_id):
+                balance = wallet.get_balance(conn, tenant_id)
+                missing = demo_credits - int(balance["total"])
+                if missing > 0:
+                    wallet.credit(
+                        conn,
+                        tenant_id,
+                        missing,
+                        "adjustment",
+                        "seed",
+                        "demo-at",
+                    )
         print(f"Seed OK — tenant={tenant_id}")
         print(f"  Seller: {seller_email} / {seller_pass}")
         print(f"  Admin:  {admin_email} / {admin_pass}")
         print(f"  Questions: {len(questions)} created")
+        print(f"  Demo AT balance floor: {demo_credits}")
     except Exception as exc:
         conn.rollback()
         print(f"Seed FAILED: {exc}")

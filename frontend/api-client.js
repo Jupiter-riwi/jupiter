@@ -18,6 +18,20 @@
     return h;
   },
 
+  async _errorMessage(res, fallback) {
+    const body = await res.json().catch(() => null);
+    const detail = body && body.detail;
+    if (detail === 'insufficient_at_balance') {
+      const needed = Number(body.needed || 0);
+      const available = Number(body.available || 0);
+      return `Saldo insuficiente de AT. Necesitas ${needed} y tienes ${available}.`;
+    }
+    if (detail && typeof detail === 'object') {
+      return detail.message || detail.error || fallback + ': ' + res.status;
+    }
+    return detail || (body && (body.error || body.message)) || fallback + ': ' + res.status;
+  },
+
   async register(email, password, tenantId) {
     const res = await fetch(API_BASE + '/api/auth/register', {
       method: 'POST',
@@ -143,7 +157,7 @@
     const res = await this._fetchAuth(API_BASE + '/api/evaluations/' + id + '/complete', {
       method: 'POST',
     });
-    if (!res.ok) throw new Error('Complete failed: ' + res.status);
+    if (!res.ok) throw new Error(await this._errorMessage(res, 'Complete failed'));
     return res.json();
   },
 
@@ -174,7 +188,7 @@
       body: blob,
       headers: { 'Content-Type': blob.type || 'video/webm' },
     }, true);
-    if (!res.ok) throw new Error('Upload failed: ' + res.status);
+    if (!res.ok) throw new Error(await this._errorMessage(res, 'Upload failed'));
     return res.json();
   },
 
@@ -183,20 +197,21 @@
       method: 'POST',
       body: JSON.stringify({ message }),
     });
-    if (!res.ok) throw new Error('Coach chat failed: ' + res.status);
+    if (!res.ok) throw new Error(await this._errorMessage(res, 'Coach chat failed'));
     return res.json();
   },
 
   // ── Live conversational agent ──────────────────────────────────────────
   // Builds the WebSocket URL for a real-time session. The JWT travels as a
   // query param because browsers can't set headers on a WebSocket.
-  liveWsUrl({ mode, role, level, scenario } = {}) {
+  liveWsUrl({ mode, role, level, lang, scenario } = {}) {
     const wsBase = API_BASE.replace(/^http/, 'ws');
     const p = new URLSearchParams();
     p.set('token', this._token || localStorage.getItem('apex_access_token') || '');
     if (mode) p.set('mode', mode);
     if (role) p.set('role', role);
     if (level) p.set('level', level);
+    if (lang) p.set('lang', lang);
     if (scenario) p.set('scenario', scenario);
     return wsBase + '/api/live/ws?' + p.toString();
   },

@@ -1,9 +1,8 @@
-"""Streaming LLM for the live agent, using DeepSeek (deepseek-chat).
+"""Streaming LLM for the live agent.
 
-Unlike the post-evaluation coach (`call_deepseek` in main.py), this:
-  - takes a persona system prompt (the agent stays in character),
-  - streams tokens so TTS can start mid-response (sentence pipelining),
-  - keeps a running dialogue history.
+DeepSeek remains the primary provider. In local/dev environments we also allow
+Groq as an OpenAI-compatible fallback because the live stack already requires
+GROQ_API_KEY for STT.
 """
 
 from __future__ import annotations
@@ -19,22 +18,20 @@ logger = logging.getLogger("jupiter.gateway.live.llm")
 
 DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
 DEEPSEEK_MODEL = os.getenv("LIVE_LLM_MODEL", "deepseek-chat")
+GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_CHAT_MODEL = os.getenv("LIVE_GROQ_MODEL", "llama-3.1-8b-instant")
 
 
-async def stream_reply(
-    system_prompt: str,
-    history: list[dict[str, str]],
+async def _stream_openai_compatible(
+    *,
+    provider: str,
+    url: str,
+    key: str,
+    model: str,
+    messages: list[dict[str, str]],
 ) -> AsyncIterator[str]:
-    """Yield response token deltas from DeepSeek. `history` is the running dialogue
-    (roles 'user'/'assistant'), most recent last. Yields nothing on failure."""
-    key = os.getenv("DEEPSEEK_API_KEY", "").strip()
-    if not key:
-        logger.warning("DEEPSEEK_API_KEY not configured — LLM disabled")
-        return
-
-    messages = [{"role": "system", "content": system_prompt}, *history]
     payload = {
-        "model": DEEPSEEK_MODEL,
+        "model": model,
         "messages": messages,
         "temperature": 0.8,
         "max_tokens": 220,
@@ -45,13 +42,13 @@ async def stream_reply(
         async with httpx.AsyncClient(timeout=60) as client:
             async with client.stream(
                 "POST",
-                DEEPSEEK_URL,
+                url,
                 headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
                 json=payload,
             ) as resp:
                 if resp.status_code >= 300:
                     body = await resp.aread()
-                    logger.warning("DeepSeek stream failed: status=%s body=%s", resp.status_code, body[:200])
+                    logger.warning("%s stream failed: status=%s body=%s", provider, resp.status_code, body[:200])
                     return
                 async for line in resp.aiter_lines():
                     if not line or not line.startswith("data:"):
@@ -67,5 +64,43 @@ async def stream_reply(
                     if delta:
                         yield delta
     except Exception as exc:  # pragma: no cover
-        logger.warning("DeepSeek stream error: %s", exc)
+        logger.warning("%s stream error: %s", provider, exc)
         return
+
+
+async def stream_reply(
+    system_prompt: str,
+    history: list[dict[str, str]],
+) -> AsyncIterator[str]:
+    """Yield response token deltas. DeepSeek is primary; Groq is fallback."""
+    messages = [{"role": "system", "content": system_prompt}, *history]
+    deepseek_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
+    groq_key = os.getenv("GROQ_API_KEY", "").strip()
+
+    providers: list[tuple[str, str, str, str]] = []
+    if deepseek_key:
+        providers.append(("DeepSeek", DEEPSEEK_URL, deepseek_key, DEEPSEEK_MODEL))
+    elif not groq_key:
+        logger.warning("No live LLM key configured; set DEEPSEEK_API_KEY or GROQ_API_KEY")
+
+    if groq_key:
+        if not deepseek_key:
+            logger.warning("DEEPSEEK_API_KEY not configured; using Groq live LLM fallback")
+        providers.append(("Groq", GROQ_CHAT_URL, groq_key, GROQ_CHAT_MODEL))
+
+    if not providers:
+        return
+
+    for provider, url, key, model in providers:
+        yielded = False
+        async for delta in _stream_openai_compatible(
+            provider=provider,
+            url=url,
+            key=key,
+            model=model,
+            messages=messages,
+        ):
+            yielded = True
+            yield delta
+        if yielded:
+            return

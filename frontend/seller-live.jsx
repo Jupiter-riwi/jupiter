@@ -228,9 +228,18 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore, initia
   const startLive = useCallback(async () => {
     setErr(''); setTurns([]); setPartial(''); setStateBoth('connecting');
     finishingRef.current = false; capturingRef.current = false;
+    try {
+      const balance = await window.ApexAPI.getBillingBalance();
+      const total = Number(balance && balance.total || 0);
+      if (total < 3) { setErr(t('live.err.balance')); return; }
+    } catch (_) {
+      setErr(t('live.err.connect'));
+      return;
+    }
     const url = window.ApexAPI.liveWsUrl({ mode, role, level, lang, scenario: scenario.trim() || undefined });
     const ws = new WebSocket(url); ws.binaryType = 'arraybuffer'; wsRef.current = ws;
     ws.onmessage = onWsMessage; ws.onerror = () => setErr(t('live.err.connect'));
+    ws.onclose = (ev) => { if (!finishingRef.current && ev.code !== 1000) setErr(x => x || t('live.err.connect')); };
 
     const PCtx = window.AudioContext || window.webkitAudioContext;
     const playCtx = new PCtx(); playCtxRef.current = playCtx;
