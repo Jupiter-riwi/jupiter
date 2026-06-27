@@ -1596,6 +1596,14 @@ const AdminLogin = ({ onSuccess }) => {
     setBusy(true);
     try {
       await window.ApexAPI.login(email, password);
+      // Verificar rol real (el JWT lo lleva; /api/me lo expone). Un vendedor
+      // con credenciales válidas no debe entrar al panel admin.
+      const me = await window.ApexAPI.getMe();
+      if ((me.role || '').toLowerCase() !== 'admin') {
+        window.ApexAPI.logout();
+        setError(L('Esta cuenta no tiene acceso de administrador.', 'This account does not have admin access.'));
+        return;
+      }
       onSuccess();
     } catch (err) {
       const msg = err.message || '';
@@ -1682,7 +1690,11 @@ const AdminRoot = () => {
     const token = localStorage.getItem('apex_access_token');
     if (token) {
       window.ApexAPI.getMe()
-        .then(() => setAuthed(true))
+        .then(me => {
+          // Solo admins entran al panel; un token de vendedor se descarta.
+          if ((me.role || '').toLowerCase() === 'admin') setAuthed(true);
+          else { window.ApexAPI.logout(); setAuthed(false); }
+        })
         .catch(() => { window.ApexAPI.logout(); setAuthed(false); })
         .finally(() => setChecking(false));
     } else {
