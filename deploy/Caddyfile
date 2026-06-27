@@ -1,0 +1,40 @@
+# Apex Vision — production reverse proxy (single HTTPS origin).
+#
+# Caddy terminates TLS (auto Let's Encrypt) and routes everything through one
+# domain. HTTPS/WSS are mandatory here: the browser refuses getUserMedia
+# (camera/mic) and WebSockets on insecure origins, and Stripe only posts
+# webhooks to public HTTPS URLs.
+#
+# Required env (see .env.prod): APEX_DOMAIN, plus storage.<APEX_DOMAIN> DNS.
+# Caddy auto-detects the WebSocket Upgrade, so /api/live/ws needs no special rule.
+
+{$APEX_DOMAIN} {
+	encode gzip
+
+	# REST API + live WebSocket (real-time STT/LLM/TTS) + Stripe webhook.
+	handle /api/* {
+		reverse_proxy gateway:8080
+	}
+	handle /health {
+		reverse_proxy gateway:8080
+	}
+
+	# Everything else → static frontend (nginx serving the HTML/JSX).
+	handle {
+		reverse_proxy frontend:80
+	}
+
+	header {
+		# Basic hardening. HSTS is safe once HTTPS is confirmed working.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+}
+
+# Object storage. The gateway hands the browser presigned URLs pointing here
+# (MINIO_PUBLIC_ENDPOINT=storage.<APEX_DOMAIN>, MINIO_PUBLIC_USE_SSL=true), so
+# video upload/download go straight to MinIO over HTTPS.
+storage.{$APEX_DOMAIN} {
+	reverse_proxy minio:9000
+}
