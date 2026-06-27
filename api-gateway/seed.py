@@ -32,9 +32,11 @@ def main() -> None:
         with conn.cursor() as cur:
             # ── Tenant ──────────────────────────────────────────────────
             cur.execute(
-                "INSERT INTO tenants (id, name, domain) VALUES (%s::uuid, %s, %s) ON CONFLICT (name) DO NOTHING",
+                "INSERT INTO tenants (id, name, domain) VALUES (%s::uuid, %s, %s) "
+                "ON CONFLICT (name) DO UPDATE SET domain = EXCLUDED.domain RETURNING id",
                 (tenant_id, "Demo Company", "demo.jupiter.local"),
             )
+            tenant_id = str(cur.fetchone()[0])
 
             # ── Seller user ─────────────────────────────────────────────
             seller_hash = bcrypt.hashpw(seller_pass.encode(), bcrypt.gensalt()).decode()
