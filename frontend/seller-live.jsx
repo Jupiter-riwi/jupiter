@@ -228,6 +228,13 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore, initia
   const startLive = useCallback(async () => {
     setErr(''); setTurns([]); setPartial(''); setStateBoth('connecting');
     finishingRef.current = false; capturingRef.current = false;
+
+    const tokenOk = await window.ApexAPI.ensureValidToken();
+    if (!tokenOk) {
+      setErr(t('live.err.connect') + ' (Sesión expirada)');
+      return;
+    }
+
     const url = window.ApexAPI.liveWsUrl({ mode, role, level, lang, scenario: scenario.trim() || undefined });
     const ws = new WebSocket(url); ws.binaryType = 'arraybuffer'; wsRef.current = ws;
     ws.onmessage = onWsMessage; ws.onerror = () => setErr(t('live.err.connect'));

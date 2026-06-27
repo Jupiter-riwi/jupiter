@@ -43,6 +43,7 @@ class Persona:
     lang: str               # es | en
     voice_id: str
     base_prompt: str
+    agent_name: str = ""    # concrete first name the persona introduces itself with
     behavior: dict = field(default_factory=dict)
 
 
@@ -66,6 +67,27 @@ _VOICE_BY_LANG = {
 
 def _voice_for(role_type: str, lang: str, default: str) -> str:
     return (_VOICE_BY_LANG.get(role_type) or {}).get(lang, default)
+
+
+# Concrete first name each persona introduces itself with, per language. Without
+# this the LLM, asked to "introduce yourself", emits a literal placeholder like
+# "[Tu Nombre]". Names roughly match the voice's gender for consistency.
+_AGENT_NAME = {
+    "cliente":           {"es": "Sofía",     "en": "Sarah"},
+    "director":          {"es": "Martín",    "en": "Adam"},
+    "administrador":     {"es": "Diego",     "en": "Eric"},
+    "comprador_tecnico": {"es": "Bruno",     "en": "Brian"},
+    "usuario_final":     {"es": "Lucía",     "en": "Laura"},
+    "inversor":          {"es": "Guillermo", "en": "Daniel"},
+    "reclutador":        {"es": "Valentina", "en": "Alice"},
+    "hiring_manager":    {"es": "Andrés",    "en": "Adam"},
+    "lider_tecnico":     {"es": "Bruno",     "en": "Brian"},
+    "panel_ejecutivo":   {"es": "Ricardo",   "en": "Daniel"},
+}
+
+
+def _name_for(role_type: str, lang: str) -> str:
+    return (_AGENT_NAME.get(role_type) or {}).get(lang, "" if lang == "en" else "")
 
 
 _LANG_DIRECTIVE = {
@@ -144,10 +166,12 @@ _RULES = (
     "- Conversacional y breve (1-3 oraciones). Esto se convierte en voz: nada de listas ni markdown.\n"
     "- Reaccioná a lo que REALMENTE dijeron. Si esquivan tu pregunta, notalo.\n"
     "- No resuelvas la interacción por la otra persona: que se gane cada avance.\n"
+    "- NUNCA uses placeholders entre corchetes (como [Tu Nombre], [empresa], [puesto]). "
+    "Si te presentás, usá tu nombre propio concreto; si te falta un dato, no lo inventes con un corchete.\n"
 )
 
 
-def _compose(mode: str, role_base: str, level: str, lang: str, scenario: str | None) -> str:
+def _compose(mode: str, role_base: str, level: str, lang: str, scenario: str | None, agent_name: str = "") -> str:
     parts = [
         _LANG_DIRECTIVE.get(lang, _LANG_DIRECTIVE["es"]),
         _MODE_FRAME.get(mode, _MODE_FRAME["presentacion"]),
@@ -155,6 +179,11 @@ def _compose(mode: str, role_base: str, level: str, lang: str, scenario: str | N
         _LEVEL_MOD.get(level, _LEVEL_MOD["neutral"]),
         _RULES,
     ]
+    if agent_name:
+        identity = (f"IDENTITY: your name is {agent_name}. Introduce yourself with this name, never a placeholder."
+                    if lang == "en" else
+                    f"IDENTIDAD: tu nombre es {agent_name}. Presentate con ese nombre, nunca con un placeholder.")
+        parts.insert(3, identity)
     if scenario:
         label = "CONTEXTO DEL PITCH (lo que viene a presentar)" if mode == "presentacion" else "CONTEXTO DEL PUESTO / CV (sobre qué entrevistar)"
         parts.append(f"{label}:\n{scenario}")
@@ -179,6 +208,7 @@ def get_persona(mode: str, role_type: str, level: str, lang: str = "es", scenari
     roles = _ROLES.get(mode) or _ROLES["presentacion"]
     role_type = (role_type or next(iter(roles))).lower()
     name, voice, role_base = roles.get(role_type) or next(iter(roles.values()))
+    agent_name = _name_for(role_type, lang)
     return Persona(
         key=f"{mode}:{role_type}:{level}:{lang}",
         name=f"{name} ({level})",
@@ -187,21 +217,27 @@ def get_persona(mode: str, role_type: str, level: str, lang: str = "es", scenari
         level=level,
         lang=lang,
         voice_id=_voice_for(role_type, lang, voice),
-        base_prompt=_compose(mode, role_base, level, lang, scenario),
+        base_prompt=_compose(mode, role_base, level, lang, scenario, agent_name),
+        agent_name=agent_name,
     )
 
 
 def greeting_instruction(persona: Persona) -> str:
     en = persona.lang == "en"
+    nm = persona.agent_name
+    name_es = f"con tu nombre ({nm}) y tu rol" if nm else "por tu rol"
+    name_en = f"with your name ({nm}) and your role" if nm else "by your role"
+    no_ph_es = " Nunca uses un placeholder entre corchetes para tu nombre."
+    no_ph_en = " Never use a bracketed placeholder for your name."
     if persona.mode == "entrevista":
         if en:
-            return ("Open the interview yourself with a brief, in-character greeting (1-2 sentences): introduce "
-                    "yourself by your role, welcome the candidate and invite them to start (e.g. to introduce themselves). "
-                    "Speak in English. Don't say you are an AI.")
-        return ("Abrí vos la entrevista con un saludo breve y en personaje (1-2 oraciones): presentate por tu rol, "
-                "dale la bienvenida al candidato e invitalo a empezar (por ejemplo, a que se presente). No digas que sos una IA.")
+            return (f"Open the interview yourself with a brief, in-character greeting (1-2 sentences): introduce "
+                    f"yourself {name_en}, welcome the candidate and invite them to start (e.g. to introduce themselves). "
+                    f"Speak in English. Don't say you are an AI.{no_ph_en}")
+        return (f"Abrí vos la entrevista con un saludo breve y en personaje (1-2 oraciones): presentate {name_es}, "
+                f"dale la bienvenida al candidato e invitalo a empezar (por ejemplo, a que se presente). No digas que sos una IA.{no_ph_es}")
     if en:
-        return ("Start the conversation yourself with a brief, in-character greeting (1-2 sentences), introducing "
-                "yourself by your role and inviting the seller to begin their pitch. Speak in English. Don't say you are an AI.")
-    return ("Iniciá vos la conversación con un saludo breve y en personaje (1-2 oraciones), presentándote según tu rol "
-            "e invitando al vendedor a empezar su presentación. No digas que sos una IA.")
+        return (f"Start the conversation yourself with a brief, in-character greeting (1-2 sentences), introducing "
+                f"yourself {name_en} and inviting the seller to begin their pitch. Speak in English. Don't say you are an AI.{no_ph_en}")
+    return (f"Iniciá vos la conversación con un saludo breve y en personaje (1-2 oraciones), presentándote {name_es} "
+            f"e invitando al vendedor a empezar su presentación. No digas que sos una IA.{no_ph_es}")

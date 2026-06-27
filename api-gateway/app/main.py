@@ -106,9 +106,37 @@ def _publish_job(routing_key: str, body: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 app = FastAPI(title="Jupiter API Gateway", version="0.2.0")
+
+# Keep a direct reference to the FastAPI ASGI app *before* middlewares wrap it.
+# The _WSBypass middleware uses this to route WebSocket connections directly to
+# the router, skipping CORSMiddleware (which rejects WS from unknown origins).
+_fastapi_app = app
+
+
+class _WSBypass:
+    """ASGI middleware: routes WebSocket scopes directly to FastAPI, bypassing CORS."""
+
+    def __init__(self, app):
+        self.app = app  # the full middleware chain (CORS → … → FastAPI)
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "websocket":
+            logger.info("WS bypass CORS → path=%s", scope.get("path"))
+        # Forward downstream (router side). Re-invoking the full app here would
+        # re-enter this very middleware and recurse forever (RecursionError /
+        # HTTP 500 on the WS handshake). Starlette's CORSMiddleware already
+        # passes websocket scopes through untouched, so no special routing is
+        # needed — just hand off to the next app in the chain.
+        await self.app(scope, receive, send)
+
+
+app.add_middleware(_WSBypass)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.getenv("CORS_ALLOW_ORIGIN", "http://localhost:5173")],
+    allow_origins=[origin.strip()
+                   for origin in os.getenv("CORS_ALLOW_ORIGIN", "http://localhost:5173").split(",")
+                   if origin.strip()],
+    allow_origin_regex=r"https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

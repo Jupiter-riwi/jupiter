@@ -79,6 +79,40 @@
     }
   },
 
+  isTokenExpired(token) {
+    if (!token) return true;
+    try {
+      const parts = token.split('.');
+      if (parts.length < 2) return true;
+      const base64Url = parts[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      const payload = JSON.parse(jsonPayload);
+      if (payload.exp) {
+        return payload.exp * 1000 - Date.now() < 30000;
+      }
+      return false;
+    } catch (e) {
+      return true;
+    }
+  },
+
+  async ensureValidToken() {
+    const token = this._token || localStorage.getItem('apex_access_token');
+    if (this.isTokenExpired(token)) {
+      console.log('[ApexAPI] Token is expired or near expiry, refreshing...');
+      const ok = await this.refreshToken();
+      if (!ok) {
+        console.warn('[ApexAPI] Token refresh failed');
+        this.logout();
+        return false;
+      }
+    }
+    return true;
+  },
+
   async _fetchAuth(url, opts, isUpload) {
     const buildHeaders = () => {
       if (isUpload) {
