@@ -11,6 +11,37 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="styles.css"/>
 <link rel="stylesheet" href="styles-seller.css"/>
+<style>
+  /* Mobile optimization for the public landing. The app's PublicLanding uses
+     fixed multi-column grids and large type (inline styles); these !important
+     rules are scoped to #root so they only reshape the landing on small screens
+     and never touch the rest of the app. */
+
+  /* Hero headline scales smoothly (caps at the original 54px on desktop). */
+  #root h1 { font-size: clamp(30px, 8.5vw, 54px) !important; }
+
+  @media (max-width: 768px) {
+    #root .s-stage { padding: 16px 14px 48px !important; }
+    #root .s-topbar { padding: 0 16px !important; }
+
+    /* Features: 3 cols -> 1 col */
+    #root #features { grid-template-columns: 1fr !important; }
+    /* How it works: 4 cols -> 2 cols */
+    #root #how-it-works [style*="repeat(4"] { grid-template-columns: repeat(2, 1fr) !important; gap: 16px !important; }
+    /* For teams: 2 cols -> 1 col */
+    #root #para-empresas { grid-template-columns: 1fr !important; padding: 28px 22px !important; gap: 22px !important; }
+    /* Pricing: 3 cols -> 1 col */
+    #root #precios [style*="repeat(3"] { grid-template-columns: 1fr !important; }
+
+    /* Hero CTA: keep it from overflowing narrow screens */
+    #root .btn-primary { padding: 14px 22px !important; font-size: 12px !important; }
+  }
+
+  @media (max-width: 560px) {
+    /* Hide the section links in the top bar; keep the logo */
+    #root .s-topbar > div:nth-child(2) { display: none !important; }
+  }
+</style>
 </head>
 <body>
 <canvas id="particles"></canvas>
