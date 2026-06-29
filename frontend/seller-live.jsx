@@ -228,14 +228,21 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore, initia
   const startLive = useCallback(async () => {
     setErr(''); setTurns([]); setPartial(''); setStateBoth('connecting');
     finishingRef.current = false; capturingRef.current = false;
+    const tokenOk = await window.ApexAPI.ensureValidToken();
+    if (!tokenOk) {
+      setErr(t('live.err.connect') + ' (Sesión expirada)');
+      return;
+    }
+
+    // Soft balance pre-check: only block if we can confirm insufficient AT.
+    // If billing is disabled (no Stripe) or the call fails, let the backend
+    // decide — it skips wallet enforcement when Stripe isn't configured.
     try {
       const balance = await window.ApexAPI.getBillingBalance();
       const total = Number(balance && balance.total || 0);
       if (total < 3) { setErr(t('live.err.balance')); return; }
-    } catch (_) {
-      setErr(t('live.err.connect'));
-      return;
-    }
+    } catch (_) { /* billing off or unreachable — proceed */ }
+
     const url = window.ApexAPI.liveWsUrl({ mode, role, level, lang, scenario: scenario.trim() || undefined });
     const ws = new WebSocket(url); ws.binaryType = 'arraybuffer'; wsRef.current = ws;
     ws.onmessage = onWsMessage; ws.onerror = () => setErr(t('live.err.connect'));

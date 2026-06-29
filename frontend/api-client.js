@@ -3,7 +3,19 @@
    Conecta el frontend con el API Gateway real.
    ============================================================ */
 (function () {
-  var API_BASE = 'http://localhost:8080';
+  // Base URL of the API gateway.
+  //   - Local dev: the gateway is exposed on :8080, the frontend on :5173.
+  //   - Production: everything sits behind one reverse proxy (Caddy/nginx) on a
+  //     single HTTPS origin, so the API is same-origin ('') and /api + the live
+  //     WebSocket are routed by the proxy. HTTPS/WSS are mandatory for the
+  //     camera/mic and Stripe webhooks.
+  // Override explicitly with window.APEX_API_BASE if you split origins.
+  var API_BASE = (function () {
+    if (typeof window !== 'undefined' && window.APEX_API_BASE != null) return window.APEX_API_BASE;
+    var h = (typeof window !== 'undefined' && window.location && window.location.hostname) || '';
+    if (h === 'localhost' || h === '127.0.0.1' || h === '' || h === '0.0.0.0') return 'http://localhost:8080';
+    return ''; // same-origin: reverse proxy forwards /api and /api/live/ws
+  })();
 
   var ApexAPI = {
   _token: null,
@@ -91,6 +103,40 @@
       console.warn('[ApexAPI] refresh failed', e);
       return false;
     }
+  },
+
+  isTokenExpired(token) {
+    if (!token) return true;
+    try {
+      const parts = token.split('.');
+      if (parts.length < 2) return true;
+      const base64Url = parts[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      const payload = JSON.parse(jsonPayload);
+      if (payload.exp) {
+        return payload.exp * 1000 - Date.now() < 30000;
+      }
+      return false;
+    } catch (e) {
+      return true;
+    }
+  },
+
+  async ensureValidToken() {
+    const token = this._token || localStorage.getItem('apex_access_token');
+    if (this.isTokenExpired(token)) {
+      console.log('[ApexAPI] Token is expired or near expiry, refreshing...');
+      const ok = await this.refreshToken();
+      if (!ok) {
+        console.warn('[ApexAPI] Token refresh failed');
+        this.logout();
+        return false;
+      }
+    }
+    return true;
   },
 
   async _fetchAuth(url, opts, isUpload) {
@@ -205,7 +251,11 @@
   // Builds the WebSocket URL for a real-time session. The JWT travels as a
   // query param because browsers can't set headers on a WebSocket.
   liveWsUrl({ mode, role, level, lang, scenario } = {}) {
-    const wsBase = API_BASE.replace(/^http/, 'ws');
+    // Same-origin (API_BASE === '') in production: derive ws/wss from the page
+    // origin so HTTPS pages use WSS. Otherwise swap http->ws on the base.
+    const wsBase = API_BASE
+      ? API_BASE.replace(/^http/, 'ws')
+      : (window.location.origin.replace(/^http/, 'ws'));
     const p = new URLSearchParams();
     p.set('token', this._token || localStorage.getItem('apex_access_token') || '');
     if (mode) p.set('mode', mode);

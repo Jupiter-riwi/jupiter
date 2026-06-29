@@ -1,0 +1,36 @@
+# Production overlay for the Hetzner VPS.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#
+# Adds a Caddy reverse proxy that fronts the whole stack on one HTTPS origin.
+# All the production *values* (domain, secrets, public MinIO endpoint, billing
+# URLs, CORS) come from .env.prod — see .env.prod.example.
+#
+# The internal services (postgres, rabbitmq, minio console, workers) still
+# publish host ports from the base file; lock them down with a firewall so only
+# 80/443 are reachable from the internet (see DEPLOYMENT.md → ufw).
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: jupiter-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    environment:
+      APEX_DOMAIN: ${APEX_DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      gateway:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+
+volumes:
+  caddy_data:
+  caddy_config:
