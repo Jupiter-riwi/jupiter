@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Apex Vision · Entrená tu pitch comercial con IA</title>
+<meta name="description" content="Apex Vision evalúa tus pitches de ventas con IA multimodal: lenguaje corporal, voz y discurso. Score objetivo, coaching accionable y roleplay en vivo." />
+<style>
+  :root{
+    --bg:#080809; --panel:rgba(255,255,255,0.035); --panel-2:rgba(255,255,255,0.05);
+    --line:rgba(255,255,255,0.09); --ink-100:#f4f5f7; --ink-80:rgba(244,245,247,0.82);
+    --ink-60:rgba(244,245,247,0.6); --ink-40:rgba(244,245,247,0.4); --ink-25:rgba(244,245,247,0.25);
+    --accent:#9ef5be; --accent-2:#60a5fa; --accent-3:#c084fc;
+    --radius:16px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg); color:var(--ink-80);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+    line-height:1.6; -webkit-font-smoothing:antialiased; overflow-x:hidden;
+  }
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,monospace}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  .glass{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius)}
+
+  /* ambient glow */
+  .glow{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+  .glow::before,.glow::after{content:"";position:absolute;border-radius:50%;filter:blur(120px);opacity:.35}
+  .glow::before{width:520px;height:520px;background:#1f5e44;top:-160px;left:-120px}
+  .glow::after{width:480px;height:480px;background:#1e3a6b;bottom:-200px;right:-140px}
+  .content{position:relative;z-index:1}
+
+  /* nav */
+  nav{position:sticky;top:0;z-index:20;backdrop-filter:blur(14px);
+      background:rgba(8,8,9,0.6);border-bottom:1px solid var(--line)}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;height:62px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:600;color:var(--ink-100);letter-spacing:-.01em}
+  .logo{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--accent),var(--accent-2));
+        display:flex;align-items:center;justify-content:center;color:#06251a;font-weight:800;font-size:14px}
+  .nav-links{display:flex;align-items:center;gap:26px;font-size:13.5px}
+  .nav-links a{color:var(--ink-60)}
+  .nav-links a:hover{color:var(--ink-100)}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:10px;
+       font-size:13.5px;font-weight:500;cursor:pointer;transition:all 150ms;border:1px solid transparent}
+  .btn-primary{background:var(--accent);color:#06251a;font-weight:600}
+  .btn-primary:hover{filter:brightness(1.08);transform:translateY(-1px)}
+  .btn-ghost{border-color:var(--line);color:var(--ink-80)}
+  .btn-ghost:hover{background:var(--panel-2);color:var(--ink-100)}
+  @media(max-width:720px){.nav-links a:not(.btn){display:none}}
+
+  /* hero */
+  header{padding:90px 0 70px;text-align:center}
+  .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;
+        background:var(--panel);border:1px solid var(--line);font-size:11.5px;letter-spacing:.06em;
+        color:var(--ink-60);margin-bottom:26px}
+  .pill .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent)}
+  h1{font-size:clamp(34px,6vw,60px);line-height:1.05;letter-spacing:-.03em;font-weight:300;color:var(--ink-100)}
+  h1 b{font-weight:600;background:linear-gradient(120deg,var(--accent),var(--accent-2));
+       -webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{max-width:640px;margin:22px auto 0;font-size:17px;color:var(--ink-60)}
+  .cta-row{display:flex;gap:14px;justify-content:center;margin-top:34px;flex-wrap:wrap}
+  .hero-note{margin-top:18px;font-size:12.5px;color:var(--ink-40)}
+
+  /* sections */
+  section{padding:64px 0;border-top:1px solid var(--line)}
+  .eyebrow{font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--accent);
+           margin-bottom:14px;font-weight:600}
+  h2{font-size:clamp(26px,3.6vw,38px);font-weight:300;letter-spacing:-.02em;color:var(--ink-100)}
+  h2 b{font-weight:600}
+  .lead{margin-top:14px;font-size:16px;color:var(--ink-60);max-width:680px}
+
+  .grid{display:grid;gap:18px;margin-top:38px}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:860px){.g3,.g4{grid-template-columns:1fr 1fr}}
+  @media(max-width:560px){.g3,.g4,.g2{grid-template-columns:1fr}}
+
+  .card{padding:26px 24px}
+  .card .ic{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;
+            font-size:19px;margin-bottom:16px;background:var(--panel-2);border:1px solid var(--line)}
+  .card h3{font-size:16px;font-weight:600;color:var(--ink-100);margin-bottom:8px}
+  .card p{font-size:13.5px;color:var(--ink-60)}
+
+  /* steps */
+  .steps{counter-reset:s;display:grid;gap:16px;grid-template-columns:repeat(3,1fr);margin-top:38px}
+  @media(max-width:760px){.steps{grid-template-columns:1fr}}
+  .step{padding:26px 24px;position:relative}
+  .step::before{counter-increment:s;content:"0" counter(s);font-family:ui-monospace,monospace;
+                font-size:13px;color:var(--accent);letter-spacing:.1em}
+  .step h3{font-size:16px;font-weight:600;color:var(--ink-100);margin:10px 0 8px}
+  .step p{font-size:13.5px;color:var(--ink-60)}
+
+  /* dimensions */
+  .dims{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:34px}
+  @media(max-width:860px){.dims{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:480px){.dims{grid-template-columns:1fr}}
+  .dim{padding:18px 16px}
+  .dim .t{font-size:14px;font-weight:600;color:var(--ink-100);margin-bottom:6px}
+  .dim .d{font-size:12px;color:var(--ink-50);line-height:1.5}
+
+  /* pricing */
+  .price-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:38px}
+  @media(max-width:980px){.price-grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:520px){.price-grid{grid-template-columns:1fr}}
+  .plan{padding:26px 22px;display:flex;flex-direction:column}
+  .plan.featured{border-color:rgba(158,245,190,0.5);background:rgba(158,245,190,0.04)}
+  .plan .name{font-size:14px;font-weight:600;color:var(--ink-100)}
+  .plan .badge{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);
+               border:1px solid rgba(158,245,190,0.4);border-radius:999px;padding:3px 9px;align-self:flex-start;margin-bottom:12px}
+  .plan .price{font-size:34px;font-weight:300;color:var(--ink-100);margin:6px 0 2px}
+  .plan .price span{font-size:13px;color:var(--ink-40)}
+  .plan .at{font-size:13px;color:var(--ink-60);margin-bottom:18px}
+  .plan ul{list-style:none;display:grid;gap:9px;margin-bottom:22px;flex:1}
+  .plan li{font-size:12.5px;color:var(--ink-60);display:flex;gap:8px}
+  .plan li::before{content:"✓";color:var(--accent);font-weight:700}
+  .plan .btn{width:100%;justify-content:center}
+  .price-note{margin-top:20px;font-size:12.5px;color:var(--ink-40);text-align:center}
+
+  /* who */
+  .who{display:grid;grid-template-columns:1.2fr 1fr;gap:30px;align-items:center;margin-top:34px}
+  @media(max-width:760px){.who{grid-template-columns:1fr}}
+  .who p{font-size:15px;color:var(--ink-60);margin-bottom:14px}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .stat{padding:20px 18px}
+  .stat .n{font-size:28px;font-weight:300;color:var(--ink-100)}
+  .stat .l{font-size:11.5px;color:var(--ink-50);margin-top:4px}
+
+  /* final cta */
+  .final{text-align:center;padding:70px 24px;margin:64px 0 0;
+         background:linear-gradient(180deg,rgba(158,245,190,0.05),rgba(96,165,250,0.04));
+         border:1px solid var(--line);border-radius:24px}
+  .final h2{margin-bottom:10px}
+  .final p{color:var(--ink-60);max-width:520px;margin:0 auto 26px}
+
+  footer{border-top:1px solid var(--line);padding:34px 0;margin-top:64px;
+         display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;
+         font-size:12.5px;color:var(--ink-40)}
+  .tech{font-size:11px;color:var(--ink-25)}
+  .tech b{color:var(--ink-40);font-weight:500}
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div class="content">
+
+  <!-- NAV -->
+  <nav>
+    <div class="wrap nav-in">
+      <div class="brand"><span class="logo">A</span> Apex Vision</div>
+      <div class="nav-links">
+        <a href="#que-hacemos">Qué hacemos</a>
+        <a href="#como-funciona">Cómo funciona</a>
+        <a href="#precios">Precios</a>
+        <a href="/seller" class="btn btn-ghost">Iniciar sesión</a>
+        <a href="/seller" class="btn btn-primary">Empezar gratis →</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <header>
+    <div class="wrap">
+      <span class="pill"><span class="dot"></span> EVALUACIÓN COMERCIAL CON IA MULTIMODAL</span>
+      <h1>Entrená tu pitch de ventas<br>con un coach de IA que <b>te ve, te escucha<br>y te corrige</b>.</h1>
+      <p class="sub">Apex Vision analiza tu lenguaje corporal, tu voz y tu discurso en una sola evaluación.
+        Recibís un score objetivo, coaching accionable y podés practicar en vivo contra un comprador con IA.</p>
+      <div class="cta-row">
+        <a href="/seller" class="btn btn-primary">Empezar gratis →</a>
+        <a href="#como-funciona" class="btn btn-ghost">Ver cómo funciona</a>
+      </div>
+      <p class="hero-note">20 Apex Tokens gratis al registrarte · Sin tarjeta para empezar</p>
+    </div>
+  </header>
+
+  <!-- QUE HACEMOS -->
+  <section id="que-hacemos">
+    <div class="wrap">
+      <div class="eyebrow">Qué hacemos</div>
+      <h2>Convertimos cada pitch en <b>datos y un plan de mejora</b>.</h2>
+      <p class="lead">La mayoría de los vendedores nunca recibe feedback objetivo de cómo comunican. Apex Vision
+        graba o escucha tu presentación y la descompone en señales medibles — postura, energía vocal, ritmo,
+        muletillas, estructura — para darte una evaluación honesta y recomendaciones concretas.</p>
+
+      <div class="grid g3">
+        <div class="glass card">
+          <div class="ic">🧍</div>
+          <h3>Lenguaje corporal</h3>
+          <p>Detección de pose con visión por computadora: postura, gestos, presencia frente a cámara y movimiento natural.</p>
+        </div>
+        <div class="glass card">
+          <div class="ic">🎙️</div>
+          <h3>Voz y prosodia</h3>
+          <p>Análisis de audio: pitch, energía, pausas, velocidad (WPM) y conteo de muletillas en tu discurso.</p>
+        </div>
+        <div class="glass card">
+          <div class="ic">💬</div>
+          <h3>Discurso y estructura</h3>
+          <p>Transcripción automática y evaluación de claridad, propuesta de valor, preguntas consultivas y escucha activa.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMO FUNCIONA -->
+  <section id="como-funciona">
+    <div class="wrap">
+      <div class="eyebrow">Cómo funciona</div>
+      <h2>De la grabación al coaching en <b>tres pasos</b>.</h2>
+      <div class="steps">
+        <div class="glass step">
+          <h3>Grabás o practicás en vivo</h3>
+          <p>Subí un pitch de 60-90s, o entrá a una sala en vivo y presentá ante un comprador con IA que te escucha, repregunta y objeta en tiempo real.</p>
+        </div>
+        <div class="glass step">
+          <h3>La IA lo analiza</h3>
+          <p>Tres motores procesan cuerpo, voz y texto en paralelo. Un modelo de lenguaje los combina en un score objetivo por dimensión, con evidencia.</p>
+        </div>
+        <div class="glass step">
+          <h3>Recibís tu plan de mejora</h3>
+          <p>Score 0-100 en cinco dimensiones + 3 a 5 recomendaciones accionables: problema, impacto comercial, ejercicio y métrica de éxito.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DIMENSIONES -->
+  <section>
+    <div class="wrap">
+      <div class="eyebrow">Lo que medimos</div>
+      <h2>Cinco dimensiones, <b>cero opiniones vagas</b>.</h2>
+      <p class="lead">Cada dimensión se evalúa con datos concretos de tu grabación — no con frases genéricas como
+        "mejorá tu comunicación".</p>
+      <div class="dims">
+        <div class="glass dim"><div class="t">Confianza</div><div class="d">Energía vocal, postura, pausas seguras y cierre firme.</div></div>
+        <div class="glass dim"><div class="t">Claridad</div><div class="d">Estructura, propuesta de valor y ritmo ideal (130-160 WPM).</div></div>
+        <div class="glass dim"><div class="t">Lenguaje corporal</div><div class="d">Contacto visual, gestos y presencia frente a cámara.</div></div>
+        <div class="glass dim"><div class="t">Ritmo de voz</div><div class="d">Fluidez, variación de pitch, pausas y monotonía.</div></div>
+        <div class="glass dim"><div class="t">Escucha activa</div><div class="d">Preguntas consultivas, reformulación y manejo de objeciones.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AGENTE EN VIVO -->
+  <section>
+    <div class="wrap">
+      <div class="grid g2" style="align-items:center">
+        <div>
+          <div class="eyebrow">Novedad</div>
+          <h2>Practicá contra un <b>comprador con IA</b>, en vivo.</h2>
+          <p class="lead">Elegí un escenario y presentá en tiempo real. El agente te escucha, te repregunta y
+            objeta como un cliente real — con voz natural y análisis de tu lenguaje corporal mientras hablás.
+            Al terminar, recibís tu score igual que en una evaluación grabada.</p>
+        </div>
+        <div class="glass card" style="padding:28px">
+          <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px">
+            <span class="logo" style="width:30px;height:30px">A</span>
+            <div><div style="color:var(--ink-100);font-weight:600;font-size:14px">Sala en vivo</div>
+            <div class="mono" style="font-size:10.5px;color:var(--ink-40)">STT → LLM → VOZ · ~tiempo real</div></div>
+          </div>
+          <div style="display:grid;gap:10px">
+            <div style="background:var(--panel-2);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--ink-80)">
+              "Interesante, pero ¿por qué debería cambiar mi proveedor actual?"</div>
+            <div style="background:rgba(158,245,190,0.06);border:1px solid rgba(158,245,190,0.2);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--ink-80);text-align:right">
+              Tu turno — respondé con datos y una pregunta de cierre.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRECIOS -->
+  <section id="precios">
+    <div class="wrap">
+      <div class="eyebrow">Precios</div>
+      <h2>Pagá por lo que usás, <b>con un plan que te acompaña</b>.</h2>
+      <p class="lead">Suscripción mensual con una cuota de <b>Apex Tokens (AT)</b> incluida. 1 AT = 1 minuto de
+        evaluación. Sin contratos: cancelás cuando quieras.</p>
+
+      <div class="price-grid">
+        <div class="glass plan">
+          <div class="name">Starter</div>
+          <div class="price">$29<span>/mes</span></div>
+          <div class="at">200 AT incluidos</div>
+          <ul><li>Evaluación grabada</li><li>Agente en vivo</li><li>Hasta 3 usuarios</li><li>Dashboard de consumo</li></ul>
+          <a href="/seller" class="btn btn-ghost">Elegir Starter</a>
+        </div>
+        <div class="glass plan featured">
+          <div class="badge">Más popular</div>
+          <div class="name">Growth</div>
+          <div class="price">$79<span>/mes</span></div>
+          <div class="at">650 AT incluidos</div>
+          <ul><li>Todo lo de Starter</li><li>Hasta 10 usuarios</li><li>Historial por equipo</li><li>Multi-idioma</li></ul>
+          <a href="/seller" class="btn btn-primary">Elegir Growth</a>
+        </div>
+        <div class="glass plan">
+          <div class="name">Pro</div>
+          <div class="price">$199<span>/mes</span></div>
+          <div class="at">1,800 AT incluidos</div>
+          <ul><li>Todo lo de Growth</li><li>Hasta 25 usuarios</li><li>Reportes exportables</li><li>Auto-recarga</li></ul>
+          <a href="/seller" class="btn btn-ghost">Elegir Pro</a>
+        </div>
+        <div class="glass plan">
+          <div class="name">Scale</div>
+          <div class="price">$499<span>/mes</span></div>
+          <div class="at">5,000 AT incluidos</div>
+          <ul><li>Todo lo de Pro</li><li>Hasta 75 usuarios</li><li>API pública (AT)</li><li>Soporte prioritario</li></ul>
+          <a href="/seller" class="btn btn-ghost">Elegir Scale</a>
+        </div>
+      </div>
+      <p class="price-note">¿Más de 75 usuarios o necesitás SSO, SLA e integraciones? &nbsp;
+        <a href="/seller" style="color:var(--accent)">Hablemos de Enterprise →</a> &nbsp;·&nbsp;
+        Recargas de AT desde $20 cuando superás tu cuota.</p>
+    </div>
+  </section>
+
+  <!-- QUIENES SOMOS -->
+  <section>
+    <div class="wrap">
+      <div class="eyebrow">Quiénes somos</div>
+      <h2>Un equipo obsesionado con que <b>vender se pueda entrenar</b>.</h2>
+      <div class="who">
+        <div>
+          <p>Apex Vision nació de una idea simple: la comunicación comercial es una habilidad que se practica,
+            pero casi nadie tiene un espejo objetivo para hacerlo. Los coaches son caros, escasos y subjetivos.</p>
+          <p>Construimos una plataforma que combina visión por computadora, análisis de voz y modelos de
+            lenguaje para darle a cada vendedor — sin importar su empresa o presupuesto — feedback de nivel
+            profesional, disponible 24/7 y medible en el tiempo.</p>
+          <p>Somos un equipo de ingeniería y producto enfocado en IA aplicada al desempeño humano. Creemos en
+            datos honestos por encima de halagos: si un pitch está flojo, el score lo dice, y te muestra
+            exactamente cómo mejorarlo.</p>
+        </div>
+        <div class="stats">
+          <div class="glass stat"><div class="n">5</div><div class="l">dimensiones evaluadas por pitch</div></div>
+          <div class="glass stat"><div class="n">3</div><div class="l">señales: cuerpo · voz · discurso</div></div>
+          <div class="glass stat"><div class="n">~min</div><div class="l">del pitch al score con coaching</div></div>
+          <div class="glass stat"><div class="n">24/7</div><div class="l">práctica en vivo cuando quieras</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FINAL CTA -->
+  <div class="wrap">
+    <div class="final">
+      <div class="eyebrow" style="color:var(--accent)">Empezá hoy</div>
+      <h2>Tu próximo pitch puede ser <b>el mejor que diste</b>.</h2>
+      <p>Registrate gratis, recibí 20 Apex Tokens de bienvenida y hacé tu primera evaluación en minutos.</p>
+      <a href="/seller" class="btn btn-primary">Crear mi cuenta gratis →</a>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="wrap">
+    <div class="brand" style="font-size:14px"><span class="logo">A</span> Apex Vision</div>
+    <div>© 2026 Apex Vision · Evaluación comercial con IA</div>
+    <div class="tech">Construido con <b>visión por computadora</b> · <b>análisis de voz</b> · <b>LLMs</b></div>
+  </footer>
+
+</div>
+</body>
+</html>
