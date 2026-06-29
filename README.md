@@ -30,10 +30,19 @@ apex-vision/
 
 ## Cómo arrancar (cuando Fase 0 esté lista)
 
+### Usando Docker (Recomendado)
 ```bash
 docker compose up -d        # levanta Postgres, RabbitMQ, MinIO, gateway, workers, frontend
 make seed                   # crea tenant demo + usuarios + preguntas
 open http://localhost:5173  # frontend
+```
+
+### Usando PowerShell (Alternativa si Docker falla)
+Si tienes problemas con Docker Desktop en Windows, puedes usar el script de orquestación nativa. Este script descargará MinIO, instalará globalmente PostgreSQL y RabbitMQ (si no los tienes), compilará el gateway y levantará todos los servicios localmente.
+
+Abre PowerShell **como Administrador** y ejecuta:
+```powershell
+.\start-local.ps1
 ```
 
 Ver detalle por servicio en cada subcarpeta (`api-gateway/README.md`, `ai-workers/README.md`, `frontend/README.md`).

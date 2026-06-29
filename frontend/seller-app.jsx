@@ -18,10 +18,17 @@ function ApexApp() {
   const [loginError, setLoginError] = useState('');
   const [loginBusy, setLoginBusy] = useState(false);
 
-  // ── always start at login for fresh token ─────────────────────────────────
+  // ── check token on load to avoid losing session ───────────────────────────
   useEffect(() => {
-    window.ApexAPI.logout();
-    setAuthChecked(true);
+    const checkAuth = async () => {
+      const isAuth = await window.ApexAPI.restoreToken();
+      if (isAuth) {
+        setPage('landing');
+      }
+      setAuthChecked(true);
+    };
+    checkAuth();
+    
     const onExpired = () => {
       setLoginError('Tu sesion expiro. Volve a iniciar sesion.');
       setPage('login');

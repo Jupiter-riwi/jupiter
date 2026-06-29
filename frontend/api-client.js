@@ -18,6 +18,16 @@
     return h;
   },
 
+  async register(email, password, name, role = 'member') {
+    const res = await fetch(API_BASE + '/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, name, role }),
+    });
+    if (!res.ok) throw new Error('Register failed: ' + res.status);
+    return res.json();
+  },
+
   async login(email, password) {
     const res = await fetch(API_BASE + '/api/auth/login', {
       method: 'POST',

@@ -7,16 +7,7 @@ const { SIcon, AVSpark, ApexLogo } = window;
    vendedores, identifica quién necesita coaching y en qué áreas.
    ============================================================ */
 
-const TEAM = [
-  { id: 1, name: 'Mariana Aimar',     role: 'Senior',     evals: 24, score: 84, trend: '+6', skills: [88,82,86,75,88], status: 'on-track', last: 'hoy 16:08' },
-  { id: 2, name: 'Federico Lozada',   role: 'Senior',     evals: 22, score: 81, trend: '+3', skills: [80,84,78,82,79], status: 'on-track', last: 'hoy 11:22' },
-  { id: 3, name: 'Carolina Méndez',   role: 'Mid',        evals: 18, score: 78, trend: '+8', skills: [82,76,72,80,80], status: 'improving', last: 'ayer 18:40' },
-  { id: 4, name: 'Diego Sosa',        role: 'Senior',     evals: 26, score: 76, trend: '−2', skills: [70,75,82,78,75], status: 'watch', last: 'ayer 14:05' },
-  { id: 5, name: 'Lucía Fernández',   role: 'Mid',        evals: 14, score: 72, trend: '+4', skills: [75,68,74,72,71], status: 'on-track', last: 'hoy 09:15' },
-  { id: 6, name: 'Tomás Iriarte',     role: 'Junior',     evals: 9,  score: 68, trend: '+11', skills: [70,65,72,66,67], status: 'improving', last: 'hoy 10:48' },
-  { id: 7, name: 'Sofía Bertinat',    role: 'Mid',        evals: 16, score: 64, trend: '−4', skills: [60,68,58,72,62], status: 'needs-coaching', last: '2 días' },
-  { id: 8, name: 'Ricardo Pena',      role: 'Junior',     evals: 7,  score: 58, trend: '−6', skills: [55,60,52,68,55], status: 'needs-coaching', last: '4 días' },
-];
+
 
 const DIMENSIONS = ['Confianza', 'Claridad', 'Lenguaje corporal', 'Ritmo de voz', 'Escucha activa'];
 const STATUS_LABEL = {
@@ -130,7 +121,7 @@ const AdminTop = ({ user, page, onNav, onLogout, onProfile }) => {
   );
 };
 
-/* ----------------------------- TEAM ROW ----------------------------- */
+/* ----------------------------- teamData ROW ----------------------------- */
 const TeamRow = ({ p, onOpen }) => (
   <div className="t-row" onClick={() => onOpen(p)}>
     <div className="t-avatar">{p.name.split(' ').map(s=>s[0]).join('').slice(0,2)}</div>
@@ -174,7 +165,7 @@ const MiniRadar = ({ values, size = 44 }) => {
 };
 
 /* ----------------------------- HEATMAP ----------------------------- */
-const Heatmap = () => {
+const Heatmap = ({ teamData }) => {
   // rows = vendedores, cols = dimensiones
   return (
     <div className="hmap">
@@ -183,7 +174,7 @@ const Heatmap = () => {
         {DIMENSIONS.map(d => <div key={d} className="hmap-col-label">{d}</div>)}
         <div className="hmap-col-label">Global</div>
       </div>
-      {TEAM.map(p => (
+      {teamData.map(p => (
         <div key={p.id} className="hmap-row">
           <div className="hmap-name">{p.name}</div>
           {p.skills.map((v,i) => (
@@ -802,7 +793,99 @@ const AjustesView = ({ onLogout }) => {
 };
 
 /* ----------------------------- MAIN VIEW ----------------------------- */
-const AdminApp = () => {
+const AdminAppCore = () => {
+  const [teamData, setTeamData] = useState([]);
+  const [loadingTeam, setLoadingTeam] = useState(true);
+
+  useEffect(() => {
+    const fetchTeam = async () => {
+      try {
+        const evals = await window.ApexAPI.listEvaluations();
+        
+        // Process evaluations to generate teamData
+        const userGroups = {};
+        evals.forEach(ev => {
+          if (!userGroups[ev.user_id]) {
+            userGroups[ev.user_id] = { 
+              id: ev.user_id,
+              name: 'Vendedor ' + ev.user_id.substring(0, 4).toUpperCase(),
+              role: 'Miembro',
+              evals: 0,
+              sumScore: 0,
+              skills: [70, 75, 80, 72, 78],
+              lastDate: 0,
+              status: 'on-track',
+              scoresHistory: []
+            };
+          }
+          const ug = userGroups[ev.user_id];
+          ug.evals++;
+          if (ev.score) {
+            ug.sumScore += ev.score;
+            ug.scoresHistory.push({ score: ev.score, date: new Date(ev.created_at).getTime() });
+          }
+          
+          if (ev.features && ev.features.skills) {
+            ug.skills = ev.features.skills;
+          } else if (ev.features && ev.features.dimensions) {
+            const dims = ev.features.dimensions;
+            ug.skills = [
+              dims.clarity || 70, 
+              dims.confidence || 75, 
+              dims.active_listening || 80, 
+              dims.empathy || 72, 
+              dims.objection_handling || 78
+            ];
+          } else if (ev.dimensions) {
+            const dims = ev.dimensions;
+            ug.skills = [
+              dims.clarity || 70, 
+              dims.confidence || 75, 
+              dims.active_listening || 80, 
+              dims.empathy || 72, 
+              dims.objection_handling || 78
+            ];
+          }
+
+          const dt = new Date(ev.created_at).getTime();
+          if (dt > ug.lastDate) ug.lastDate = dt;
+        });
+
+        const newTeamData = Object.values(userGroups).map(ug => {
+          const avgScore = ug.evals > 0 ? Math.round(ug.sumScore / ug.evals) : 0;
+          
+          ug.scoresHistory.sort((a,b) => a.date - b.date);
+          let trend = '+0';
+          if (ug.scoresHistory.length >= 2) {
+             const last = ug.scoresHistory[ug.scoresHistory.length-1].score;
+             const prev = ug.scoresHistory[ug.scoresHistory.length-2].score;
+             const diff = Math.round(last - prev);
+             trend = diff >= 0 ? '+' + diff : String(diff);
+          }
+
+          return {
+            id: ug.id,
+            name: ug.name,
+            role: ug.role,
+            evals: ug.evals,
+            score: avgScore,
+            trend: trend,
+            skills: ug.skills,
+            status: avgScore >= 75 ? 'on-track' : (avgScore >= 65 ? 'improving' : 'needs-coaching'),
+            last: new Date(ug.lastDate).toLocaleDateString()
+          };
+        });
+
+        setTeamData(newTeamData);
+      } catch (err) {
+        console.error("Failed to fetch evaluations", err);
+      } finally {
+        setLoadingTeam(false);
+      }
+    };
+    fetchTeam();
+  }, []);
+
   const [time, setTime] = useState(new Date());
   const [drawer, setDrawer] = useState(null);
   const [period, setPeriod] = useState('30d');
@@ -846,7 +929,7 @@ const AdminApp = () => {
     // Cada recomendación se ancla en una métrica concreta detectada en el desempeño.
     await new Promise(r => setTimeout(r, 800));
 
-    const teamAvg = Math.round(TEAM.reduce((s,p) => s + p.score, 0) / TEAM.length);
+    const teamAvg = Math.round(teamData.reduce((s,p) => s + p.score, 0) / teamData.length);
     const skillNames = ['Confianza','Claridad','Manejo objeciones','Ritmo de voz','Lenguaje corporal'];
 
     const buildItem = (p) => {
@@ -877,11 +960,11 @@ const AdminApp = () => {
       };
     };
 
-    const targets = TEAM.filter(p => p.status === 'needs-coaching' || p.status === 'watch' || p.score < 75);
+    const targets = teamData.filter(p => p.status === 'needs-coaching' || p.status === 'watch' || p.score < 75);
 
     const plan = {
       generatedAt: new Date().toLocaleString('es-AR'),
-      summary: `Equipo ${TEAM.length} vendedores · score promedio ${teamAvg}/100 · ${targets.length} requieren intervención (criterio: score<75 o status watch/needs-coaching)`,
+      summary: `Equipo ${teamData.length} vendedores · score promedio ${teamAvg}/100 · ${targets.length} requieren intervención (criterio: score<75 o status watch/needs-coaching)`,
       items: targets.sort((a,b) => a.score - b.score).map(buildItem),
       methodology: 'Cada recomendación se ancla en la dimensión más débil del vendedor con métricas concretas y meta de mejora medible.',
     };
@@ -920,9 +1003,9 @@ const AdminApp = () => {
     return () => clearInterval(t);
   }, []);
 
-  const teamAvg = Math.round(TEAM.reduce((s,p) => s + p.score, 0) / TEAM.length);
-  const totalEvals = TEAM.reduce((s,p) => s + p.evals, 0);
-  const needsCoach = TEAM.filter(p => p.status === 'needs-coaching').length;
+  const teamAvg = Math.round(teamData.reduce((s,p) => s + p.score, 0) / teamData.length);
+  const totalEvals = teamData.reduce((s,p) => s + p.evals, 0);
+  const needsCoach = teamData.filter(p => p.status === 'needs-coaching').length;
 
   return (
     <div id="app">
@@ -971,12 +1054,12 @@ const AdminApp = () => {
             <div className="kpis" style={{marginBottom:18}}>
               <Kpi label="Score promedio del equipo" value={teamAvg} unit="/100" delta="+ 4 vs mes anterior" sparkId="a1" data={[68,70,69,72,73,72,75,74,76,75,76,teamAvg]}/>
               <Kpi label="Evaluaciones · 30d" value={totalEvals} unit="" delta="↑ 18% participación" sparkId="a2" data={[6,8,12,9,14,18,16,20,22,19,24,totalEvals]}/>
-              <Kpi label="Vendedores activos" value={TEAM.length} unit={`/${TEAM.length}`} delta="100% activos esta semana" sparkId="a3" data={[5,6,6,7,7,8,8,8,8,8,8,8]}/>
+              <Kpi label="Vendedores activos" value={teamData.length} unit={`/${teamData.length}`} delta="100% activos esta semana" sparkId="a3" data={[5,6,6,7,7,8,8,8,8,8,8,8]}/>
               <Kpi label="Requieren coaching" value={needsCoach} unit="" delta="2 desde la semana pasada" sparkId="a4" data={[1,1,2,1,2,2,2,3,2,2,2,needsCoach]}/>
             </div>
 
             <div className="grid-dash" style={{gridTemplateColumns:'2fr 1fr',marginBottom:18}}>
-              {/* TEAM LIST */}
+              {/* teamData LIST */}
               <div className="glass" style={{padding:0}}>
                 <div className="section-head">
                   <h3>Tu equipo</h3>
@@ -993,7 +1076,7 @@ const AdminApp = () => {
                   </div>
                 </div>
                 <div className="t-list">
-                  {TEAM.filter(p => roleFilter === 'Todos' || p.role === roleFilter)
+                  {teamData.filter(p => roleFilter === 'Todos' || p.role === roleFilter)
                        .map(p => <TeamRow key={p.id} p={p} onOpen={setDrawer}/>)}
                 </div>
               </div>
@@ -1047,7 +1130,7 @@ const AdminApp = () => {
                 <span className="label">PROMEDIO {period.toUpperCase()}</span>
               </div>
               <div style={{padding:'14px 22px 22px',overflowX:'auto'}}>
-                <Heatmap/>
+                <Heatmap teamData={teamData}/>
               </div>
             </div>
 
@@ -1299,4 +1382,32 @@ const AdminApp = () => {
   );
 };
 
+
+const AdminApp = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const isAuth = await window.ApexAPI.restoreToken();
+      setIsAuthenticated(isAuth);
+      setAuthChecked(true);
+    };
+    checkAuth();
+    
+    const onExpired = () => setIsAuthenticated(false);
+    window.addEventListener('apex:session-expired', onExpired);
+    return () => window.removeEventListener('apex:session-expired', onExpired);
+  }, []);
+
+  if (!authChecked) return null; // or a loading spinner
+
+  if (!isAuthenticated) {
+    return <window.AuthScreen onLoginSuccess={() => setIsAuthenticated(true)} />;
+  }
+
+  return <AdminAppCore />;
+};
+
 ReactDOM.createRoot(document.getElementById('root')).render(<AdminApp/>);
+
