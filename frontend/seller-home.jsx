@@ -1,6 +1,17 @@
 /* global React, AVSpark */
 const { useState, useEffect, useRef } = React;
 
+/* Robust score reader: the API returns `score` as a plain 0–1 float (e.g. 0.25),
+   but older code expected `score.overall` / `overall_score`. Handle every shape
+   and never return NaN (which leaked into the progress view). Returns 0–100 or null. */
+function evalScore(e) {
+  let raw = (typeof e?.score === 'number') ? e.score
+          : (e?.score && typeof e.score === 'object' ? e.score.overall : undefined);
+  if (raw == null) raw = e?.overall_score;
+  if (raw == null || isNaN(raw)) return null;
+  return Math.round(raw > 1 ? raw : raw * 100);
+}
+
 /* ============================================================
    ICONS
    ============================================================ */
@@ -634,10 +645,7 @@ const SellerDashboard = ({ user, onStart, onViewResult }) => {
   }, []);
 
   const completedEvals = evals?.data?.filter(e => e.status === 'completed' || e.status === 'scored') || [];
-  const rawScores = completedEvals.map(e => {
-    const r = e.score?.overall ?? e.overall_score ?? 0;
-    return Math.round(r > 1 ? r : r * 100);
-  });
+  const rawScores = completedEvals.map(evalScore).filter(s => s !== null);
   const avgScore  = rawScores.length ? Math.round(rawScores.reduce((a, b) => a + b, 0) / rawScores.length) : null;
   const bestScore = rawScores.length ? Math.max(...rawScores) : null;
   const scoreCol  = s => s >= 80 ? '#9ef5be' : s >= 60 ? '#fbbf24' : '#fca5a5';
@@ -718,8 +726,7 @@ const SellerDashboard = ({ user, onStart, onViewResult }) => {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {evals.data.map(ev => {
-                const rawS = ev.score?.overall ?? ev.overall_score ?? null;
-                const score = rawS !== null ? Math.round(rawS > 1 ? rawS : rawS * 100) : null;
+                const score = evalScore(ev);
                 const isComplete = ev.status === 'completed' || ev.status === 'scored';
                 const isProcessing = ev.status === 'processing';
                 const date = fmtDate(ev.created_at);
@@ -841,7 +848,7 @@ const SellerProgress = ({ user }) => {
 
   const completed = (evals?.data || [])
     .filter(e => e.status === 'completed')
-    .map(e => ({ ...e, _s: Math.round((e.score?.overall ?? e.overall_score ?? 0) > 1 ? (e.score?.overall ?? e.overall_score) : (e.score?.overall ?? e.overall_score) * 100), _t: e.title || '' }))
+    .map(e => ({ ...e, _s: evalScore(e) ?? 0, _t: e.title || '' }))
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
   const chartData = completed.map(e => ({
@@ -1001,7 +1008,7 @@ const SellerCoaching = ({ user, onGoToPlan }) => {
 
   const completed = (evals?.data || []).filter(e => e.status === 'completed');
   const avgScore  = completed.length
-    ? Math.round(completed.reduce((s, e) => s + ((e.score?.overall ?? e.overall_score ?? 0) > 1 ? (e.score?.overall ?? e.overall_score) : (e.score?.overall ?? e.overall_score) * 100), 0) / completed.length)
+    ? Math.round(completed.reduce((s, e) => s + (evalScore(e) ?? 0), 0) / completed.length)
     : null;
 
   const tip = COACHING_TIPS[active];
@@ -1404,7 +1411,7 @@ const SellerProfile = ({ user, onGoTab }) => {
 
   const completed = (evals?.data || [])
     .filter(e => e.status === 'completed' || e.status === 'scored')
-    .map(e => ({ ...e, _s: Math.round(((e.score?.overall ?? e.overall_score ?? 0) > 1 ? (e.score?.overall ?? e.overall_score) : (e.score?.overall ?? e.overall_score) * 100)) }));
+    .map(e => ({ ...e, _s: evalScore(e) ?? 0 }));
 
   const scores    = completed.map(e => e._s);
   const avgScore  = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
@@ -1561,11 +1568,7 @@ const SellerProfile = ({ user, onGoTab }) => {
 /* ============================================================
    MAIN DASHBOARD — vista general del vendedor
    ============================================================ */
-const normScore = (e) => {
-  const raw = e.score?.overall ?? e.overall_score ?? null;
-  if (raw === null) return null;
-  return Math.round(raw > 1 ? raw : raw * 100);
-};
+const normScore = (e) => evalScore(e);
 
 const ScoreMini = ({ scores }) => {
   if (scores.length < 2) return null;
