@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apex Vision · ROI ventas</title>
+<style>
+  :root{ --bg:#0c0c10; --card:#15151c; --card2:#1b1b24; --line:#2a2a36; --ink:#f3f3f6; --ink2:#a9a9b8; --ink3:#76768a; --red:#e34948; --green:#199e70; --blue:#3987e5; --amber:#eda100; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; padding:28px; }
+  .wrap{ max-width:780px; margin:0 auto; }
+  .top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+  .brand{ font-size:13px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink3); }
+  .toggle{ display:flex; gap:4px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:3px; }
+  .toggle button{ border:0; background:transparent; color:var(--ink2); font-size:13px; padding:5px 14px; border-radius:999px; cursor:pointer; }
+  .toggle button.on{ background:var(--card2); color:var(--ink); }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin-bottom:14px; }
+  .lab{ font-size:13px; color:var(--ink2); }
+  .lab3{ font-size:12px; color:var(--ink3); }
+  .big{ font-size:26px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .row{ display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .kpis{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:14px; }
+  .kpi{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  .kpi .big{ font-size:24px; }
+  .grid4{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+  .hd{ font-size:14px; font-weight:600; margin-bottom:14px; }
+  .muted{ font-size:12px; color:var(--ink3); margin-top:10px; }
+  @media(max-width:560px){ .kpis,.grid4{ grid-template-columns:1fr 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">Apex Vision · <span data-es="Ventas" data-en="Sales">Ventas</span></div>
+    <div class="toggle"><button id="b-es" class="on" onclick="setLang('es')">ES</button><button id="b-en" onclick="setLang('en')">EN</button></div>
+  </div>
+
+  <div class="card">
+    <div class="lab" data-es="Equipo de 100 vendedores · COP 60.000M de ingresos/año" data-en="100-rep sales team · COP 60,000M revenue/year">Equipo de 100 vendedores · COP 60.000M de ingresos/año</div>
+    <div class="row" style="margin-top:12px;">
+      <div><div class="lab3" data-es="Invierte en Apex" data-en="Invest in Apex">Invierte en Apex</div><div class="big">COP 48M<span style="font-size:13px; color:var(--ink3);">/año</span></div></div>
+      <div style="color:var(--ink3); font-size:22px;">&rarr;</div>
+      <div><div class="lab3" data-es="Suma en ingresos (solo +1 punto de cierre)" data-en="Adds in revenue (just +1 win point)">Suma en ingresos (solo +1 punto de cierre)</div><div class="big" style="color:var(--green);">+COP 600M</div></div>
+      <div style="margin-left:auto; text-align:right;"><div style="font-size:32px; font-weight:600;">&asymp; 12&times;</div><div class="lab3" data-es="retorno en ingresos" data-en="return on revenue">retorno en ingresos</div></div>
+    </div>
+    <div class="muted" data-es="Mejores vendedores cierran más. No es ahorro de costo: es ingreso nuevo." data-en="Better sellers close more. This isn't cost savings — it's new revenue.">Mejores vendedores cierran más. No es ahorro de costo: es ingreso nuevo.</div>
+  </div>
+
+  <div class="card">
+    <div class="hd" data-es="Impacto anual · costo vs ingreso generado" data-en="Annual impact · cost vs revenue generated">Impacto anual · costo vs ingreso generado</div>
+    <div style="margin-bottom:12px;">
+      <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:5px;"><span class="lab" data-es="Costo Apex Vision" data-en="Apex Vision cost">Costo Apex Vision</span><span style="font-weight:500;">COP 48M</span></div>
+      <div style="height:24px; width:4%; min-width:30px; background:var(--red); border-radius:7px;"></div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:5px;"><span class="lab" data-es="Ramp más rápido (25 nuevos × 1 mes antes)" data-en="Faster ramp (25 new reps × 1 month sooner)">Ramp más rápido (25 nuevos × 1 mes antes)</span><span style="font-weight:500;">+COP 625M</span></div>
+      <div style="height:24px; width:51%; background:var(--blue); border-radius:7px;"></div>
+    </div>
+    <div>
+      <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:5px;"><span class="lab" data-es="+1 punto de win rate sobre COP 60.000M" data-en="+1 win-rate point on COP 60,000M">+1 punto de win rate sobre COP 60.000M</span><span style="font-weight:500;">+COP 600M</span></div>
+      <div style="height:24px; width:49%; background:var(--green); border-radius:7px;"></div>
+    </div>
+    <div class="muted" data-es="Decenas de millones para ganar miles de millones. (+2 puntos de cierre ≈ +COP 1.200M.)" data-en="Tens of millions to make thousands of millions. (+2 win points ≈ +COP 1,200M.)">Decenas de millones para ganar miles de millones. (+2 puntos de cierre ≈ +COP 1.200M.)</div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="lab" data-es="Tiempo de ramp" data-en="Ramp time">Tiempo de ramp</div><div class="big">&minus;1 <span style="font-size:14px;" data-es="mes" data-en="mo">mes</span></div><div class="lab3" data-es="nuevos venden antes" data-en="new reps sell sooner">nuevos venden antes</div></div>
+    <div class="kpi"><div class="lab" data-es="Práctica" data-en="Practice">Práctica</div><div class="big" data-es="Ilimitada" data-en="Unlimited">Ilimitada</div><div class="lab3" data-es="24/7, sin agendar coach" data-en="24/7, no coach to book">24/7, sin agendar coach</div></div>
+    <div class="kpi"><div class="lab" data-es="Costo por práctica" data-en="Cost per practice">Costo por práctica</div><div class="big">COP 10k</div><div class="lab3" data-es="vs hora de coach/manager" data-en="vs a coach/manager hour">vs hora de coach/manager</div></div>
+  </div>
+
+  <div class="card">
+    <div class="hd" data-es="Cobramos por uso · tokenizado (Apex Tokens)" data-en="We charge per use · tokenized (Apex Tokens)">Cobramos por uso · tokenizado (Apex Tokens)</div>
+    <div class="grid4">
+      <div><div class="lab3" data-es="1 minuto en vivo" data-en="1 live minute">1 minuto en vivo</div><div style="font-size:18px; font-weight:500;">3 AT</div></div>
+      <div><div class="lab3" data-es="1 práctica (~8 min)" data-en="1 practice (~8 min)">1 práctica (~8 min)</div><div style="font-size:18px; font-weight:500;">24 AT ≈ COP 10k</div></div>
+      <div><div class="lab3" data-es="Ingreso / cliente" data-en="Revenue / client">Ingreso / cliente</div><div style="font-size:18px; font-weight:500;">~COP 48M/<span style="color:var(--ink3); font-size:12px;">año</span></div></div>
+      <div><div class="lab3" data-es="Margen bruto" data-en="Gross margin">Margen bruto</div><div style="font-size:18px; font-weight:500; color:var(--green);">~87%</div></div>
+    </div>
+    <div class="muted" data-es="Cada vendedor practica ~4 veces al mes; el cliente paga solo lo que consume. El medidor nunca se detiene." data-en="Each rep practices ~4×/month; the client pays only for what it consumes. The meter never stops.">Cada vendedor practica ~4 veces al mes; el cliente paga solo lo que consume. El medidor nunca se detiene.</div>
+  </div>
+</div>
+<script>
+function setLang(l){
+  document.documentElement.lang=l;
+  document.querySelectorAll('[data-'+l+']').forEach(function(e){ e.textContent=e.getAttribute('data-'+l); });
+  document.getElementById('b-es').classList.toggle('on', l==='es');
+  document.getElementById('b-en').classList.toggle('on', l==='en');
+}
+</script>
+</body>
+</html>

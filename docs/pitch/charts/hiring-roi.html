@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apex Vision · ROI contratación</title>
+<style>
+  :root{ --bg:#0c0c10; --card:#15151c; --card2:#1b1b24; --line:#2a2a36; --ink:#f3f3f6; --ink2:#a9a9b8; --ink3:#76768a; --red:#e34948; --green:#199e70; --blue:#3987e5; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; padding:28px; }
+  .wrap{ max-width:780px; margin:0 auto; }
+  .top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+  .brand{ font-size:13px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink3); }
+  .toggle{ display:flex; gap:4px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:3px; }
+  .toggle button{ border:0; background:transparent; color:var(--ink2); font-size:13px; padding:5px 14px; border-radius:999px; cursor:pointer; }
+  .toggle button.on{ background:var(--card2); color:var(--ink); }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 24px; margin-bottom:14px; }
+  .lab{ font-size:13px; color:var(--ink2); }
+  .lab3{ font-size:12px; color:var(--ink3); }
+  .big{ font-size:26px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .row{ display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .bar{ height:30px; border-radius:7px; display:flex; align-items:center; color:#fff; font-size:13px; font-weight:500; padding-left:12px; }
+  .kpis{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:14px; }
+  .kpi{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  .kpi .big{ font-size:24px; }
+  .grid4{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+  .hd{ font-size:14px; font-weight:600; margin-bottom:14px; }
+  .muted{ font-size:12px; color:var(--ink3); margin-top:10px; }
+  @media(max-width:560px){ .kpis,.grid4{ grid-template-columns:1fr 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">Apex Vision · <span data-es="Contratación" data-en="Hiring">Contratación</span></div>
+    <div class="toggle"><button id="b-es" class="on" onclick="setLang('es')">ES</button><button id="b-en" onclick="setLang('en')">EN</button></div>
+  </div>
+
+  <div class="card">
+    <div class="lab" data-es="Costo por candidato · primera ronda de screening" data-en="Cost per candidate · first-round screening">Costo por candidato · primera ronda de screening</div>
+    <div class="row" style="margin-top:12px;">
+      <div><div class="lab3" data-es="Entrevista humana" data-en="Human interview">Entrevista humana</div><div class="big">COP 38.000</div></div>
+      <div style="color:var(--ink3); font-size:22px;">&rarr;</div>
+      <div><div class="lab3" data-es="Pre-evaluación IA Apex" data-en="Apex AI pre-screen">Pre-evaluación IA Apex</div><div class="big" style="color:var(--green);">COP 10.000</div></div>
+      <div style="margin-left:auto; text-align:right;"><div style="font-size:32px; font-weight:600;">&asymp; 4&times;</div><div class="lab3" data-es="más barato · 24/7 · objetivo" data-en="cheaper · 24/7 · objective">más barato · 24/7 · objetivo</div></div>
+    </div>
+    <div class="muted" data-es="…y solo el mejor 25% llega a una persona." data-en="…and only the top 25% ever reach a person.">…y solo el mejor 25% llega a una persona.</div>
+  </div>
+
+  <div class="card">
+    <div class="hd" data-es="Entrevistas de primera ronda · 3.000 al año" data-en="First-round interviews · 3,000 per year">Entrevistas de primera ronda · 3.000 al año</div>
+    <div style="margin-bottom:14px;">
+      <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--ink2); margin-bottom:5px;"><span data-es="Hoy" data-en="Today">Hoy</span><span data-es="9 de cada 10 terminan en rechazo" data-en="9 of every 10 end in rejection">9 de cada 10 terminan en rechazo</span></div>
+      <div class="bar" style="background:var(--red); width:100%;"><span data-es="3.000 entrevistas humanas" data-en="3,000 human interviews">3.000 entrevistas humanas</span></div>
+    </div>
+    <div>
+      <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--ink2); margin-bottom:5px;"><span data-es="Con Apex Vision" data-en="With Apex Vision">Con Apex Vision</span><span data-es="solo el top 25% pasa a un humano" data-en="only the top 25% reach a person">solo el top 25% pasa a un humano</span></div>
+      <div style="display:flex; height:30px; gap:2px; border-radius:7px; overflow:hidden;">
+        <div class="bar" style="background:var(--green); width:25%; border-radius:0; justify-content:center; padding:0;">750</div>
+        <div class="bar" style="background:var(--blue); width:75%; border-radius:0; justify-content:center; padding:0;"><span data-es="2.250 pre-evaluadas por IA" data-en="2,250 AI pre-screens">2.250 pre-evaluadas por IA</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="lab" data-es="Entrevistas humanas" data-en="Human interviews">Entrevistas humanas</div><div class="big">&minus;75%</div><div class="lab3" data-es="3.000 → 750 / año" data-en="3,000 → 750 / year">3.000 → 750 / año</div></div>
+    <div class="kpi"><div class="lab" data-es="Horas de RR.HH. liberadas" data-en="Recruiter hours freed">Horas de RR.HH. liberadas</div><div class="big">2.250</div><div class="lab3" data-es="≈ 1,5 reclutadores full-time" data-en="≈ 1.5 full-time recruiters">≈ 1,5 reclutadores full-time</div></div>
+    <div class="kpi"><div class="lab" data-es="Ahorro anual" data-en="Annual saving">Ahorro anual</div><div class="big">&minus;48%</div><div class="lab3">≈ COP 55M (US$13k)</div></div>
+  </div>
+
+  <div class="card">
+    <div class="hd" data-es="Costo del screening · al año" data-en="Screening cost · per year">Costo del screening · al año</div>
+    <div style="margin-bottom:12px;"><div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:5px;"><span class="lab" data-es="Hoy" data-en="Today">Hoy</span><span style="font-weight:500;">COP 114M</span></div><div style="height:24px; width:100%; background:var(--red); border-radius:7px;"></div></div>
+    <div><div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:5px;"><span class="lab" data-es="Con Apex Vision" data-en="With Apex Vision">Con Apex Vision</span><span style="font-weight:500;">COP 59M</span></div><div style="height:24px; width:52%; background:var(--green); border-radius:7px;"></div></div>
+    <div class="muted" data-es="COP 30M de pre-evaluaciones IA + COP 29M de las entrevistas humanas que quedan" data-en="COP 30M of AI pre-screens + COP 29M of the human interviews that remain">COP 30M de pre-evaluaciones IA + COP 29M de las entrevistas humanas que quedan</div>
+  </div>
+
+  <div class="card">
+    <div class="hd" data-es="Cobramos por uso · tokenizado (Apex Tokens)" data-en="We charge per use · tokenized (Apex Tokens)">Cobramos por uso · tokenizado (Apex Tokens)</div>
+    <div class="grid4">
+      <div><div class="lab3" data-es="1 minuto en vivo" data-en="1 live minute">1 minuto en vivo</div><div style="font-size:18px; font-weight:500;">3 AT</div></div>
+      <div><div class="lab3" data-es="1 pre-evaluación (~8 min)" data-en="1 pre-screen (~8 min)">1 pre-evaluación (~8 min)</div><div style="font-size:18px; font-weight:500;">24 AT ≈ COP 10k</div></div>
+      <div><div class="lab3" data-es="Ingreso / cliente" data-en="Revenue / client">Ingreso / cliente</div><div style="font-size:18px; font-weight:500;">~COP 30M/<span style="color:var(--ink3); font-size:12px;">año</span></div></div>
+      <div><div class="lab3" data-es="Margen bruto" data-en="Gross margin">Margen bruto</div><div style="font-size:18px; font-weight:500; color:var(--green);">~87%</div></div>
+    </div>
+    <div class="muted" data-es="Planes desde US$29/mes con AT incluidos + overage — el cliente paga solo lo que usa; el medidor nunca se detiene." data-en="Plans from US$29/mo with included AT + overage — the client pays only for what it uses; the meter never stops.">Planes desde US$29/mes con AT incluidos + overage — el cliente paga solo lo que usa; el medidor nunca se detiene.</div>
+  </div>
+</div>
+<script>
+function setLang(l){
+  document.documentElement.lang=l;
+  document.querySelectorAll('[data-'+l+']').forEach(function(e){ e.textContent=e.getAttribute('data-'+l); });
+  document.getElementById('b-es').classList.toggle('on', l==='es');
+  document.getElementById('b-en').classList.toggle('on', l==='en');
+}
+</script>
+</body>
+</html>
