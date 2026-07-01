@@ -176,3 +176,54 @@ Especificación completa servida en `GET /docs` (OpenAPI).
   **orquesta el WebSocket en vivo**.
 - Lo memorable: **coordina tiempo real (async) y procesamiento pesado (colas) en un
   solo servicio, sin bloquearse.** Lo rápido fluye; lo pesado se delega.
+
+---
+
+## 7. Qué archivo hace qué (mapa del servicio)
+
+Todo el servicio vive en `api-gateway/`. Estos son los archivos y su rol:
+
+### Núcleo
+| Archivo | Qué hace |
+|---|---|
+| `app/main.py` | **El corazón (~945 líneas).** La app FastAPI: auth JWT, multi-tenant (`set_tenant_id` + RLS), CRUD de evaluaciones, URLs prefirmadas de MinIO, publicación de jobs a RabbitMQ, chat de coaching y endpoints admin. Monta los routers de `live` y `billing`. |
+| `Dockerfile` | Imagen del gateway (Python 3.12 + uvicorn). |
+| `requirements.txt` | Dependencias (fastapi, uvicorn, psycopg2, pika, minio, PyJWT, bcrypt, httpx, stripe). |
+| `Makefile` | Atajos: `make run` (uvicorn), `make seed`, `make test`. |
+| `seed.py` | Siembra datos demo (tenant + usuarios + preguntas) — idempotente. |
+| `internal/apidocs/openapi.json` | Especificación OpenAPI que sirve `GET /docs`. |
+| `README.md` | Cómo levantar el gateway + setup de Stripe. |
+
+### `app/live/` — el agente conversacional en vivo (WebSocket)
+| Archivo | Qué hace |
+|---|---|
+| `live/router.py` | Los endpoints del live: `WS /api/live/ws`, `GET /api/live/personas`, `GET /api/live/sessions`. Valida el JWT (viene por query param en el WS). |
+| `live/orchestrator.py` | **`LiveSession`: el orquestador.** El loop por turno STT→LLM→TTS, streaming, pipelining de frases, barge-in y cierre con puntaje. |
+| `live/stt.py` | Speech-to-text con **Groq Whisper** (transcribe cada turno del usuario). |
+| `live/llm.py` | LLM en personaje con **DeepSeek** (streaming de la respuesta del comprador IA). |
+| `live/tts.py` | Text-to-speech con **ElevenLabs Flash** (voz, frase por frase, baja latencia). |
+| `live/persona.py` | Catálogo de personajes: roles (cliente, director, técnico…), niveles de exigencia y sus prompts. |
+| `live/scoring.py` | Puntúa la conversación en vivo al terminar. |
+| `live/store.py` | Persiste y lista el historial de sesiones en vivo. |
+
+### `app/billing/` — pasarela de pagos (Stripe + Apex Tokens)
+| Archivo | Qué hace |
+|---|---|
+| `billing/routes.py` | Los 6 endpoints REST `/api/billing/*` (checkout, portal, saldo, historial). |
+| `billing/webhooks.py` | Receptor `/api/webhooks/stripe`: verifica firma, idempotencia y despacha eventos. |
+| `billing/service.py` | Acciones del lado Stripe: crear Customer, Checkout y Billing Portal. |
+| `billing/wallet.py` | Contabilidad de Apex Tokens (saldo, débito/crédito, con `FOR UPDATE`). |
+| `billing/evaluation.py` | Hooks que cobran AT por evaluación (1 AT/min) y por live (3 AT/min); se desactivan si no hay Stripe. |
+| `billing/plans.py` | Mapa plan/pack → AT (fuente de verdad para acreditar). |
+| `billing/db.py` | Helper de conexión con RLS + resolución de tenant para el webhook. |
+
+### `tests/` — pruebas del gateway
+| Archivo | Qué verifica |
+|---|---|
+| `tests/test_wallet_math.py` | La aritmética del wallet (débitos, créditos, sin negativos). |
+| `tests/test_billing_webhook.py` | Firma del webhook + idempotencia + acreditación de recargas. |
+| `tests/test_evaluation_hooks.py` | El cálculo de costo en AT y los hooks de cobro/reembolso. |
+| `tests/conftest.py` | Conexión falsa in-memory para correr los tests sin base real. |
+
+> **En una frase para la diapo:** `main.py` es el corazón; `app/live/` es el tiempo
+> real (STT→LLM→TTS); `app/billing/` es la monetización — todo bajo un mismo servicio.
