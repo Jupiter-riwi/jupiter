@@ -45,16 +45,28 @@ def build_prompt(
     prosody_features: dict,
     version: str = DEFAULT_PROMPT_VERSION,
     difficulty: str | None = None,
+    context_brief: dict | None = None,
 ) -> str:
     template = load_prompt(version)
     directive = _DIFFICULTY.get((difficulty or "neutral").lower(), _DIFFICULTY["neutral"])
-    return (
+    prompt = (
         template
         .replace("{{difficulty}}", directive)
         .replace("{{pose_features}}", json.dumps(pose_features, indent=2, ensure_ascii=False))
         .replace("{{transcript_features}}", json.dumps(transcript_features, indent=2, ensure_ascii=False))
         .replace("{{prosody_features}}", json.dumps(prosody_features, indent=2, ensure_ascii=False))
     )
+    if context_brief:
+        # The evaluation ran against a compiled vacante/producto brief: anchor
+        # the grading in that context (affects evidence and recommendations).
+        prompt += (
+            "\n\n## Contexto de la sesión (puesto/producto)\n\n"
+            "La sesión corrió contra este contexto. Evaluá pertinencia: el contenido del "
+            "discurso debe responder a estas competencias y criterios; penalizá respuestas "
+            "genéricas que los ignoren y citá el contexto en la evidencia cuando aplique.\n\n"
+            + json.dumps(context_brief, indent=2, ensure_ascii=False)
+        )
+    return prompt
 
 
 def call_llm(prompt: str, api_key: Optional[str] = None) -> ScoreResult:

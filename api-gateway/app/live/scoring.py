@@ -37,10 +37,38 @@ RUBRICS = {
 }
 
 
-def _rubric_for(mode: str, lang: str) -> list[dict]:
-    dims = RUBRICS.get(mode, RUBRICS["presentacion"])
+# Extra dimension appended when the session ran against a compiled brief
+# (vacante/producto): performance is also graded against THAT context.
+_FIT_DIM = {
+    "entrevista": ("fit_contexto", "Fit al puesto", "Role fit"),
+    "presentacion": ("fit_contexto", "Dominio del contexto", "Context mastery"),
+}
+
+
+def _rubric_for(mode: str, lang: str, *, with_context: bool = False) -> list[dict]:
+    dims = list(RUBRICS.get(mode, RUBRICS["presentacion"]))
+    if with_context:
+        dims = dims + [_FIT_DIM.get(mode, _FIT_DIM["presentacion"])]
     i = 2 if lang == "en" else 1
     return [{"key": d[0], "label": d[i]} for d in dims]
+
+
+def _brief_directive(brief: dict, lang: str) -> str:
+    comp = "; ".join(brief.get("competencies", []))
+    crit = "; ".join(brief.get("success_criteria", []))
+    flags = "; ".join(brief.get("red_flags", []))
+    title = brief.get("title", "")
+    if lang == "en":
+        return (
+            f"CONTEXT BRIEF ({title}): the session ran against a specific role/product context. "
+            f"Grade the extra dimension 'fit_contexto' against it. Competencies expected: {comp}. "
+            f"What great looks like: {crit}. Red flags to penalize if present: {flags}."
+        )
+    return (
+        f"BRIEF DEL CONTEXTO ({title}): la sesión corrió contra un puesto/producto específico. "
+        f"Puntuá la dimensión extra 'fit_contexto' contra ese contexto. Competencias esperadas: {comp}. "
+        f"Cómo se ve un gran desempeño: {crit}. Señales de alerta a penalizar si aparecen: {flags}."
+    )
 
 
 def _dialogue_text(history: list[dict]) -> str:
@@ -65,10 +93,12 @@ _DIFFICULTY = {
 }
 
 
-async def score_session(*, mode: str, lang: str, persona_name: str, history: list[dict], level: str = "neutral") -> dict | None:
+async def score_session(*, mode: str, lang: str, persona_name: str, history: list[dict],
+                        level: str = "neutral", brief: dict | None = None) -> dict | None:
     """Score the dialogue. Returns None if there isn't enough to score.
 
-    `level` (accesible/neutral/exigente) makes the grading stricter as difficulty rises."""
+    `level` (accesible/neutral/exigente) makes the grading stricter as difficulty rises.
+    `brief` (compiled session context) adds a 'fit_contexto' dimension graded against it."""
     user_turns = [m for m in history if m["role"] == "user"]
     if len(user_turns) < 1:
         return None
@@ -76,7 +106,7 @@ async def score_session(*, mode: str, lang: str, persona_name: str, history: lis
     if not key:
         return None
 
-    rubric = _rubric_for(mode, lang)
+    rubric = _rubric_for(mode, lang, with_context=brief is not None)
     dim_keys = ", ".join(d["key"] for d in rubric)
     en = lang == "en"
     difficulty = _DIFFICULTY.get(lang, _DIFFICULTY["es"]).get(level, _DIFFICULTY[lang if en else "es"]["neutral"])
@@ -93,6 +123,8 @@ async def score_session(*, mode: str, lang: str, persona_name: str, history: lis
             f"Then give an overall 0-100, 2-3 strengths and 2-3 improvements. Respond ONLY with JSON. Write all text in English.\n"
             f"{difficulty}"
         )
+        if brief:
+            sys += "\n" + _brief_directive(brief, "en")
         instr = (
             f"Dimensions to score (use these exact keys): {dim_keys}.\n"
             'JSON shape: {"overall": <0-100>, "dimensions": [{"key": "...", "score": <0-100>, "comment": "..."}], '
@@ -106,6 +138,8 @@ async def score_session(*, mode: str, lang: str, persona_name: str, history: lis
             f"overall 0-100, 2-3 fortalezas y 2-3 mejoras. Respondé SOLO con JSON. Escribí todo en español.\n"
             f"{difficulty}"
         )
+        if brief:
+            sys += "\n" + _brief_directive(brief, "es")
         instr = (
             f"Dimensiones a puntuar (usá estas claves exactas): {dim_keys}.\n"
             'Forma del JSON: {"overall": <0-100>, "dimensions": [{"key": "...", "score": <0-100>, "comment": "..."}], '

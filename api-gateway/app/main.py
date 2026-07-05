@@ -668,6 +668,8 @@ def me(authorization: str | None = Header(default=None)) -> dict[str, Any]:
 
 class CreateEvaluationRequest(BaseModel):
     title: str = Field(min_length=1, max_length=255)
+    context_id: str | None = None
+    difficulty: str | None = Field(default=None, pattern=r"^(accesible|neutral|exigente)$")
 
 
 class EvaluationCreateResponse(BaseModel):
@@ -690,12 +692,14 @@ def create_evaluation(
         with conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO evaluations (id, tenant_id, user_id, title, video_key, status)
-                VALUES (%s::uuid, %s::uuid, %s::uuid, %s, %s, 'pending')
+                INSERT INTO evaluations (id, tenant_id, user_id, title, video_key, status,
+                                         context_id, difficulty)
+                VALUES (%s::uuid, %s::uuid, %s::uuid, %s, %s, 'pending', %s::uuid, %s)
                 RETURNING id::text, tenant_id::text, user_id::text, title, video_key,
                           status::text, score, features::text, created_at, updated_at
                 """,
-                (eval_id, tenant_id, user_id, req.title, video_key),
+                (eval_id, tenant_id, user_id, req.title, video_key,
+                 req.context_id, req.difficulty),
             )
             row = cur.fetchone()
         conn.commit()

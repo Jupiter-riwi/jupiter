@@ -40,12 +40,14 @@ class LiveSession:
     def __init__(
         self, ws: WebSocket, persona: Persona, *,
         user_id: str = "", tenant_id: str = "", scenario: str | None = None,
+        brief: dict | None = None,
     ) -> None:
         self.ws = ws
         self.persona = persona
         self.user_id = user_id
         self.tenant_id = tenant_id
         self.scenario = scenario
+        self.brief = brief
         self.history: list[dict[str, str]] = []
         self._agent_task: asyncio.Task | None = None
         self._scored = False
@@ -111,7 +113,7 @@ class LiveSession:
         result = await scoring.score_session(
             mode=self.persona.mode, lang=self.persona.lang,
             persona_name=self.persona.name, history=self.history,
-            level=self.persona.level,
+            level=self.persona.level, brief=self.brief,
         )
         await self._send_json({"type": "session_score", "data": result})
         if self.user_id and self.tenant_id:

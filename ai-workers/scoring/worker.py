@@ -21,6 +21,7 @@ from shared.db import (
     all_features_ready,
     get_evaluation_status,
     get_evaluation_title,
+    get_evaluation_scoring_context,
     insert_score,
     update_evaluation_status,
     mark_evaluation_failed,
@@ -190,14 +191,22 @@ def on_scoring_job(channel, method, properties, body: bytes) -> None:
             channel.basic_ack(delivery_tag=delivery_tag)
             return
 
-        difficulty = _difficulty_from_title(job.evaluation_id)
-        logger.info("scoring difficulty=%s | evaluation_id=%s", difficulty, job.evaluation_id)
+        # Difficulty/context: first-class columns (migration 0005); the title
+        # regex remains as fallback for rows created before it.
+        try:
+            col_difficulty, context_brief = get_evaluation_scoring_context(job.evaluation_id)
+        except Exception:
+            col_difficulty, context_brief = None, None
+        difficulty = col_difficulty or _difficulty_from_title(job.evaluation_id)
+        logger.info("scoring difficulty=%s context=%s | evaluation_id=%s",
+                    difficulty, bool(context_brief), job.evaluation_id)
         score = call_llm(
             prompt=build_prompt(
                 pose_features=features.get("pose", {}),
                 transcript_features=features.get("transcript", {}),
                 prosody_features=features.get("prosody", {}),
                 difficulty=difficulty,
+                context_brief=context_brief,
             ),
         )
     except Exception as exc:

@@ -106,6 +106,7 @@ async def live_ws(ws: WebSocket) -> None:
         user_id=claims.get("user_id", ""),
         tenant_id=claims.get("tenant_id", ""),
         scenario=scenario,
+        brief=brief,
     )
     logger.info(
         "live session start user=%s persona=%s",

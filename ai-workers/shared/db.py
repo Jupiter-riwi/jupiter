@@ -287,3 +287,31 @@ def get_evaluation_title(evaluation_id: str, conn=None) -> str:
             cur.execute("SELECT title FROM evaluations WHERE id = %s", (evaluation_id,))
             row = cur.fetchone()
     return (row[0] if row and row[0] else "") or ""
+
+
+def get_evaluation_scoring_context(evaluation_id: str, conn=None) -> tuple[str | None, dict | None]:
+    """(difficulty, brief) for an evaluation: first-class columns from migration
+    0005 plus the compiled session-context brief, if the evaluation was created
+    against one. Both may be None (old rows / no context)."""
+    import json as _json
+
+    with _ensure_connection(conn) as c:
+        with c.cursor() as cur:
+            cur.execute(
+                """
+                SELECT e.difficulty, sc.title, sc.brief
+                FROM evaluations e
+                LEFT JOIN session_contexts sc ON sc.id = e.context_id
+                WHERE e.id = %s
+                """,
+                (evaluation_id,),
+            )
+            row = cur.fetchone()
+    if not row:
+        return None, None
+    difficulty = row[0]
+    brief = None
+    if row[2] is not None:
+        raw = row[2] if isinstance(row[2], dict) else _json.loads(row[2])
+        brief = {"title": row[1], **raw}
+    return difficulty, brief
