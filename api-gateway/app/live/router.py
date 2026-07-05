@@ -59,7 +59,25 @@ async def live_ws(ws: WebSocket) -> None:
     level = ws.query_params.get("level", "neutral")
     lang = ws.query_params.get("lang", "es")
     scenario = ws.query_params.get("scenario") or None
-    persona = get_persona(mode, role, level, lang, scenario)
+    context_id = ws.query_params.get("context_id") or None
+
+    # Optional compiled brief (vacante/producto). Non-fatal: an invalid or
+    # missing context degrades to the plain persona, same as before.
+    brief = None
+    if context_id and claims.get("tenant_id"):
+        try:
+            from app.main import db_conn  # noqa: WPS433
+            from app.billing.db import tenant_scope  # noqa: WPS433
+            from app.context.routes import load_brief_for_session  # noqa: WPS433
+            with db_conn() as conn:
+                with tenant_scope(conn, claims["tenant_id"]):
+                    brief = load_brief_for_session(conn, claims["tenant_id"], context_id)
+            if brief is None:
+                logger.info("context_id=%s not found for tenant=%s", context_id, claims.get("tenant_id"))
+        except Exception as exc:  # pragma: no cover
+            logger.warning("context load non-fatal error: %s", exc)
+
+    persona = get_persona(mode, role, level, lang, scenario, brief=brief)
 
     # Billing pre-check: tenant must have at least 3 AT (1 minute of live) to
     # start a session. Refuse with 4402 (custom code for "payment required" over WS).

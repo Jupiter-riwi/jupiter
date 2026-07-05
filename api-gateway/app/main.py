@@ -155,6 +155,11 @@ from app.billing.wallet import InsufficientBalance  # noqa: E402
 app.include_router(billing_router)
 app.include_router(billing_webhook_router)
 
+# Session contexts (job/product briefs that steer the live agent).
+from app.context.routes import router as context_router  # noqa: E402
+
+app.include_router(context_router)
+
 
 @app.exception_handler(InsufficientBalance)
 async def _insufficient_balance_handler(_request, exc: InsufficientBalance):

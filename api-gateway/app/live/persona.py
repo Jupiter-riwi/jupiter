@@ -171,7 +171,40 @@ _RULES = (
 )
 
 
-def _compose(mode: str, role_base: str, level: str, lang: str, scenario: str | None, agent_name: str = "") -> str:
+def _brief_block(mode: str, brief: dict) -> str:
+    """Render a compiled ContextBrief (see app/context) into prompt text.
+
+    The brief steers WHAT the persona asks about; the usage rules keep it
+    conversational (seeds, not a script) so the agent still reacts to the
+    actual answers instead of reading a checklist.
+    """
+    header = ("BRIEF DEL PUESTO (tu guía para ESTA entrevista)"
+              if mode == "entrevista"
+              else "BRIEF DEL PRODUCTO (tu guía para evaluar ESTE pitch)")
+    lines = [f"{header}:"]
+    if brief.get("title"):
+        lines.append(f"- Título: {brief['title']}")
+    if brief.get("summary"):
+        lines.append(f"- Resumen: {brief['summary']}")
+    if brief.get("competencies"):
+        lines.append("- Aspectos a evaluar: " + "; ".join(brief["competencies"]))
+    if brief.get("seed_questions"):
+        lines.append("- Preguntas semilla (inspirate en estas, adaptálas al flujo):")
+        lines.extend(f"  · {q}" for q in brief["seed_questions"])
+    if brief.get("red_flags"):
+        lines.append("- Señales de alerta a detectar: " + "; ".join(brief["red_flags"]))
+    if brief.get("vocabulary"):
+        lines.append("- Vocabulario del dominio (usalo con naturalidad): " + ", ".join(brief["vocabulary"]))
+    lines.append(
+        "USO DEL BRIEF: NO leas las preguntas en orden ni como lista. Elegí la más relevante "
+        "según lo que la persona acaba de decir, repreguntá y profundizá donde muestre debilidad "
+        "o esquive. Todas tus preguntas deben ser pertinentes a este contexto."
+    )
+    return "\n".join(lines)
+
+
+def _compose(mode: str, role_base: str, level: str, lang: str, scenario: str | None,
+             agent_name: str = "", brief: dict | None = None) -> str:
     parts = [
         _LANG_DIRECTIVE.get(lang, _LANG_DIRECTIVE["es"]),
         _MODE_FRAME.get(mode, _MODE_FRAME["presentacion"]),
@@ -184,6 +217,8 @@ def _compose(mode: str, role_base: str, level: str, lang: str, scenario: str | N
                     if lang == "en" else
                     f"IDENTIDAD: tu nombre es {agent_name}. Presentate con ese nombre, nunca con un placeholder.")
         parts.insert(3, identity)
+    if brief:
+        parts.append(_brief_block(mode, brief))
     if scenario:
         label = "CONTEXTO DEL PITCH (lo que viene a presentar)" if mode == "presentacion" else "CONTEXTO DEL PUESTO / CV (sobre qué entrevistar)"
         parts.append(f"{label}:\n{scenario}")
@@ -198,7 +233,8 @@ def list_personas() -> dict[str, list[dict[str, str]]]:
     }
 
 
-def get_persona(mode: str, role_type: str, level: str, lang: str = "es", scenario: str | None = None) -> Persona:
+def get_persona(mode: str, role_type: str, level: str, lang: str = "es",
+                scenario: str | None = None, brief: dict | None = None) -> Persona:
     """Compose a Persona. Falls back to presentacion/cliente/neutral/es if unknown."""
     mode = (mode or "presentacion").lower()
     level = (level or "neutral").lower()
@@ -217,7 +253,7 @@ def get_persona(mode: str, role_type: str, level: str, lang: str = "es", scenari
         level=level,
         lang=lang,
         voice_id=_voice_for(role_type, lang, voice),
-        base_prompt=_compose(mode, role_base, level, lang, scenario, agent_name),
+        base_prompt=_compose(mode, role_base, level, lang, scenario, agent_name, brief),
         agent_name=agent_name,
     )
 
