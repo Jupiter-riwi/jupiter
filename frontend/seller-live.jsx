@@ -118,6 +118,42 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore, initia
   const [level, setLevel] = useState('neutral');
   const [scenario, setScenario] = useState('');
 
+  // ── session context (vacante/producto → compiled brief) ────────────────
+  const ctxKind = mode === 'entrevista' ? 'puesto' : 'producto';
+  const [contexts, setContexts] = useState([]);
+  const [contextId, setContextId] = useState('');
+  const [ctxNew, setCtxNew] = useState(false);          // "create on the fly" form open
+  const [ctxTitle, setCtxTitle] = useState('');
+  const [ctxText, setCtxText] = useState('');
+  const [ctxBusy, setCtxBusy] = useState(false);
+  const [ctxErr, setCtxErr] = useState('');
+  useEffect(() => {
+    let alive = true;
+    setContextId(''); setCtxNew(false); setCtxErr('');
+    window.ApexAPI.listContexts(ctxKind)
+      .then(list => { if (alive) setContexts(list); })
+      .catch(() => { if (alive) setContexts([]); });
+    return () => { alive = false; };
+  }, [ctxKind]);
+  const createContextNow = useCallback(async () => {
+    setCtxErr('');
+    if (ctxTitle.trim().length < 3 || ctxText.trim().length < 30) {
+      setCtxErr(lang === 'en' ? 'Add a title and at least a paragraph of text.' : 'Poné un título y al menos un párrafo de texto.');
+      return;
+    }
+    setCtxBusy(true);
+    try {
+      const created = await window.ApexAPI.createContext(ctxKind, ctxTitle.trim(), ctxText.trim());
+      setContexts(x => [{ id: created.id, kind: created.kind, title: created.title }, ...x]);
+      setContextId(created.id);
+      setCtxNew(false); setCtxTitle(''); setCtxText('');
+    } catch (e) {
+      setCtxErr((lang === 'en' ? 'Could not compile the context: ' : 'No se pudo compilar el contexto: ') + (e.message || ''));
+    } finally {
+      setCtxBusy(false);
+    }
+  }, [ctxKind, ctxTitle, ctxText, lang]);
+
   const [state, setState] = useState('connecting');
   const [turns, setTurns] = useState([]);
   const [partial, setPartial] = useState('');
@@ -243,7 +279,7 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore, initia
       if (total < 3) { setErr(t('live.err.balance')); return; }
     } catch (_) { /* billing off or unreachable — proceed */ }
 
-    const url = window.ApexAPI.liveWsUrl({ mode, role, level, lang, scenario: scenario.trim() || undefined });
+    const url = window.ApexAPI.liveWsUrl({ mode, role, level, lang, scenario: scenario.trim() || undefined, contextId: contextId || undefined });
     const ws = new WebSocket(url); ws.binaryType = 'arraybuffer'; wsRef.current = ws;
     ws.onmessage = onWsMessage; ws.onerror = () => setErr(t('live.err.connect'));
     ws.onclose = (ev) => { if (!finishingRef.current && ev.code !== 1000) setErr(x => x || t('live.err.connect')); };
@@ -306,7 +342,7 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore, initia
       const sink = capCtx.createGain(); sink.gain.value = 0; proc.connect(sink); sink.connect(capCtx.destination);
       procRef.current = proc;
     }
-  }, [mode, role, level, lang, scenario, onWsMessage, sendUtterance, bargeIn]);
+  }, [mode, role, level, lang, scenario, contextId, onWsMessage, sendUtterance, bargeIn]);
 
   const pttStart = useCallback(() => { if (inputMode !== 'ptt') return; bargeIn(); capBufRef.current = []; capturingRef.current = true; setHolding(true); setStateBoth('listening'); }, [inputMode, bargeIn]);
   const pttStop = useCallback(() => {
@@ -347,9 +383,10 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore, initia
       const roleMeta = (ROLE_DEF[mode] || ROLE_DEF.presentacion).find(r => r.id === role);
       const roleLbl = roleMeta ? (roleMeta[lang] || roleMeta.es)[0] : '';
       const prefix = mode === 'entrevista' ? (lang === 'en' ? 'Live interview' : 'Entrevista en vivo') : (lang === 'en' ? 'Live pitch' : 'Pitch en vivo');
-      // embed the difficulty so the batch scorer can grade harder for tougher personas
+      // difficulty + context travel as first-class fields (migration 0005);
+      // the nivel: tag stays in the title only for humans reading the list.
       const title = `${prefix} · ${roleLbl} · nivel:${level}${scenario.trim() ? ' · ' + scenario.trim().slice(0, 40) : ''}`;
-      const created = await window.ApexAPI.createEvaluation(title);
+      const created = await window.ApexAPI.createEvaluation(title, { contextId: contextId || undefined, difficulty: level });
       const evalId = created.evaluation.id;
       await window.ApexAPI.uploadVideo(evalId, blob);
       await window.ApexAPI.completeEvaluation(evalId);
@@ -363,7 +400,7 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore, initia
         } catch (_) {}
       }, 3000);
     } catch (_) { setVideoEval('failed'); }
-  }, [mode, role, lang, scenario, stopRecording]);
+  }, [mode, role, lang, scenario, level, contextId, stopRecording]);
 
   const endSession = useCallback(() => {
     stopPlayback();
@@ -470,6 +507,36 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore, initia
               </div>
             ))}
           </div>
+
+          <Section label={isInt ? t('live.section.contextInterview') : t('live.section.contextSales')} />
+          <div style={{ display: 'flex', gap: 8, marginBottom: ctxNew ? 10 : 14 }}>
+            <select value={contextId} onChange={e => { setContextId(e.target.value); setCtxNew(false); }}
+              style={{ flex: 1, padding: '11px 12px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: '#fff', fontSize: 13 }}>
+              <option value="" style={{ background: '#111' }}>{t('live.ctx.none')}</option>
+              {contexts.map(c => (
+                <option key={c.id} value={c.id} style={{ background: '#111' }}>{c.title}</option>
+              ))}
+            </select>
+            <button className="btn" onClick={() => { setCtxNew(v => !v); setCtxErr(''); }}
+              style={{ padding: '11px 14px', fontSize: 12.5, whiteSpace: 'nowrap' }}>
+              {ctxNew ? t('live.ctx.cancel') : t('live.ctx.new')}
+            </button>
+          </div>
+          {ctxNew && (
+            <div style={{ padding: 14, borderRadius: 10, border: '1px solid rgba(158,245,190,0.25)', background: 'rgba(158,245,190,0.04)', marginBottom: 14 }}>
+              <input value={ctxTitle} onChange={e => setCtxTitle(e.target.value)}
+                placeholder={isInt ? t('live.ctx.titlePhInterview') : t('live.ctx.titlePhSales')}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: '#fff', fontSize: 13, boxSizing: 'border-box', marginBottom: 8 }} />
+              <textarea value={ctxText} onChange={e => setCtxText(e.target.value)} rows={5}
+                placeholder={isInt ? t('live.ctx.textPhInterview') : t('live.ctx.textPhSales')}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: '#fff', fontSize: 13, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box', marginBottom: 8 }} />
+              <button className="btn btn-primary" onClick={createContextNow} disabled={ctxBusy}
+                style={{ width: '100%', justifyContent: 'center', padding: '11px', fontSize: 12.5, opacity: ctxBusy ? 0.7 : 1 }}>
+                {ctxBusy ? t('live.ctx.compiling') : t('live.ctx.compile')}
+              </button>
+              {ctxErr && <div className="mono" style={{ fontSize: 10.5, color: '#fca5a5', marginTop: 8, lineHeight: 1.5 }}>{ctxErr}</div>}
+            </div>
+          )}
 
           <Section label={isInt ? t('live.section.scenarioInterview') : t('live.section.scenarioSales')} />
           <textarea value={scenario} onChange={e => setScenario(e.target.value)} rows={2}

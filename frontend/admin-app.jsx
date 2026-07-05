@@ -42,8 +42,8 @@ const Kpi = ({ label, value, unit, delta, deltaDir, sparkId, data }) => {
 };
 
 /* ----------------------------- TOP BAR ----------------------------- */
-const NAV_ITEMS = ['equipo', 'preguntas', 'reportes', 'ajustes'];
-const navLabel = (id) => ({ equipo: window.L('Equipo','Team'), preguntas: window.L('Preguntas','Questions'), reportes: window.L('Reportes','Reports'), ajustes: window.L('Ajustes','Settings') }[id]);
+const NAV_ITEMS = ['equipo', 'contextos', 'preguntas', 'reportes', 'ajustes'];
+const navLabel = (id) => ({ equipo: window.L('Equipo','Team'), contextos: window.L('Vacantes & Productos','Vacancies & Products'), preguntas: window.L('Preguntas','Questions'), reportes: window.L('Reportes','Reports'), ajustes: window.L('Ajustes','Settings') }[id]);
 
 const AdminTop = ({ user, page, onNav, onLogout, onProfile, tokens, onRecharge }) => {
   const lang = window.useLang(); const L = window.L;
@@ -460,6 +460,133 @@ const QuestionEditor = ({ question, onSave, onClose }) => {
         </div>
       </form>
     </div>
+  );
+};
+
+/* ----------------------- VACANTES & PRODUCTOS ----------------------- */
+/* Reusable session contexts: the admin loads a vacancy/product once and every
+   candidate/seller gets evaluated against its compiled brief. */
+const ContextosView = () => {
+  window.useLang(); const L = window.L;
+  const [kind, setKind] = useState('puesto');
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [title, setTitle] = useState('');
+  const [rawText, setRawText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [expanded, setExpanded] = useState(null);   // id → detail (brief)
+  const [detail, setDetail] = useState(null);
+
+  const reload = (k) => {
+    setLoading(true);
+    window.ApexAPI.listContexts(k)
+      .then(setItems).catch(() => setItems([])).finally(() => setLoading(false));
+  };
+  useEffect(() => { reload(kind); setExpanded(null); setDetail(null); }, [kind]);
+
+  const create = async () => {
+    setErr('');
+    if (title.trim().length < 3 || rawText.trim().length < 30) {
+      setErr(L('Poné un título y al menos un párrafo de texto.', 'Add a title and at least a paragraph of text.'));
+      return;
+    }
+    setBusy(true);
+    try {
+      await window.ApexAPI.createContext(kind, title.trim(), rawText.trim());
+      setTitle(''); setRawText('');
+      reload(kind);
+    } catch (e) {
+      setErr((L('No se pudo compilar: ', 'Compilation failed: ')) + (e.message || ''));
+    } finally { setBusy(false); }
+  };
+
+  const remove = async (id) => {
+    try { await window.ApexAPI.deleteContext(id); reload(kind); } catch (_) {}
+  };
+
+  const toggleDetail = async (id) => {
+    if (expanded === id) { setExpanded(null); setDetail(null); return; }
+    setExpanded(id); setDetail(null);
+    try { setDetail(await window.ApexAPI.getContext(id)); } catch (_) { setDetail(null); }
+  };
+
+  const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: '#fff', fontSize: 13, boxSizing: 'border-box' };
+
+  return (
+    <div className="s-stage"><div className="s-wrap" style={{ maxWidth: 860, padding: 24 }}>
+      <h1 style={{ fontSize: 24, fontWeight: 200, letterSpacing: '-0.02em', marginBottom: 4 }}>
+        {L('Vacantes & Productos', 'Vacancies & Products')}
+      </h1>
+      <p style={{ fontSize: 13, color: 'var(--ink-50)', lineHeight: 1.6, marginBottom: 20 }}>
+        {L('Cargá una vacante o producto una vez: la IA lo compila en un brief y todas las sesiones se orientan y evalúan contra ese contexto.',
+           'Load a vacancy or product once: the AI compiles it into a brief and every session is steered and graded against that context.')}
+      </p>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
+        {[['puesto', L('Vacantes (entrevistas)', 'Vacancies (interviews)')], ['producto', L('Productos (pitch)', 'Products (pitch)')]].map(([id, lbl]) => (
+          <button key={id} className="btn" onClick={() => setKind(id)}
+            style={{ padding: '9px 16px', fontSize: 12.5, background: kind === id ? 'rgba(158,245,190,0.12)' : undefined, borderColor: kind === id ? 'rgba(158,245,190,0.4)' : undefined }}>
+            {lbl}
+          </button>
+        ))}
+      </div>
+
+      <div className="glass" style={{ padding: 18, marginBottom: 22 }}>
+        <div className="mono" style={{ fontSize: 10, color: 'var(--ink-40)', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 12 }}>
+          {kind === 'puesto' ? L('Nueva vacante', 'New vacancy') : L('Nuevo producto', 'New product')}
+        </div>
+        <input value={title} onChange={e => setTitle(e.target.value)} style={{ ...inputStyle, marginBottom: 8 }}
+          placeholder={kind === 'puesto' ? L('Título (ej: Desarrollador Backend Senior)', 'Title (e.g. Senior Backend Developer)') : L('Nombre del producto', 'Product name')} />
+        <textarea value={rawText} onChange={e => setRawText(e.target.value)} rows={6}
+          style={{ ...inputStyle, fontFamily: 'inherit', resize: 'vertical', marginBottom: 10 }}
+          placeholder={kind === 'puesto'
+            ? L('Pegá la descripción del puesto (responsabilidades, requisitos, seniority)…', 'Paste the job description (responsibilities, requirements, seniority)…')
+            : L('Pegá la descripción del producto, mercado, cliente objetivo y diferenciales…', 'Paste the product, market, target buyer and differentiators…')} />
+        <button className="btn btn-primary" onClick={create} disabled={busy}
+          style={{ padding: '11px 18px', fontSize: 12.5, opacity: busy ? 0.7 : 1 }}>
+          {busy ? L('Compilando con IA…', 'Compiling with AI…') : L('Compilar y guardar', 'Compile & save')}
+        </button>
+        {err && <div className="mono" style={{ fontSize: 10.5, color: '#fca5a5', marginTop: 10, lineHeight: 1.5 }}>{err}</div>}
+      </div>
+
+      {loading ? (
+        <div className="mono" style={{ fontSize: 11, color: 'var(--ink-40)' }}>{L('Cargando…', 'Loading…')}</div>
+      ) : items.length === 0 ? (
+        <div className="mono" style={{ fontSize: 11, color: 'var(--ink-40)' }}>
+          {L('Todavía no hay contextos de este tipo.', 'No contexts of this kind yet.')}
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gap: 10 }}>
+          {items.map(c => (
+            <div key={c.id} className="glass" style={{ padding: '14px 18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => toggleDetail(c.id)}>
+                  <div style={{ fontSize: 14, fontWeight: 400 }}>{c.title}</div>
+                  <div className="mono" style={{ fontSize: 9.5, color: 'var(--ink-35)', marginTop: 3 }}>
+                    {c.created_at ? new Date(c.created_at).toLocaleDateString() : ''} · {expanded === c.id ? L('clic para cerrar', 'click to close') : L('clic para ver el brief', 'click to view brief')}
+                  </div>
+                </div>
+                <button className="btn" onClick={() => remove(c.id)} style={{ padding: '7px 12px', fontSize: 11.5, color: '#fca5a5' }}>
+                  {L('Desactivar', 'Deactivate')}
+                </button>
+              </div>
+              {expanded === c.id && detail && detail.brief && (
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.07)', fontSize: 12.5, lineHeight: 1.6, color: 'var(--ink-70)' }}>
+                  <div style={{ marginBottom: 8 }}>{detail.brief.summary}</div>
+                  <div className="mono" style={{ fontSize: 9.5, color: 'var(--ink-40)', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 4 }}>{L('Competencias', 'Competencies')}</div>
+                  <div style={{ marginBottom: 8 }}>{(detail.brief.competencies || []).join(' · ')}</div>
+                  <div className="mono" style={{ fontSize: 9.5, color: 'var(--ink-40)', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 4 }}>{L('Preguntas semilla', 'Seed questions')}</div>
+                  <ul style={{ margin: 0, paddingLeft: 18 }}>
+                    {(detail.brief.seed_questions || []).map((q, i) => <li key={i}>{q}</li>)}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div></div>
   );
 };
 
@@ -1239,6 +1366,7 @@ const AdminApp = () => {
     <div id="app">
       <div className="s-shell">
         <AdminTop user={user} page={page} onNav={setPage} onLogout={handleLogout} onProfile={openProfile} tokens={tokens} onRecharge={() => recharge(500)}/>
+        {page === 'contextos' && <ContextosView/>}
         {page === 'preguntas' && <PreguntasView/>}
         {page === 'reportes'  && <ReportesView/>}
         {page === 'ajustes'   && <AjustesView onLogout={handleLogout}/>}

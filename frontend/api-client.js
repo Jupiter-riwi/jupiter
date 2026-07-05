@@ -186,11 +186,14 @@
     return body.data || body;
   },
 
-  async createEvaluation(title) {
+  async createEvaluation(title, extra) {
     console.log('[ApexAPI] createEvaluation called, token:', !!this._token);
+    const payload = { title };
+    if (extra && extra.contextId) payload.context_id = extra.contextId;
+    if (extra && extra.difficulty) payload.difficulty = extra.difficulty;
     const res = await this._fetchAuth(API_BASE + '/api/evaluations', {
       method: 'POST',
-      body: JSON.stringify({ title }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       if (res.status === 401) throw new Error('Sesion expirada. Volve a iniciar sesion.');
@@ -250,7 +253,7 @@
   // ── Live conversational agent ──────────────────────────────────────────
   // Builds the WebSocket URL for a real-time session. The JWT travels as a
   // query param because browsers can't set headers on a WebSocket.
-  liveWsUrl({ mode, role, level, lang, scenario } = {}) {
+  liveWsUrl({ mode, role, level, lang, scenario, contextId } = {}) {
     // Same-origin (API_BASE === '') in production: derive ws/wss from the page
     // origin so HTTPS pages use WSS. Otherwise swap http->ws on the base.
     const wsBase = API_BASE
@@ -263,12 +266,45 @@
     if (level) p.set('level', level);
     if (lang) p.set('lang', lang);
     if (scenario) p.set('scenario', scenario);
+    if (contextId) p.set('context_id', contextId);
     return wsBase + '/api/live/ws?' + p.toString();
   },
 
   async livePersonas() {
     const res = await fetch(API_BASE + '/api/live/personas');
     if (!res.ok) throw new Error('Live personas failed: ' + res.status);
+    return res.json();
+  },
+
+  // ── Session contexts (vacantes / productos) ────────────────────────────
+  // A context is pasted raw text (JD / CV / product blurb) the backend compiles
+  // once into a structured brief that steers the live agent and the scoring.
+  async listContexts(kind) {
+    const q = kind ? '?kind=' + encodeURIComponent(kind) : '';
+    const res = await this._fetchAuth(API_BASE + '/api/contexts' + q, { method: 'GET' });
+    if (!res.ok) throw new Error('List contexts failed: ' + res.status);
+    const body = await res.json();
+    return body.data || [];
+  },
+
+  async createContext(kind, title, rawText) {
+    const res = await this._fetchAuth(API_BASE + '/api/contexts', {
+      method: 'POST',
+      body: JSON.stringify({ kind, title, raw_text: rawText }),
+    });
+    if (!res.ok) throw new Error(await this._errorMessage(res, 'Create context failed'));
+    return res.json();
+  },
+
+  async getContext(id) {
+    const res = await this._fetchAuth(API_BASE + '/api/contexts/' + id, { method: 'GET' });
+    if (!res.ok) throw new Error('Get context failed: ' + res.status);
+    return res.json();
+  },
+
+  async deleteContext(id) {
+    const res = await this._fetchAuth(API_BASE + '/api/contexts/' + id, { method: 'DELETE' });
+    if (!res.ok) throw new Error(await this._errorMessage(res, 'Delete context failed'));
     return res.json();
   },
 
