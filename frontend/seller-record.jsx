@@ -128,10 +128,14 @@ const RecordingStage = ({ question, onClose, onComplete }) => {
   // ── record ────────────────────────────────────────────────────────────────
   const startRec = () => {
     chunksRef.current = [];
-    const rec = new MediaRecorder(streamRef.current, { mimeType: 'video/webm;codecs=vp9,opus' });
+    // iOS Safari doesn't support any webm codec (isTypeSupported returns false
+    // for all of them) — fall back to mp4/h264 there instead of throwing.
+    const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4;codecs=h264,aac', 'video/mp4']
+      .find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m));
+    const rec = mime ? new MediaRecorder(streamRef.current, { mimeType: mime }) : new MediaRecorder(streamRef.current);
     rec.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
     rec.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+      const blob = new Blob(chunksRef.current, { type: rec.mimeType || 'video/webm' });
       recordedBlobRef.current = blob;
       if (previewRef.current) {
         previewRef.current.src = URL.createObjectURL(blob);

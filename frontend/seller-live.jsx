@@ -304,10 +304,13 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore, initia
       if (videoSelfRef.current) { try { videoSelfRef.current.srcObject = stream; videoSelfRef.current.play().catch(() => {}); } catch (_) {} }
       // record the whole session (video+audio) for the evaluation pipeline
       try {
-        const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
-          .find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || 'video/webm';
+        // iOS Safari doesn't support any webm codec (isTypeSupported returns
+        // false for all of them) — fall back to mp4/h264 there instead of
+        // silently losing the body-language recording.
+        const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4;codecs=h264,aac', 'video/mp4']
+          .find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m));
         recordedChunksRef.current = [];
-        const rec = new MediaRecorder(stream, { mimeType: mime });
+        const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
         rec.ondataavailable = (e) => { if (e.data && e.data.size) recordedChunksRef.current.push(e.data); };
         rec.start(1000);
         mediaRecorderRef.current = rec;
@@ -458,7 +461,7 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore, initia
     });
     const modeMeta = (id) => id === 'presentacion' ? [t('mode.sales'), t('mode.salesDesc'), 'sparkle'] : [t('mode.interview'), t('mode.interviewDesc'), 'user'];
     return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(8,8,11,0.97)', backdropFilter: 'blur(14px)', overflowY: 'auto' }}>
+      <div className="live-modal" style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(8,8,11,0.97)', backdropFilter: 'blur(14px)', overflowY: 'auto' }}>
         <div className="s-wrap" style={{ maxWidth: 760, margin: '0 auto', padding: '36px 24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <button className="btn" onClick={leave}>{t('live.back')}</button>

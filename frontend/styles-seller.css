@@ -611,3 +611,91 @@
   box-shadow: 0 0 40px rgba(255,255,255,0.2);
   transform: translateY(-1px);
 }
+
+/* ============================================================
+   MOBILE RESPONSIVE — seller app only (Android/iOS)
+   Everything below is breakpoint-gated (max-width) and scoped to
+   seller-only selectors (.s-*, .r-*, .rec-*, .auth-*, .live-modal),
+   so the admin console (.shell/.page, styles-admin.css) and desktop
+   widths are never affected.
+   ============================================================ */
+@media (max-width: 768px) {
+  /* Respect notches / home indicator when installed as a PWA, and use the
+     dynamic viewport unit so iOS Safari's address bar doesn't clip content. */
+  .s-shell {
+    height: 100dvh;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .s-topbar, .auth-topbar-row { padding: 0 16px !important; }
+  .s-stage { padding: 20px 16px 40px !important; }
+
+  /* Auth top bar: keep the row from squeezing the username/logout. */
+  .auth-username { display: none; }
+  .auth-logout-label { display: none; }
+
+  /* Tab strip: 7 tabs never fit one row on a phone — scroll instead of clip. */
+  .auth-tabs-row {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    justify-content: flex-start !important;
+    padding: 0 12px !important;
+  }
+  .auth-tabs-row::-webkit-scrollbar { display: none; }
+  .auth-tabs-row button { flex: 0 0 auto; padding: 10px 12px !important; font-size: 12px !important; }
+
+  /* iOS Safari auto-zooms on input focus below 16px; prevent it app-wide. */
+  .s-shell input, .s-shell textarea, .s-shell select { font-size: 16px !important; }
+
+  /* Two/three-column dashboards & cards -> single column */
+  .s-grid-2 { grid-template-columns: 1fr !important; gap: 14px !important; }
+  .r-grid { grid-template-columns: 1fr !important; }
+  .transcript-card { grid-column: 1 / -1 !important; }
+  .radar-wrap { grid-template-columns: 1fr !important; }
+  .radar-wrap svg { max-width: 240px; margin: 0 auto; }
+
+  /* Results hero: 220px score circle + text side-by-side -> stacked */
+  .r-hero {
+    grid-template-columns: 1fr !important;
+    padding: 24px !important;
+    text-align: center;
+    gap: 20px !important;
+  }
+  .r-hero .score-circle { width: 150px !important; height: 150px !important; margin: 0 auto; }
+  .r-hero .score-circle .center .v { font-size: 42px !important; }
+  .r-hero .summary .actions { justify-content: center; flex-wrap: wrap; }
+
+  /* Transcript rows: drop the timestamp column, it's noise on a phone */
+  .tr-row { grid-template-columns: 1fr auto !important; }
+  .tr-row .ts { display: none; }
+
+  /* History rows keep their 4-col grid but tighten it */
+  .h-row { grid-template-columns: 40px 1fr auto !important; gap: 10px !important; }
+  .h-row .h-trend { display: none; }
+  .h-score { width: 40px !important; height: 40px !important; font-size: 12px !important; }
+
+  /* Recording stage: use the full screen, no floating card */
+  .rec-stage { padding: 0 !important; }
+  .rec-frame {
+    width: 100% !important;
+    max-height: none !important;
+    height: 100dvh !important;
+    border-radius: 0 !important;
+    padding: 16px !important;
+    padding-top: calc(16px + env(safe-area-inset-top));
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+  .rec-video .question-overlay .q-text { max-width: 100%; font-size: 14px; }
+  .rec-controls { flex-wrap: wrap; gap: 12px !important; }
+
+  /* Live pitch onboarding: 3-col role/level pickers are too tight on a phone */
+  .live-modal .s-wrap { padding: 24px 16px !important; }
+  .live-modal [style*="repeat(3,1fr)"] { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+@media (max-width: 480px) {
+  .r-hero .summary h2 { font-size: 18px !important; }
+  .live-modal [style*="repeat(3,1fr)"] { grid-template-columns: 1fr !important; }
+  .live-modal [style*="1fr 1fr"] { grid-template-columns: 1fr !important; }
+}

@@ -2,14 +2,56 @@
 <html lang="es">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <base href="/"/>
 <title>Apex Vision · Evalúa tu pitch comercial</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="styles.css"/>
 <link rel="stylesheet" href="styles-seller.css"/>
+<script>
+/* PWA install + service worker — mobile only (Android/iOS). Desktop browsers
+   never get the manifest link, the SW, or an install prompt. */
+(function () {
+  var isMobile = window.matchMedia('(pointer: coarse)').matches
+    || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+    || window.matchMedia('(max-width: 820px)').matches;
+  if (!isMobile) return;
+
+  document.documentElement.classList.add('is-mobile-pwa');
+
+  var manifest = document.createElement('link');
+  manifest.rel = 'manifest';
+  manifest.href = 'manifest.webmanifest';
+  document.head.appendChild(manifest);
+
+  var meta = [
+    ['theme-color', '#050507'],
+    ['apple-mobile-web-app-capable', 'yes'],
+    ['apple-mobile-web-app-status-bar-style', 'black-translucent'],
+    ['apple-mobile-web-app-title', 'Apex Vision'],
+    ['mobile-web-app-capable', 'yes'],
+  ];
+  meta.forEach(function (pair) {
+    var m = document.createElement('meta');
+    m.name = pair[0]; m.content = pair[1];
+    document.head.appendChild(m);
+  });
+
+  var appleIcon = document.createElement('link');
+  appleIcon.rel = 'apple-touch-icon';
+  appleIcon.href = 'icons/apple-touch-icon.png';
+  document.head.appendChild(appleIcon);
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () {});
+    });
+  }
+})();
+</script>
 </head>
 <body>
 <canvas id="particles"></canvas>

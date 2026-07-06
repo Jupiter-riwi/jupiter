@@ -347,7 +347,7 @@ function ApexApp() {
     return (
       <div style={{backdropFilter:'blur(20px) saturate(140%)', background:'rgba(10,10,12,0.55)', borderBottom:'1px solid rgba(255,255,255,0.07)', position:'relative', zIndex:5}}>
         {/* fila logo + usuario */}
-        <div style={{display:'flex',alignItems:'center',height:56,padding:'0 28px'}}>
+        <div className="auth-topbar-row" style={{display:'flex',alignItems:'center',height:56,padding:'0 28px'}}>
           <div style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}} onClick={goLanding}>
             <ApexLogo size={36} />
             <div style={{lineHeight:1}}>
@@ -363,18 +363,18 @@ function ApexApp() {
               onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.09)'}
               onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.05)'}>
               <SIcon name="user" size={13} stroke={1.5} />
-              <span style={{fontSize:12,color:'var(--ink-70)',letterSpacing:'0.02em'}}>{displayName}</span>
+              <span className="auth-username" style={{fontSize:12,color:'var(--ink-70)',letterSpacing:'0.02em'}}>{displayName}</span>
             </div>
             <button className="btn" onClick={handleLogout}
               style={{display:'flex',alignItems:'center',gap:6,fontSize:11.5,padding:'6px 14px',opacity:0.75}}>
               <SIcon name="logout" size={13} stroke={1.5} />
-              {T('nav.logout')}
+              <span className="auth-logout-label">{T('nav.logout')}</span>
             </button>
           </div>
         </div>
-        {/* fila tabs — centradas */}
+        {/* fila tabs — centradas, scrollea horizontal en mobile */}
         {isMain && (
-          <div style={{display:'flex',gap:2,padding:'0 24px', borderTop:'1px solid rgba(255,255,255,0.05)', justifyContent:'center'}}>
+          <div className="auth-tabs-row" style={{display:'flex',gap:2,padding:'0 24px', borderTop:'1px solid rgba(255,255,255,0.05)', justifyContent:'center'}}>
             {TABS.map(t => (
               <button key={t.id} onClick={() => setTab(t.id)}
                 style={{

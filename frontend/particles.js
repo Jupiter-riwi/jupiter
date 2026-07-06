@@ -6,10 +6,16 @@
   const canvas = document.getElementById('particles');
   const ctx = canvas.getContext('2d');
 
-  let DPR = Math.min(window.devicePixelRatio || 1, 2);
+  // Mobile devices pay for this canvas in battery/CPU with no mouse to react
+  // to, so scale it down there. Desktop behavior is untouched.
+  const IS_MOBILE = window.matchMedia('(pointer: coarse)').matches
+    || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+    || window.matchMedia('(max-width: 820px)').matches;
+
+  let DPR = Math.min(window.devicePixelRatio || 1, IS_MOBILE ? 1.5 : 2);
   let W = 0, H = 0;
   const particles = [];
-  const COUNT = 60;           // reduced from 70 — fewer pairs = faster loop
+  const COUNT = IS_MOBILE ? 26 : 60;  // fewer nodes on mobile; 60 on desktop (down from 70)
   const MAX_DIST = 140;       // reduced from 160
   const MOUSE_DIST = 200;     // reduced from 220
   const MAX_DIST_SQ = MAX_DIST * MAX_DIST;
@@ -17,6 +23,7 @@
 
   const mouse = { x: -9999, y: -9999, active: false };
   let pendingMouse = null;    // rAF-throttled mouse position
+  let paused = false;
 
   function resize() {
     W = window.innerWidth;
@@ -121,7 +128,7 @@
     }
     ctx.globalAlpha = 1;
 
-    requestAnimationFrame(step);
+    if (!paused) requestAnimationFrame(step);
   }
 
   // passive: true — never blocks scrolling or input events
@@ -130,6 +137,15 @@
     pendingMouse = e; // store only — processed inside rAF to throttle automatically
   }, { passive: true });
   window.addEventListener('mouseleave', () => { mouse.active = false; }, { passive: true });
+
+  if (IS_MOBILE) {
+    // Backgrounded/installed PWA: stop burning CPU/battery until it's visible again.
+    document.addEventListener('visibilitychange', () => {
+      const wasPaused = paused;
+      paused = document.hidden;
+      if (wasPaused && !paused) step();
+    });
+  }
 
   resize();
   spawn();
