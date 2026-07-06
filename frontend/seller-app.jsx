@@ -12,15 +12,15 @@ function NewEvalChooser({ onLive, onRecord, onBack }) {
   const OPTIONS = [
     { id: 'pitch', icon: 'sparkle', accent: '#60a5fa',
       title: L('Pitch en vivo', 'Live pitch'),
-      desc: L('Presentá a un comprador IA que te escucha, repregunta y objeta en tiempo real. Con cámara y análisis de lenguaje corporal.', 'Pitch to an AI buyer that listens, follows up and objects in real time. With camera and body-language analysis.'),
+      desc: L('Presenta a un comprador IA que te escucha, repregunta y objeta en tiempo real. Con cámara y análisis de lenguaje corporal.', 'Pitch to an AI buyer that listens, follows up and objects in real time. With camera and body-language analysis.'),
       badge: L('NUEVO', 'NEW'), onClick: () => onLive('presentacion') },
     { id: 'interview', icon: 'user', accent: '#34d399',
       title: L('Entrevista en vivo', 'Live interview'),
-      desc: L('Practicá una entrevista laboral con un entrevistador IA (reclutador, hiring manager, líder técnico…). Con cámara.', 'Practice a job interview with an AI interviewer (recruiter, hiring manager, tech lead…). With camera.'),
+      desc: L('Practica una entrevista laboral con un entrevistador IA (reclutador, hiring manager, líder técnico…). Con cámara.', 'Practice a job interview with an AI interviewer (recruiter, hiring manager, tech lead…). With camera.'),
       badge: L('NUEVO', 'NEW'), onClick: () => onLive('entrevista') },
     { id: 'record', icon: 'video', accent: 'rgba(255,255,255,0.4)',
       title: L('Grabar y subir', 'Record & upload'),
-      desc: L('El modo clásico: grabás un pitch de 60–90s y la IA lo analiza (cuerpo, voz, discurso). Sin conversación.', 'The classic mode: record a 60–90s pitch and the AI analyzes it (body, voice, delivery). No conversation.'),
+      desc: L('El modo clásico: grabas un pitch de 60–90s y la IA lo analiza (cuerpo, voz, discurso). Sin conversación.', 'The classic mode: record a 60–90s pitch and the AI analyzes it (body, voice, delivery). No conversation.'),
       badge: null, onClick: onRecord },
   ];
   return (
@@ -29,7 +29,7 @@ function NewEvalChooser({ onLive, onRecord, onBack }) {
         <button className="btn" onClick={onBack} style={{ marginBottom: 22 }}>{L('← Volver', '← Back')}</button>
         <h1 style={{ fontSize: 28, fontWeight: 200, letterSpacing: '-0.02em', marginBottom: 6 }}>{L('Nueva evaluación', 'New evaluation')}</h1>
         <p style={{ fontSize: 14, color: 'var(--ink-50)', lineHeight: 1.6, marginBottom: 28 }}>
-          {L('Elegí cómo querés practicar tu comunicación comercial hoy.', 'Choose how you want to practice your sales communication today.')}
+          {L('Elige cómo quieres practicar tu comunicación comercial hoy.', 'Choose how you want to practice your sales communication today.')}
         </p>
         <div style={{ display: 'grid', gap: 14 }}>
           {OPTIONS.map(o => (
@@ -57,10 +57,176 @@ function NewEvalChooser({ onLive, onRecord, onBack }) {
   );
 }
 
+// ── shared auth components ──────────────────────────────────────────────────
+const AuthCard = ({ children }) => (
+  <div id="app">
+    <div className="s-shell">
+      <div style={{padding:'40px 24px'}}></div>
+      <div className="s-stage">
+        <div className="s-wrap" style={{maxWidth:420}}>
+          <div className="glass" style={{padding:36,textAlign:'center'}}>
+            <div style={{display:'flex',justifyContent:'center',marginBottom:16}}>
+              <ApexLogo size={44} />
+            </div>
+            <div style={{fontSize:22,fontWeight:200,letterSpacing:'-0.02em',marginBottom:4}}>Apex Vision</div>
+            <div className="mono" style={{fontSize:10,color:'var(--ink-40)',marginBottom:28,letterSpacing:'0.2em',textTransform:'uppercase'}}>
+              {T('auth.tagline')}
+            </div>
+            {children}
+          </div>
+        </div>
+      </div>
+    </div>
+    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+  </div>
+);
+
+const inputStyle = {width:'100%',padding:'11px 14px',borderRadius:8,border:'1px solid rgba(255,255,255,0.12)',background:'rgba(255,255,255,0.04)',color:'#fff',fontSize:13,boxSizing:'border-box'};
+const Spinner = () => <span style={{width:13,height:13,border:'2px solid rgba(255,255,255,0.3)',borderTopColor:'#fff',borderRadius:'50%',display:'inline-block',animation:'spin 0.7s linear infinite'}} />;
+const ErrorBox = ({ msg }) => msg ? (
+  <div style={{display:'flex',alignItems:'flex-start',gap:8,padding:'10px 12px',borderRadius:7,background:'rgba(252,165,165,0.08)',border:'1px solid rgba(252,165,165,0.2)'}}>
+    <span style={{color:'#fca5a5',fontSize:13,marginTop:1}}>!</span>
+    <span className="mono" style={{fontSize:11,color:'#fca5a5',lineHeight:1.55}}>{msg}</span>
+  </div>
+) : null;
+
 /* ============================================================
-   APEX VISION — app conectada al API Gateway real
-   Flujo: login → landing → selector → grabacion real → resultados reales
+   LOGIN FORM — isolated React.memo component
+   Keystrokes re-render ONLY this subtree, not ApexApp.
    ============================================================ */
+const LoginForm = React.memo(function LoginForm({ onSuccess, onGoRegister, expiredMsg }) {
+  const [email, setEmail]       = useState('seller.demo@jupiter.local');
+  const [password, setPassword] = useState('Demo1234!');
+  const [showPass, setShowPass] = useState(false);
+  const [error, setError]       = useState(expiredMsg || '');
+  const [busy, setBusy]         = useState(false);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+    setBusy(true);
+    try {
+      await window.ApexAPI.login(email, password);
+      let me = null;
+      try { me = await window.ApexAPI.getMe(); } catch (_) {}
+      onSuccess(me);
+    } catch (err) {
+      const msg = err.message || '';
+      if (msg.includes('401') || msg.includes('Login failed')) {
+        setError(T('auth.err.badCreds'));
+      } else {
+        setError(T('auth.err.server'));
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <form onSubmit={handleLogin} style={{display:'grid',gap:12,textAlign:'left'}}>
+        <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+          placeholder={T('auth.email')} required autoComplete="email" style={inputStyle} />
+        <div style={{position:'relative'}}>
+          <input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
+            placeholder={T('auth.password')} required autoComplete="current-password"
+            style={{...inputStyle, padding:'11px 42px 11px 14px'}} />
+          <button type="button" onClick={() => setShowPass(v => !v)}
+            style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'var(--ink-40)',padding:4,display:'flex',alignItems:'center'}}>
+            <SIcon name={showPass ? 'eye-off' : 'eye'} size={15} stroke={1.5} />
+          </button>
+        </div>
+        <button type="submit" className="btn btn-primary" disabled={busy}
+          style={{width:'100%',justifyContent:'center',padding:'13px',opacity:busy?0.7:1,transition:'opacity 150ms'}}>
+          {busy ? <span style={{display:'flex',alignItems:'center',gap:8,justifyContent:'center'}}><Spinner /> {T('auth.connecting')}</span> : T('auth.login')}
+        </button>
+        <ErrorBox msg={error} />
+      </form>
+      <div style={{marginTop:20,textAlign:'center'}}>
+        <span style={{fontSize:12,color:'var(--ink-40)'}}>{T('auth.noAccount')} </span>
+        <button onClick={onGoRegister}
+          style={{background:'none',border:'none',cursor:'pointer',fontSize:12,color:'var(--ink-70)',textDecoration:'underline',textUnderlineOffset:3,padding:0}}>
+          {T('auth.register')}
+        </button>
+      </div>
+    </>
+  );
+});
+
+/* ============================================================
+   REGISTER FORM — isolated React.memo component
+   ============================================================ */
+const RegisterForm = React.memo(function RegisterForm({ onSuccess, onGoLogin }) {
+  const [regEmail, setRegEmail]       = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regConfirm, setRegConfirm]   = useState('');
+  const [regCode, setRegCode]         = useState('');
+  const [showRegPass, setShowRegPass] = useState(false);
+  const [error, setError]             = useState('');
+  const [busy, setBusy]               = useState(false);
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (regPassword !== regConfirm) { setError(T('auth.err.mismatch')); return; }
+    if (regPassword.length < 6) { setError(T('auth.err.short')); return; }
+    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9])/.test(regPassword)) { setError(T('auth.err.weak')); return; }
+    if (!regCode.trim()) { setError(T('auth.err.invalidCode')); return; }
+    setBusy(true);
+    try {
+      await window.ApexAPI.register(regEmail, regPassword, regCode);
+      let me = null;
+      try { me = await window.ApexAPI.getMe(); } catch (_) {}
+      onSuccess(me);
+    } catch (err) {
+      const msg = err.message || '';
+      if (msg.includes('already registered')) {
+        setError(T('auth.err.exists'));
+      } else if (msg.includes('registration code')) {
+        setError(T('auth.err.invalidCode'));
+      } else {
+        setError(T('auth.err.create'));
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <form onSubmit={handleRegister} style={{display:'grid',gap:12,textAlign:'left'}}>
+        <input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)}
+          placeholder={T('auth.email')} required autoComplete="email" style={inputStyle} />
+        <div style={{position:'relative'}}>
+          <input type={showRegPass ? 'text' : 'password'} value={regPassword} onChange={e => setRegPassword(e.target.value)}
+            placeholder={T('auth.passwordMin')} required autoComplete="new-password"
+            style={{...inputStyle, padding:'11px 42px 11px 14px'}} />
+          <button type="button" onClick={() => setShowRegPass(v => !v)}
+            style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'var(--ink-40)',padding:4,display:'flex',alignItems:'center'}}>
+            <SIcon name={showRegPass ? 'eye-off' : 'eye'} size={15} stroke={1.5} />
+          </button>
+        </div>
+        <input type="password" value={regConfirm} onChange={e => setRegConfirm(e.target.value)}
+          placeholder={T('auth.confirm')} required autoComplete="new-password" style={inputStyle} />
+        <input type="text" value={regCode} onChange={e => setRegCode(e.target.value)}
+          placeholder={T('auth.registrationCode')} required style={inputStyle} />
+        <button type="submit" className="btn btn-primary" disabled={busy}
+          style={{width:'100%',justifyContent:'center',padding:'13px',opacity:busy?0.7:1,transition:'opacity 150ms'}}>
+          {busy ? <span style={{display:'flex',alignItems:'center',gap:8,justifyContent:'center'}}><Spinner /> {T('auth.creating')}</span> : T('auth.createAccount')}
+        </button>
+        <ErrorBox msg={error} />
+      </form>
+      <div style={{marginTop:20,textAlign:'center'}}>
+        <span style={{fontSize:12,color:'var(--ink-40)'}}>{T('auth.haveAccount')} </span>
+        <button onClick={onGoLogin}
+          style={{background:'none',border:'none',cursor:'pointer',fontSize:12,color:'var(--ink-70)',textDecoration:'underline',textUnderlineOffset:3,padding:0}}>
+          {T('auth.signin')}
+        </button>
+      </div>
+    </>
+  );
+});
+
 function ApexApp() {
   const [page, setPage]           = useState('login');   // login | register | landing | scenario | results
   const [tab, setTab]             = useState('dashboard'); // dashboard | home | progress | coaching | plan | settings
@@ -70,24 +236,10 @@ function ApexApp() {
   const lang = window.useLang();
   const [evaluationData, setEvalData] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
-
-  // ── auth state ────────────────────────────────────────────────────────────
-  const [email, setEmail]           = useState('seller.demo@jupiter.local');
-  const [password, setPassword]     = useState('Demo1234!');
-  const [showPass, setShowPass]     = useState(false);
-  const [loginError, setLoginError] = useState('');
-  const [loginBusy, setLoginBusy]   = useState(false);
   const [user, setUser]             = useState(null);
+  const [expiredMsg, setExpiredMsg] = useState('');
 
-  // ── register state ────────────────────────────────────────────────────────
-  const [regEmail, setRegEmail]         = useState('');
-  const [regPassword, setRegPassword]   = useState('');
-  const [regConfirm, setRegConfirm]     = useState('');
-  const [showRegPass, setShowRegPass]   = useState(false);
-  const [regError, setRegError]         = useState('');
-  const [regBusy, setRegBusy]           = useState(false);
-
-  // ── restore session on load so a page reload keeps you logged in ──────────
+  // ── restore session on load ───────────────────────────────────────────────
   useEffect(() => {
     (async () => {
       const hasToken = await window.ApexAPI.restoreToken();
@@ -99,7 +251,7 @@ function ApexApp() {
       setAuthChecked(true);
     })();
     const onExpired = () => {
-      setLoginError(T('auth.expired'));
+      setExpiredMsg(T('auth.expired'));
       setPage('login');
       setScenario(null);
       setRecording(false);
@@ -109,52 +261,9 @@ function ApexApp() {
     return () => window.removeEventListener('apex:session-expired', onExpired);
   }, []);
 
-  // ── login ─────────────────────────────────────────────────────────────────
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setLoginError('');
-    setLoginBusy(true);
-    try {
-      await window.ApexAPI.login(email, password);
-      try {
-        const me = await window.ApexAPI.getMe();
-        setUser(me);
-      } catch (_) {}
-      setPage('landing');
-    } catch (err) {
-      const msg = err.message || '';
-      if (msg.includes('401') || msg.includes('Login failed')) {
-        setLoginError(T('auth.err.badCreds'));
-      } else {
-        setLoginError(T('auth.err.server'));
-      }
-    } finally {
-      setLoginBusy(false);
-    }
-  };
 
-  // ── register ──────────────────────────────────────────────────────────────
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setRegError('');
-    if (regPassword !== regConfirm) { setRegError(T('auth.err.mismatch')); return; }
-    if (regPassword.length < 6) { setRegError(T('auth.err.short')); return; }
-    setRegBusy(true);
-    try {
-      await window.ApexAPI.register(regEmail, regPassword, DEMO_TENANT_ID);
-      try { const me = await window.ApexAPI.getMe(); setUser(me); } catch (_) {}
-      setPage('landing');
-    } catch (err) {
-      const msg = err.message || '';
-      if (msg.includes('already registered')) {
-        setRegError(T('auth.err.exists'));
-      } else {
-        setRegError(T('auth.err.create'));
-      }
-    } finally {
-      setRegBusy(false);
-    }
-  };
+
+
 
   // ── navigation ────────────────────────────────────────────────────────────
   const goLanding   = () => { setPage('landing'); setTab('dashboard'); setScenario(null); setEvalData(null); };
@@ -194,70 +303,19 @@ function ApexApp() {
     setPage('results');
   };
 
-  // ── shared card shell ─────────────────────────────────────────────────────
-  const AuthCard = ({ children }) => (
-    <div id="app">
-      <div className="s-shell">
-        <div style={{padding:'40px 24px'}}></div>
-        <div className="s-stage">
-          <div className="s-wrap" style={{maxWidth:420}}>
-            <div className="glass" style={{padding:36,textAlign:'center'}}>
-              <div style={{display:'flex',justifyContent:'center',marginBottom:16}}>
-                <ApexLogo size={44} />
-              </div>
-              <div style={{fontSize:22,fontWeight:200,letterSpacing:'-0.02em',marginBottom:4}}>Apex Vision</div>
-              <div className="mono" style={{fontSize:10,color:'var(--ink-40)',marginBottom:28,letterSpacing:'0.2em',textTransform:'uppercase'}}>
-                {T('auth.tagline')}
-              </div>
-              {children}
-            </div>
-          </div>
-        </div>
-      </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
-  );
-
   // ── login / register screens ───────────────────────────────────────────────
   if (!authChecked) return null;
 
-  const inputStyle = {width:'100%',padding:'11px 14px',borderRadius:8,border:'1px solid rgba(255,255,255,0.12)',background:'rgba(255,255,255,0.04)',color:'#fff',fontSize:13,boxSizing:'border-box'};
-  const Spinner = () => <span style={{width:13,height:13,border:'2px solid rgba(255,255,255,0.3)',borderTopColor:'#fff',borderRadius:'50%',display:'inline-block',animation:'spin 0.7s linear infinite'}} />;
-  const ErrorBox = ({ msg }) => msg ? (
-    <div style={{display:'flex',alignItems:'flex-start',gap:8,padding:'10px 12px',borderRadius:7,background:'rgba(252,165,165,0.08)',border:'1px solid rgba(252,165,165,0.2)'}}>
-      <span style={{color:'#fca5a5',fontSize:13,marginTop:1}}>!</span>
-      <span className="mono" style={{fontSize:11,color:'#fca5a5',lineHeight:1.55}}>{msg}</span>
-    </div>
-  ) : null;
+  const handleAuthSuccess = (me) => { setUser(me); setPage('landing'); };
 
   if (page === 'login') {
     return (
       <AuthCard>
-        <form onSubmit={handleLogin} style={{display:'grid',gap:12,textAlign:'left'}}>
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-            placeholder={T('auth.email')} required autoComplete="email" style={inputStyle} />
-          <div style={{position:'relative'}}>
-            <input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
-              placeholder={T('auth.password')} required autoComplete="current-password"
-              style={{...inputStyle, padding:'11px 42px 11px 14px'}} />
-            <button type="button" onClick={() => setShowPass(v => !v)}
-              style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'var(--ink-40)',padding:4,display:'flex',alignItems:'center'}}>
-              <SIcon name={showPass ? 'eye-off' : 'eye'} size={15} stroke={1.5} />
-            </button>
-          </div>
-          <button type="submit" className="btn btn-primary" disabled={loginBusy}
-            style={{width:'100%',justifyContent:'center',padding:'13px',opacity:loginBusy?0.7:1,transition:'opacity 150ms'}}>
-            {loginBusy ? <span style={{display:'flex',alignItems:'center',gap:8,justifyContent:'center'}}><Spinner /> {T('auth.connecting')}</span> : T('auth.login')}
-          </button>
-          <ErrorBox msg={loginError} />
-        </form>
-        <div style={{marginTop:20,textAlign:'center'}}>
-          <span style={{fontSize:12,color:'var(--ink-40)'}}>{T('auth.noAccount')} </span>
-          <button onClick={() => { setLoginError(''); setPage('register'); }}
-            style={{background:'none',border:'none',cursor:'pointer',fontSize:12,color:'var(--ink-70)',textDecoration:'underline',textUnderlineOffset:3,padding:0}}>
-            {T('auth.register')}
-          </button>
-        </div>
+        <LoginForm
+          expiredMsg={expiredMsg}
+          onSuccess={handleAuthSuccess}
+          onGoRegister={() => { setExpiredMsg(''); setPage('register'); }}
+        />
       </AuthCard>
     );
   }
@@ -265,33 +323,10 @@ function ApexApp() {
   if (page === 'register') {
     return (
       <AuthCard>
-        <form onSubmit={handleRegister} style={{display:'grid',gap:12,textAlign:'left'}}>
-          <input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)}
-            placeholder={T('auth.email')} required autoComplete="email" style={inputStyle} />
-          <div style={{position:'relative'}}>
-            <input type={showRegPass ? 'text' : 'password'} value={regPassword} onChange={e => setRegPassword(e.target.value)}
-              placeholder={T('auth.passwordMin')} required autoComplete="new-password"
-              style={{...inputStyle, padding:'11px 42px 11px 14px'}} />
-            <button type="button" onClick={() => setShowRegPass(v => !v)}
-              style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'var(--ink-40)',padding:4,display:'flex',alignItems:'center'}}>
-              <SIcon name={showRegPass ? 'eye-off' : 'eye'} size={15} stroke={1.5} />
-            </button>
-          </div>
-          <input type="password" value={regConfirm} onChange={e => setRegConfirm(e.target.value)}
-            placeholder={T('auth.confirm')} required autoComplete="new-password" style={inputStyle} />
-          <button type="submit" className="btn btn-primary" disabled={regBusy}
-            style={{width:'100%',justifyContent:'center',padding:'13px',opacity:regBusy?0.7:1,transition:'opacity 150ms'}}>
-            {regBusy ? <span style={{display:'flex',alignItems:'center',gap:8,justifyContent:'center'}}><Spinner /> {T('auth.creating')}</span> : T('auth.createAccount')}
-          </button>
-          <ErrorBox msg={regError} />
-        </form>
-        <div style={{marginTop:20,textAlign:'center'}}>
-          <span style={{fontSize:12,color:'var(--ink-40)'}}>{T('auth.haveAccount')} </span>
-          <button onClick={() => { setRegError(''); setPage('login'); }}
-            style={{background:'none',border:'none',cursor:'pointer',fontSize:12,color:'var(--ink-70)',textDecoration:'underline',textUnderlineOffset:3,padding:0}}>
-            {T('auth.signin')}
-          </button>
-        </div>
+        <RegisterForm
+          onSuccess={handleAuthSuccess}
+          onGoLogin={() => setPage('login')}
+        />
       </AuthCard>
     );
   }

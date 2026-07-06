@@ -35,8 +35,8 @@ const SIcon = ({ name, size = 16, stroke = 1.4 }) => {
     case 'brain':     return <svg {...p}><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-1.04-4.54 3 3 0 0 1 .36-5.44 2.5 2.5 0 0 1 1.14-4.06A2.5 2.5 0 0 1 9.5 2"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 1.04-4.54 3 3 0 0 0-.36-5.44 2.5 2.5 0 0 0-1.14-4.06A2.5 2.5 0 0 0 14.5 2"/></svg>;
     case 'eye':       return <svg {...p}><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>;
     case 'eye-off':   return <svg {...p}><path d="M17.94 17.94A10.1 10.1 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>;
-    case 'user':      return <svg {...p}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
     case 'logout':    return <svg {...p}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>;
+    case 'copy':      return <svg {...p}><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>;
     default: return null;
   }
 };
@@ -151,10 +151,10 @@ const PublicLanding = ({ onStart }) => {
           {L('Apex Vision · Evaluación comercial con IA', 'Apex Vision · AI sales evaluation')}
         </div>
         <h1 style={{ fontSize: 54, fontWeight: 200, letterSpacing: '-0.03em', lineHeight: 1.05, marginBottom: 22 }}>
-          {L('Grabate.', 'Record yourself.')}<br/>{L('Mejorá tu pitch.', 'Improve your pitch.')}
+          {L('Grábate.', 'Record yourself.')}<br/>{L('Mejora tu pitch.', 'Improve your pitch.')}
         </h1>
         <p style={{ fontSize: 16, color: 'var(--ink-70)', maxWidth: '48ch', margin: '0 auto 36px', lineHeight: 1.65 }}>
-          {L('Presentá tu producto, servicio o idea y recibí un análisis detallado de tu comunicación: cuerpo, voz y discurso.', 'Present your product, service or idea and get a detailed analysis of your communication: body, voice and delivery.')}
+          {L('Presenta tu producto, servicio o idea y recibe un análisis detallado de tu comunicación: cuerpo, voz y discurso.', 'Present your product, service or idea and get a detailed analysis of your communication: body, voice and delivery.')}
         </p>
         <button className="btn btn-primary" onClick={onStart}
           style={{ padding: '16px 34px', fontSize: 13, letterSpacing: '0.14em', textTransform: 'uppercase', gap: 10 }}>
@@ -185,10 +185,10 @@ const PublicLanding = ({ onStart }) => {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24 }}>
           {[
-            ['01', L('Elegís el escenario', 'Pick the scenario'),   L('Seleccionás el tipo de pitch que querés practicar.', 'Choose the type of pitch you want to practice.')],
-            ['02', L('Te grabás', 'Record yourself'),             L('Usamos tu cámara y micrófono — nada se sube sin tu ok.', 'We use your camera and mic — nothing is uploaded without your ok.')],
+            ['01', L('Eliges el escenario', 'Pick the scenario'),   L('Seleccionas el tipo de pitch que quieres practicar.', 'Choose the type of pitch you want to practice.')],
+            ['02', L('Te grabas', 'Record yourself'),             L('Usamos tu cámara y micrófono — nada se sube sin tu ok.', 'We use your camera and mic — nothing is uploaded without your ok.')],
             ['03', L('IA analiza', 'AI analyzes'),            L('Pose, voz, gestos faciales y discurso en segundos.', 'Pose, voice, facial gestures and delivery in seconds.')],
-            ['04', L('Mejorás', 'You improve'),               L('Métricas claras y sugerencias accionables para la próxima vez.', 'Clear metrics and actionable tips for next time.')],
+            ['04', L('Mejoras', 'You improve'),               L('Métricas claras y sugerencias accionables para la próxima vez.', 'Clear metrics and actionable tips for next time.')],
           ].map(([n, t, d]) => (
             <div key={n} style={{ textAlign: 'center' }}>
               <div className="mono" style={{ fontSize: 28, fontWeight: 200, color: 'var(--ink-20)', letterSpacing: '-0.02em', marginBottom: 10 }}>{n}</div>
@@ -202,7 +202,7 @@ const PublicLanding = ({ onStart }) => {
       {/* CTA BOTTOM */}
       <div style={{ textAlign: 'center', paddingBottom: 56 }}>
         <p style={{ fontSize: 14, color: 'var(--ink-50)', marginBottom: 20 }}>
-          {L('¿Listo para ver cómo te comunicás realmente?', 'Ready to see how you really communicate?')}
+          {L('¿Listo para ver cómo te comunicas realmente?', 'Ready to see how you really communicate?')}
         </p>
         <button className="btn btn-primary" onClick={onStart}
           style={{ padding: '16px 34px', fontSize: 13, letterSpacing: '0.14em', textTransform: 'uppercase', gap: 10 }}>
@@ -217,10 +217,10 @@ const PublicLanding = ({ onStart }) => {
             {L('Para empresas', 'For teams')}
           </div>
           <h2 style={{ fontSize: 28, fontWeight: 200, letterSpacing: '-0.02em', marginBottom: 14, lineHeight: 1.2 }}>
-            {L('Evaluá a todo tu equipo comercial desde un solo lugar', 'Evaluate your whole sales team from one place')}
+            {L('Evalúa a todo tu equipo comercial desde un solo lugar', 'Evaluate your whole sales team from one place')}
           </h2>
           <p style={{ fontSize: 13.5, color: 'var(--ink-50)', lineHeight: 1.65, marginBottom: 24 }}>
-            {L('Con el panel de administración podés ver el rendimiento de cada vendedor, detectar quién necesita coaching y medir la mejora en el tiempo con métricas reales.', 'With the admin panel you can see each seller\'s performance, spot who needs coaching and measure improvement over time with real metrics.')}
+            {L('Con el panel de administración puedes ver el rendimiento de cada vendedor, detectar quién necesita coaching y medir la mejora en el tiempo con métricas reales.', 'With the admin panel you can see each seller\'s performance, spot who needs coaching and measure improvement over time with real metrics.')}
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
             {[
@@ -266,7 +266,7 @@ const PublicLanding = ({ onStart }) => {
             {L('Planes que escalan con tu equipo', 'Plans that scale with your team')}
           </h2>
           <p style={{ fontSize: 13.5, color: 'var(--ink-50)', maxWidth: 540, margin: '0 auto', lineHeight: 1.65 }}>
-            {L('Sin contratos largos. Cancelá cuando quieras. Margen real para invertir en tus vendedores.', 'No long contracts. Cancel anytime. Real margin to invest in your sellers.')}
+            {L('Sin contratos largos. Cancela cuando quieras. Margen real para invertir en tus vendedores.', 'No long contracts. Cancel anytime. Real margin to invest in your sellers.')}
           </p>
         </div>
 
@@ -409,7 +409,7 @@ const PublicLanding = ({ onStart }) => {
             ))}
           </div>
           <div style={{ marginTop: 22, paddingTop: 18, borderTop: '1px solid var(--glass-border)', textAlign: 'center', fontSize: 12, color: 'var(--ink-50)' }}>
-            <strong style={{ color: 'var(--ink-80)' }}>1 token = $0.01 USD</strong> · {L('Pagás solo por lo que usás · Margen bruto del producto: 85%', 'Pay only for what you use · Product gross margin: 85%')}
+            <strong style={{ color: 'var(--ink-80)' }}>1 token = $0.01 USD</strong> · {L('Pagas solo por lo que usas · Margen bruto del producto: 85%', 'Pay only for what you use · Product gross margin: 85%')}
           </div>
         </div>
       </div>
@@ -426,9 +426,9 @@ const SCENARIOS = [
   {
     id: 'product-pitch',
     title: 'Pitch de producto',
-    description: 'Presentá tu producto o servicio a un cliente potencial.',
+    description: 'Presenta tu producto o servicio a un cliente potencial.',
     duration: '90 s',
-    prompt: 'Presentá tu producto o servicio a un decisor que hoy usa a tu competencia. Tenés 90 segundos para generar interés real.',
+    prompt: 'Presenta tu producto o servicio a un decisor que hoy usa a tu competencia. Tienes 90 segundos para generar interés real.',
     category: 'Pitch · Producto',
   },
   {
@@ -436,7 +436,7 @@ const SCENARIOS = [
     title: 'Apertura en frío',
     description: 'Primera llamada o contacto sin contexto previo.',
     duration: '60 s',
-    prompt: 'Contactá en frío a un directivo que no te conoce. Generá interés y conseguí 15 minutos en su agenda.',
+    prompt: 'Contacta en frío a un directivo que no te conoce. Genera interés y consigue 15 minutos en su agenda.',
     category: 'Apertura en frío',
   },
   {
@@ -444,23 +444,23 @@ const SCENARIOS = [
     title: 'Presentación ejecutiva',
     description: 'Exposición estructurada ante un panel directivo.',
     duration: '3 min',
-    prompt: 'Presentá una propuesta de valor ante un comité de dirección. Justificá el ROI y anticipá objeciones.',
+    prompt: 'Presenta una propuesta de valor ante un comité de dirección. Justifica el ROI y anticipa objeciones.',
     category: 'Presentación ejecutiva',
   },
   {
     id: 'objection',
     title: 'Manejo de objeciones',
-    description: 'Respondé la objeción más difícil: precio o timing.',
+    description: 'Responde la objeción más difícil: precio o timing.',
     duration: '90 s',
-    prompt: 'Tu prospecto dice: "Es interesante pero es muy caro y no es el momento". Respondé de forma consultiva sin bajar el precio.',
+    prompt: 'Tu prospecto dice: "Es interesante pero es muy caro y no es el momento". Responde de forma consultiva sin bajar el precio.',
     category: 'Objeciones',
   },
   {
     id: 'free',
     title: 'Pitch libre',
-    description: 'Sin restricciones — practicá lo que quieras evaluar.',
+    description: 'Sin restricciones — practica lo que quieras evaluar.',
     duration: 'Libre',
-    prompt: 'Usá este espacio para practicar cualquier aspecto de tu comunicación comercial. Sin guión impuesto.',
+    prompt: 'Usa este espacio para practicar cualquier aspecto de tu comunicación comercial. Sin guión impuesto.',
     category: 'Libre',
   },
 ];
@@ -480,10 +480,10 @@ const ScenarioSelector = ({ onSelect, onBack }) => {
           <button className="btn" onClick={onBack} style={{ marginBottom: 22 }}>{L('← Volver', '← Back')}</button>
           <StepProgress current={1} />
           <h2 style={{ fontSize: 34, fontWeight: 200, letterSpacing: '-0.02em', marginBottom: 8 }}>
-            {L('¿Qué querés evaluar?', 'What do you want to practice?')}
+            {L('¿Qué quieres evaluar?', 'What do you want to practice?')}
           </h2>
           <p style={{ color: 'var(--ink-50)', fontSize: 14 }}>
-            {L('Elegí el escenario y la IA calibra los parámetros de análisis.', 'Pick a scenario and the AI calibrates the analysis parameters.')}
+            {L('Elige el escenario y la IA calibra los parámetros de análisis.', 'Pick a scenario and the AI calibrates the analysis parameters.')}
           </p>
         </div>
 
@@ -703,7 +703,7 @@ const SellerDashboard = ({ user, onStart, onViewResult }) => {
             </div>
             <div style={{ fontSize: 14, fontWeight: 300, color: 'var(--ink-50)', marginBottom: 6 }}>{L('Todavía no hay evaluaciones', 'No evaluations yet')}</div>
             <div style={{ fontSize: 12, color: 'var(--ink-28)', marginBottom: 20, lineHeight: 1.6, maxWidth: 360, margin: '0 auto 20px' }}>
-              {L('Grabate 60–90 segundos y la IA analiza tu lenguaje corporal, voz y discurso en tiempo real.', 'Record 60–90 seconds and the AI analyzes your body language, voice and delivery in real time.')}
+              {L('Grábate 60–90 segundos y la IA analiza tu lenguaje corporal, voz y discurso en tiempo real.', 'Record 60–90 seconds and the AI analyzes your body language, voice and delivery in real time.')}
             </div>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 24, marginBottom: 22 }}>
               {[['body', L('Lenguaje corporal', 'Body language')], ['wave', L('Voz y prosodia', 'Voice & prosody')], ['sparkle', L('Score con IA', 'AI score')]].map(([icon, label]) => (
@@ -792,7 +792,7 @@ const BADGES_DEF = [
 const ScoreChart = ({ data }) => {
   if (!data || data.length < 2) return (
     <div style={{ height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-30)', fontSize: 12 }}>
-      {window.L('Completá al menos 2 evaluaciones para ver el gráfico de progreso.', 'Complete at least 2 evaluations to see the progress chart.')}
+      {window.L('Completa al menos 2 evaluaciones para ver el gráfico de progreso.', 'Complete at least 2 evaluations to see the progress chart.')}
     </div>
   );
   const W = 600, H = 140, PL = 36, PR = 16, PT = 12, PB = 28;
@@ -873,7 +873,7 @@ const SellerProgress = ({ user }) => {
             <div style={{ fontSize: 16, fontWeight: 300, letterSpacing: '-0.01em' }}>{L('Tu evolución', 'Your evolution')}</div>
             {!loading && (
               <div className="mono" style={{ fontSize: 10, color: 'var(--ink-30)', marginTop: 3 }}>
-                {completed.length === 0 ? L('completá evaluaciones para ver tu progreso', 'complete evaluations to see your progress') : `${completed.length} ${L(completed.length !== 1 ? 'evaluaciones completadas' : 'evaluación completada', 'completed')}`}
+                {completed.length === 0 ? L('completa evaluaciones para ver tu progreso', 'complete evaluations to see your progress') : `${completed.length} ${L(completed.length !== 1 ? 'evaluaciones completadas' : 'evaluación completada', 'completed')}`}
               </div>
             )}
           </div>
@@ -916,7 +916,7 @@ const SellerProgress = ({ user }) => {
                 <div style={{ height: 100, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 8, border: '1px dashed rgba(255,255,255,0.07)' }}>
                   <SIcon name="progress" size={20} stroke={1} style={{ color: 'rgba(255,255,255,0.12)' }} />
                   <div style={{ fontSize: 12, color: 'var(--ink-25)', textAlign: 'center' }}>
-                    {completed.length === 0 ? L('Completá tu primera evaluación para ver el gráfico', 'Complete your first evaluation to see the chart') : L('Necesitás al menos 2 evaluaciones para ver la evolución', 'You need at least 2 evaluations to see the evolution')}
+                    {completed.length === 0 ? L('Completa tu primera evaluación para ver el gráfico', 'Complete your first evaluation to see the chart') : L('Necesitas al menos 2 evaluaciones para ver la evolución', 'You need at least 2 evaluations to see the evolution')}
                   </div>
                 </div>
               ) : (
@@ -972,24 +972,24 @@ const SellerProgress = ({ user }) => {
    ============================================================ */
 const COACHING_TIPS = [
   { icon: 'wave', category: ['Voz y prosodia', 'Voice & prosody'], color: '#60a5fa', tips: [
-    ['Hacé pausas de 1–2 segundos antes de los puntos clave. El silencio refuerza el mensaje.', 'Pause for 1–2 seconds before key points. Silence reinforces the message.'],
-    ['Variá el tono: las preguntas retóricas suben, las afirmaciones fuertes bajan.', 'Vary your tone: rhetorical questions go up, strong statements go down.'],
-    ['Controlá las muletillas: contá cuántas veces usás "eh", "o sea", "básicamente" por minuto.', 'Watch filler words: count how often you say "um", "like", "basically" per minute.'],
+    ['Haz pausas de 1–2 segundos antes de los puntos clave. El silencio refuerza el mensaje.', 'Pause for 1–2 seconds before key points. Silence reinforces the message.'],
+    ['Varía el tono: las preguntas retóricas suben, las afirmaciones fuertes bajan.', 'Vary your tone: rhetorical questions go up, strong statements go down.'],
+    ['Controla las muletillas: cuenta cuántas veces usas "eh", "o sea", "básicamente" por minuto.', 'Watch filler words: count how often you say "um", "like", "basically" per minute.'],
   ]},
   { icon: 'body', category: ['Lenguaje corporal', 'Body language'], color: '#9ef5be', tips: [
-    ['Mantené contacto visual directo cuando describís el beneficio principal.', 'Keep direct eye contact when describing the main benefit.'],
+    ['Mantén contacto visual directo cuando describes el beneficio principal.', 'Keep direct eye contact when describing the main benefit.'],
     ['Gestos abiertos (palmas hacia arriba) generan más confianza que los brazos cruzados.', 'Open gestures (palms up) build more trust than crossed arms.'],
-    ['La postura recta pero relajada proyecta seguridad sin tensión. Evitá encogerte.', 'An upright but relaxed posture projects confidence without tension. Avoid slouching.'],
+    ['La postura recta pero relajada proyecta seguridad sin tensión. Evita encogerte.', 'An upright but relaxed posture projects confidence without tension. Avoid slouching.'],
   ]},
   { icon: 'brain', category: ['Estructura del discurso', 'Speech structure'], color: '#f9d45b', tips: [
-    ['Empezá con el problema del cliente, no con tu producto. El dolor primero.', "Start with the customer's problem, not your product. Pain first."],
+    ['Empieza con el problema del cliente, no con tu producto. El dolor primero.', "Start with the customer's problem, not your product. Pain first."],
     ['Una sola idea central por minuto de presentación. Más es ruido.', 'One core idea per minute of presentation. More is noise.'],
-    ['Cerrá siempre con un llamado a la acción concreto: fecha, número, próximo paso.', 'Always close with a concrete call to action: a date, a number, a next step.'],
+    ['Cierra siempre con un llamado a la acción concreto: fecha, número, próximo paso.', 'Always close with a concrete call to action: a date, a number, a next step.'],
   ]},
   { icon: 'sparkle', category: ['Manejo de objeciones', 'Objection handling'], color: '#f97316', tips: [
-    ['Ante "es caro": validá la preocupación primero, luego anclá en ROI, no en precio.', 'On "it\'s expensive": validate the concern first, then anchor on ROI, not price.'],
-    ['Ante "no es el momento": preguntá qué tendría que pasar para que sí lo sea.', 'On "it\'s not the right time": ask what would need to happen for it to be.'],
-    ['Evitá el silencio incómodo: si no sabés la respuesta, pedí tiempo para investigar.', "Avoid awkward silence: if you don't know the answer, ask for time to look into it."],
+    ['Ante "es caro": valida la preocupación primero, luego ancla en ROI, no en precio.', 'On "it\'s expensive": validate the concern first, then anchor on ROI, not price.'],
+    ['Ante "no es el momento": pregunta qué tendría que pasar para que sí lo sea.', 'On "it\'s not the right time": ask what would need to happen for it to be.'],
+    ['Evita el silencio incómodo: si no sabes la respuesta, pide tiempo para investigar.', "Avoid awkward silence: if you don't know the answer, ask for time to look into it."],
   ]},
 ];
 
@@ -1233,8 +1233,8 @@ const SellerPlan = ({ user }) => {
             </div>
             <p style={{ fontSize: 13.5, color: 'var(--ink-50)', marginBottom: 24, lineHeight: 1.65 }}>
               {upgradeTarget.id === 'enterprise'
-                ? L('Contactá a nuestro equipo para armar un plan a medida para tu organización.', 'Contact our team to build a custom plan for your organization.')
-                : `${L('Estás a punto de actualizar al plan', 'You are about to upgrade to the')} ${upgradeTarget.name} ${L('plan', 'plan')}. ${L('Un representante de Apex Vision se va a comunicar con vos para completar el proceso.', 'An Apex Vision rep will reach out to complete the process.')}`}
+                ? L('Contacta a nuestro equipo para armar un plan a medida para tu organización.', 'Contact our team to build a custom plan for your organization.')
+                : `${L('Estás a punto de actualizar al plan', 'You are about to upgrade to the')} ${upgradeTarget.name} ${L('plan', 'plan')}. ${L('Un representante de Apex Vision se comunicará contigo para completar el proceso.', 'An Apex Vision rep will reach out to complete the process.')}`}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
               {upgradeTarget.features.slice(0, 4).map((f, i) => (
@@ -1289,6 +1289,7 @@ const SellerSettings = ({ user, onUserUpdate }) => {
     e.preventDefault();
     setPwError('');
     if (pwNew.length < 6) { setPwError(L('La nueva contraseña debe tener al menos 6 caracteres.', 'The new password must be at least 6 characters.')); return; }
+    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9])/.test(pwNew)) { setPwError(L('La contraseña debe contener al menos 1 mayúscula, 1 minúscula y 1 carácter especial.', 'Password must contain at least 1 uppercase letter, 1 lowercase letter, and 1 special character.')); return; }
     if (pwNew !== pwConfirm) { setPwError(L('Las contraseñas no coinciden.', 'Passwords do not match.')); return; }
     setPwSaved(true);
     setTimeout(() => { setPwSaved(false); setPwCurrent(''); setPwNew(''); setPwConfirm(''); }, 2500);
@@ -1359,9 +1360,9 @@ const SellerSettings = ({ user, onUserUpdate }) => {
               <input type="password" value={pwNew} onChange={e => setPwNew(e.target.value)}
                 placeholder={L('Mínimo 6 caracteres', 'Minimum 6 characters')} required style={inputStyle} />
             </Field>
-            <Field label={L('Confirmá la nueva contraseña', 'Confirm new password')}>
+            <Field label={L('Confirma la nueva contraseña', 'Confirm new password')}>
               <input type="password" value={pwConfirm} onChange={e => setPwConfirm(e.target.value)}
-                placeholder={L('Repetí la contraseña', 'Repeat the password')} required style={inputStyle} />
+                placeholder={L('Repite la contraseña', 'Repeat the password')} required style={inputStyle} />
             </Field>
             {pwError && (
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', borderRadius: 7, background: 'rgba(252,165,165,0.08)', border: '1px solid rgba(252,165,165,0.2)' }}>
@@ -1684,7 +1685,7 @@ const SellerMainDashboard = ({ user, onStart, onGoTab }) => {
               {trend !== null ? (trend > 0 ? `+${trend}` : `${trend}`) : '—'}
             </div>
             <div style={{ fontSize: 10, color: 'var(--ink-25)', marginTop: 8 }}>
-              {trend !== null ? L('vs evaluación anterior', 'vs previous evaluation') : L('necesitás 2+ evaluaciones', 'you need 2+ evaluations')}
+              {trend !== null ? L('vs evaluación anterior', 'vs previous evaluation') : L('necesitas 2+ evaluaciones', 'you need 2+ evaluations')}
             </div>
           </div>
         </div>

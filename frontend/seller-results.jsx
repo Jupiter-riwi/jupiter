@@ -126,33 +126,33 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
   // Fallbacks ricos según rango de score — el usuario SIEMPRE recibe feedback útil
   const fallbackByScore = (s) => {
     if (s <= 15) return [
-      { area: L('Comunicación', 'Communication'),   tip: L('No se detectó discurso. Activá el micrófono y grabá un pitch de al menos 60 segundos. Meta: superar 80 palabras transcritas.', 'No speech detected. Turn on your mic and record a pitch of at least 60 seconds. Goal: pass 80 transcribed words.') },
-      { area: L('Estructura', 'Structure'),     tip: L('Empezá con un hook (problema), seguí con tu solución y cerrá con una llamada a acción concreta.', 'Start with a hook (the problem), follow with your solution, and close with a concrete call to action.') },
-      { area: L('Lenguaje corporal', 'Body language'), tip: L('Asegurate de aparecer frente a cámara con buena luz y pose estable. Sin video o sin persona no se evalúa.', 'Make sure you appear on camera with good light and a stable pose. Without video or a person it cannot be evaluated.') },
-      { area: L('Setup', 'Setup'),          tip: L('Probá el micrófono antes de grabar (los videos en silencio se descartan automáticamente).', 'Test your mic before recording (silent videos are discarded automatically).') },
+      { area: L('Comunicación', 'Communication'),   tip: L('No se detectó discurso. Activa el micrófono y graba un pitch de al menos 60 segundos. Meta: superar 80 palabras transcritas.', 'No speech detected. Turn on your mic and record a pitch of at least 60 seconds. Goal: pass 80 transcribed words.') },
+      { area: L('Estructura', 'Structure'),     tip: L('Empieza con un hook (problema), sigue con tu solución y cierra con una llamada a acción concreta.', 'Start with a hook (the problem), follow with your solution, and close with a concrete call to action.') },
+      { area: L('Lenguaje corporal', 'Body language'), tip: L('Asegúrate de aparecer frente a cámara con buena luz y pose estable. Sin video o sin persona no se evalúa.', 'Make sure you appear on camera with good light and a stable pose. Without video or a person it cannot be evaluated.') },
+      { area: L('Setup', 'Setup'),          tip: L('Prueba el micrófono antes de grabar (los videos en silencio se descartan automáticamente).', 'Test your mic before recording (silent videos are discarded automatically).') },
     ];
     if (s <= 35) return [
-      { area: L('Duración', 'Duration'),       tip: L('Tu pitch fue muy corto. Usá los 90 segundos completos: cubrí problema + solución + diferencial + CTA.', 'Your pitch was too short. Use the full 90 seconds: cover problem + solution + differentiator + CTA.') },
-      { area: L('Comunicación', 'Communication'),   tip: L('Agregá al menos 2 frases de contexto al inicio. Meta: superar 80 palabras totales.', 'Add at least 2 sentences of context at the start. Goal: pass 80 total words.') },
-      { area: L('Propuesta de valor', 'Value proposition'), tip: L('Hacé explícita tu propuesta de valor en una sola frase: "Ayudamos a [audiencia] a [beneficio] mediante [solución]".', 'Make your value proposition explicit in one sentence: "We help [audience] to [benefit] through [solution]."') },
-      { area: L('Cierre', 'Closing'),         tip: L('Terminá con una llamada a acción específica: "¿Podemos agendar 15 minutos esta semana?"', 'End with a specific call to action: "Can we schedule 15 minutes this week?"') },
+      { area: L('Duración', 'Duration'),       tip: L('Tu pitch fue muy corto. Usa los 90 segundos completos: cubre problema + solución + diferencial + CTA.', 'Your pitch was too short. Use the full 90 seconds: cover problem + solution + differentiator + CTA.') },
+      { area: L('Comunicación', 'Communication'),   tip: L('Agrega al menos 2 frases de contexto al inicio. Meta: superar 80 palabras totales.', 'Add at least 2 sentences of context at the start. Goal: pass 80 total words.') },
+      { area: L('Propuesta de valor', 'Value proposition'), tip: L('Haz explícita tu propuesta de valor en una sola frase: "Ayudamos a [audiencia] a [beneficio] mediante [solución]".', 'Make your value proposition explicit in one sentence: "We help [audience] to [benefit] through [solution]."') },
+      { area: L('Cierre', 'Closing'),         tip: L('Termina con una llamada a acción específica: "¿Podemos agendar 15 minutos esta semana?"', 'End with a specific call to action: "Can we schedule 15 minutes this week?"') },
     ];
     if (s <= 60) return [
-      { area: L('Estructura', 'Structure'),     tip: L('Reordená: hook (5s) → problema (15s) → solución (30s) → diferencial (20s) → CTA (10s).', 'Reorder: hook (5s) → problem (15s) → solution (30s) → differentiator (20s) → CTA (10s).') },
-      { area: L('Manejo objeciones', 'Objection handling'), tip: L('Anticipá una objeción común antes de que el prospecto la plantee. Ej: "Sé que el precio es una preocupación, pero..."', 'Anticipate a common objection before the prospect raises it. E.g.: "I know price is a concern, but..."') },
-      { area: L('Ritmo', 'Pace'),          tip: L('Apuntá a 130-160 palabras por minuto. Si vas más rápido, agregá pausas estratégicas.', 'Aim for 130-160 words per minute. If you go faster, add strategic pauses.') },
-      { area: L('Confianza', 'Confidence'),      tip: L('Practicá en voz alta 3 veces antes de grabar. La fluidez se nota.', 'Practice out loud 3 times before recording. Fluency shows.') },
+      { area: L('Estructura', 'Structure'),     tip: L('Reordena: hook (5s) → problema (15s) → solución (30s) → diferencial (20s) → CTA (10s).', 'Reorder: hook (5s) → problem (15s) → solution (30s) → differentiator (20s) → CTA (10s).') },
+      { area: L('Manejo objeciones', 'Objection handling'), tip: L('Anticipa una objeción común antes de que el prospecto la plantee. Ej: "Sé que el precio es una preocupación, pero..."', 'Anticipate a common objection before the prospect raises it. E.g.: "I know price is a concern, but..."') },
+      { area: L('Ritmo', 'Pace'),          tip: L('Apunta a 130-160 palabras por minuto. Si vas más rápido, agrega pausas estratégicas.', 'Aim for 130-160 words per minute. If you go faster, add strategic pauses.') },
+      { area: L('Confianza', 'Confidence'),      tip: L('Practica en voz alta 3 veces antes de grabar. La fluidez se nota.', 'Practice out loud 3 times before recording. Fluency shows.') },
     ];
     if (s <= 80) return [
-      { area: L('Refinamiento', 'Refinement'),   tip: L('Tu pitch está sólido. Pulí el cierre: termina con una pregunta abierta o agenda concreta.', 'Your pitch is solid. Polish the close: end with an open question or a concrete next step.') },
-      { area: L('Diferenciación', 'Differentiation'), tip: L('Agregá un dato cuantitativo que respalde tu diferencial (ej: "reducimos X un 40%").', 'Add a quantitative data point that backs your differentiator (e.g. "we reduce X by 40%").') },
-      { area: L('Lenguaje corporal', 'Body language'), tip: L('Mantené contacto visual con la cámara durante 80% del tiempo. Mirar a un lado quita confianza.', 'Keep eye contact with the camera 80% of the time. Looking away undermines confidence.') },
-      { area: L('Personalización', 'Personalization'), tip: L('Si conocés al prospecto, abrí mencionando algo específico de su empresa.', 'If you know the prospect, open by mentioning something specific about their company.') },
+      { area: L('Refinamiento', 'Refinement'),   tip: L('Tu pitch está sólido. Pule el cierre: termina con una pregunta abierta o agenda concreta.', 'Your pitch is solid. Polish the close: end with an open question or a concrete next step.') },
+      { area: L('Diferenciación', 'Differentiation'), tip: L('Agrega un dato cuantitativo que respalde tu diferencial (ej: "reducimos X un 40%").', 'Add a quantitative data point that backs your differentiator (e.g. "we reduce X by 40%").') },
+      { area: L('Lenguaje corporal', 'Body language'), tip: L('Mantén contacto visual con la cámara durante 80% del tiempo. Mirar a un lado quita confianza.', 'Keep eye contact with the camera 80% of the time. Looking away undermines confidence.') },
+      { area: L('Personalización', 'Personalization'), tip: L('Si conoces al prospecto, abre mencionando algo específico de su empresa.', 'If you know the prospect, open by mentioning something specific about their company.') },
     ];
     return [
-      { area: L('Excelencia', 'Excellence'),     tip: L('Pitch excelente. Para llevarlo a 95+: incorporá un mini caso de éxito de 1 frase.', 'Excellent pitch. To push it to 95+: add a one-sentence mini success story.') },
-      { area: L('Storytelling', 'Storytelling'),   tip: L('Considerá abrir con una historia breve (15s) para crear conexión emocional.', 'Consider opening with a brief story (15s) to create emotional connection.') },
-      { area: L('Cierre fuerte', 'Strong close'),  tip: L('Cerrá con confianza: enuncia la próxima acción esperada del prospecto.', 'Close with confidence: state the next action you expect from the prospect.') },
+      { area: L('Excelencia', 'Excellence'),     tip: L('Pitch excelente. Para llevarlo a 95+: incorpora un mini caso de éxito de 1 frase.', 'Excellent pitch. To push it to 95+: add a one-sentence mini success story.') },
+      { area: L('Storytelling', 'Storytelling'),   tip: L('Considera abrir con una historia breve (15s) para crear conexión emocional.', 'Consider opening with a brief story (15s) to create emotional connection.') },
+      { area: L('Cierre fuerte', 'Strong close'),  tip: L('Cierra con confianza: enuncia la próxima acción esperada del prospecto.', 'Close with confidence: state the next action you expect from the prospect.') },
     ];
   };
 
@@ -191,7 +191,7 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
         }
       }
     } catch (err) {
-      setCoachMessages(prev => [...prev, { role: 'assistant', content: L('No pude responder ahora. Reintentá en unos segundos.', "I couldn't respond now. Try again in a few seconds.") }]);
+      setCoachMessages(prev => [...prev, { role: 'assistant', content: L('No pude responder ahora. Reintenta en unos segundos.', "I couldn't respond now. Try again in a few seconds.") }]);
     } finally {
       setCoachBusy(false);
     }
@@ -206,7 +206,7 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <span
               className="mono"
-              title={L('Esta evaluación ya quedó registrada en el panel del admin. Podés revisarla cuando quieras.', 'This evaluation is already recorded in the admin panel. You can review it anytime.')}
+              title={L('Esta evaluación ya quedó registrada en el panel del admin. Puedes revisarla cuando quieras.', 'This evaluation is already recorded in the admin panel. You can review it anytime.')}
               style={{
                 fontSize: 10.5, color: '#9ef5be', letterSpacing: '0.16em', textTransform: 'uppercase',
                 padding: '6px 12px', border: '1px solid rgba(120,255,180,0.3)',
@@ -361,7 +361,7 @@ const SellerResults = ({ scenario, onBack, onPractice, evaluationData }) => {
             {L('Voice Coach (Bilingüe Ejecutivo)', 'Voice Coach (Executive Bilingual)')}
           </h3>
           <div className="mono" style={{ fontSize: 10.5, color: 'var(--ink-50)', marginBottom: 10 }}>
-            {L('Escribí tu duda o pedí: "reescribí mi pitch y léelo con las correcciones".', 'Type your question or ask: "rewrite my pitch and read it back with corrections".')}
+            {L('Escribe tu duda o pide: "reescribe mi pitch y léelo con las correcciones".', 'Type your question or ask: "rewrite my pitch and read it back with corrections".')}
           </div>
           <div style={{ maxHeight: 220, overflow: 'auto', border: '1px solid var(--glass-border)', borderRadius: 8, padding: 10, background: 'rgba(255,255,255,0.02)' }}>
             {coachMessages.length === 0 && (

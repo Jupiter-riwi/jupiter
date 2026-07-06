@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import base64
 import io
 import json
@@ -11,19 +9,22 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import logging
-
 import bcrypt
-
 logger = logging.getLogger("jupiter.gateway")
 import httpx
 import jwt
 import pika
 import psycopg2
 from dotenv import load_dotenv
-from fastapi import FastAPI, Header, HTTPException, Query, Request, UploadFile
+from fastapi import Body, FastAPI, Header, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from minio import Minio
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+limiter = Limiter(key_func=get_remote_address)
 
 load_dotenv()
 
@@ -106,6 +107,8 @@ def _publish_job(routing_key: str, body: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 app = FastAPI(title="Jupiter API Gateway", version="0.2.0")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Keep a direct reference to the FastAPI ASGI app *before* middlewares wrap it.
 # The _WSBypass middleware uses this to route WebSocket connections directly to
@@ -154,11 +157,6 @@ from app.billing.wallet import InsufficientBalance  # noqa: E402
 
 app.include_router(billing_router)
 app.include_router(billing_webhook_router)
-
-# Session contexts (job/product briefs that steer the live agent).
-from app.context.routes import router as context_router  # noqa: E402
-
-app.include_router(context_router)
 
 
 @app.exception_handler(InsufficientBalance)
@@ -216,7 +214,29 @@ class CoachChatResponse(BaseModel):
 
 class LoginRequest(BaseModel):
     email: str = Field(min_length=5, max_length=255)
+    password: str = Field(min_length=1, max_length=200)
+
+
+class RegisterRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=255)
     password: str = Field(min_length=6, max_length=200)
+    code: str = Field(min_length=8, max_length=50)
+
+    @field_validator('password')
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        import re
+        if not re.search(r'[a-z]', v):
+            raise ValueError('password must contain at least one lowercase letter')
+        if not re.search(r'[A-Z]', v):
+            raise ValueError('password must contain at least one uppercase letter')
+        if not re.search(r'[^a-zA-Z0-9]', v):
+            raise ValueError('password must contain at least one special character')
+        return v
+
+
+LoginRequest.model_rebuild()
+RegisterRequest.model_rebuild()
 
 
 class RefreshRequest(BaseModel):
@@ -373,6 +393,22 @@ def ensure_coach_history_table(conn: Any) -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_coach_messages_eval_user_created
                 ON coach_messages (evaluation_id, user_id, created_at DESC);
+            """
+        )
+    conn.commit()
+
+
+def ensure_registration_codes_table(conn: Any) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS registration_codes (
+                code TEXT PRIMARY KEY,
+                tenant_id UUID NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                used_at TIMESTAMPTZ NULL,
+                used_by_user_id UUID NULL
+            )
             """
         )
     conn.commit()
@@ -584,10 +620,56 @@ def _startup() -> None:
     with db_conn() as conn:
         ensure_evaluations_table(conn)
         ensure_coach_history_table(conn)
+        ensure_registration_codes_table(conn)
+
+
+@app.post("/api/auth/register", response_model=TokenPair)
+def auth_register(req: RegisterRequest) -> TokenPair:
+    hashed = bcrypt.hashpw(req.password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    code_norm = req.code.strip().upper()
+    with db_conn() as conn:
+        with conn.cursor() as cur:
+            # Race condition safe lookup with FOR UPDATE
+            cur.execute(
+                "SELECT tenant_id::text FROM registration_codes WHERE code = %s AND used_at IS NULL FOR UPDATE",
+                (code_norm,)
+            )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=400, detail="invalid or already used registration code")
+            tenant_id = row[0]
+
+            cur.execute("SELECT id FROM users WHERE email = %s", (req.email,))
+            if cur.fetchone():
+                raise HTTPException(status_code=400, detail="already registered")
+
+            user_id = str(uuid.uuid4())
+            cur.execute(
+                """
+                INSERT INTO users (id, tenant_id, email, password_hash, role)
+                VALUES (%s, %s::uuid, %s, %s, 'member')
+                """,
+                (user_id, tenant_id, req.email, hashed)
+            )
+
+            cur.execute(
+                """
+                UPDATE registration_codes
+                SET used_at = CURRENT_TIMESTAMP, used_by_user_id = %s::uuid
+                WHERE code = %s AND used_at IS NULL
+                """,
+                (user_id, code_norm)
+            )
+            conn.commit()
+
+    access = _build_token(user_id, tenant_id, "member", "access", timedelta(minutes=15))
+    refresh = _build_token(user_id, tenant_id, "member", "refresh", timedelta(days=7))
+    return TokenPair(access_token=access, refresh_token=refresh)
 
 
 @app.post("/api/auth/login", response_model=TokenPair)
-def auth_login(req: LoginRequest) -> TokenPair:
+@limiter.limit("5/minute")
+def auth_login(request: Request, req: LoginRequest = Body(...)) -> TokenPair:
     with db_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -668,8 +750,6 @@ def me(authorization: str | None = Header(default=None)) -> dict[str, Any]:
 
 class CreateEvaluationRequest(BaseModel):
     title: str = Field(min_length=1, max_length=255)
-    context_id: str | None = None
-    difficulty: str | None = Field(default=None, pattern=r"^(accesible|neutral|exigente)$")
 
 
 class EvaluationCreateResponse(BaseModel):
@@ -692,14 +772,12 @@ def create_evaluation(
         with conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO evaluations (id, tenant_id, user_id, title, video_key, status,
-                                         context_id, difficulty)
-                VALUES (%s::uuid, %s::uuid, %s::uuid, %s, %s, 'pending', %s::uuid, %s)
+                INSERT INTO evaluations (id, tenant_id, user_id, title, video_key, status)
+                VALUES (%s::uuid, %s::uuid, %s::uuid, %s, %s, 'pending')
                 RETURNING id::text, tenant_id::text, user_id::text, title, video_key,
                           status::text, score, features::text, created_at, updated_at
                 """,
-                (eval_id, tenant_id, user_id, req.title, video_key,
-                 req.context_id, req.difficulty),
+                (eval_id, tenant_id, user_id, req.title, video_key),
             )
             row = cur.fetchone()
         conn.commit()
@@ -951,4 +1029,60 @@ def coach_history(evaluation_id: str, authorization: str | None = Header(default
         "evaluation_id": evaluation_id,
         "messages": messages,
         "retrieved_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.post("/api/admin/registration-codes")
+def generate_registration_code(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    admin_id, tenant_id = _require_admin(authorization)
+    import secrets
+    rand_part1 = "".join(secrets.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") for _ in range(4))
+    rand_part2 = "".join(secrets.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") for _ in range(4))
+    code = f"APEX-{rand_part1}-{rand_part2}"
+
+    with db_conn() as conn:
+        ensure_registration_codes_table(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO registration_codes (code, tenant_id)
+                VALUES (%s, %s::uuid)
+                """,
+                (code, tenant_id)
+            )
+            conn.commit()
+
+    return {"code": code, "tenant_id": tenant_id}
+
+
+@app.get("/api/admin/registration-codes")
+def list_registration_codes(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    admin_id, tenant_id = _require_admin(authorization)
+    with db_conn() as conn:
+        ensure_registration_codes_table(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT rc.code, rc.tenant_id::text, rc.created_at, rc.used_at, rc.used_by_user_id::text, u.email
+                FROM registration_codes rc
+                LEFT JOIN users u ON rc.used_by_user_id::text = u.id::text
+                WHERE rc.tenant_id = %s::uuid
+                ORDER BY rc.created_at DESC
+                """,
+                (tenant_id,)
+            )
+            rows = cur.fetchall()
+
+    return {
+        "codes": [
+            {
+                "code": r[0],
+                "tenant_id": r[1],
+                "created_at": r[2].isoformat() if r[2] else None,
+                "used_at": r[3].isoformat() if r[3] else None,
+                "used_by_user_id": r[4],
+                "used_by_email": r[5],
+            }
+            for r in rows
+        ]
     }

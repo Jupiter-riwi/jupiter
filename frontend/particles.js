@@ -9,11 +9,14 @@
   let DPR = Math.min(window.devicePixelRatio || 1, 2);
   let W = 0, H = 0;
   const particles = [];
-  const COUNT = 70;
-  const MAX_DIST = 160;
-  const MOUSE_DIST = 220;
+  const COUNT = 60;           // reduced from 70 — fewer pairs = faster loop
+  const MAX_DIST = 140;       // reduced from 160
+  const MOUSE_DIST = 200;     // reduced from 220
+  const MAX_DIST_SQ = MAX_DIST * MAX_DIST;
+  const MOUSE_DIST_SQ = MOUSE_DIST * MOUSE_DIST;
 
   const mouse = { x: -9999, y: -9999, active: false };
+  let pendingMouse = null;    // rAF-throttled mouse position
 
   function resize() {
     W = window.innerWidth;
@@ -40,6 +43,14 @@
   }
 
   function step() {
+    // Consume pending mouse update inside rAF — zero main-thread overhead
+    if (pendingMouse) {
+      mouse.x = pendingMouse.clientX;
+      mouse.y = pendingMouse.clientY;
+      mouse.active = true;
+      pendingMouse = null;
+    }
+
     ctx.clearRect(0, 0, W, H);
 
     // Update positions
@@ -47,12 +58,11 @@
       p.x += p.vx;
       p.y += p.vy;
 
-      // Mouse repulsion (gentle)
       if (mouse.active) {
         const dx = p.x - mouse.x;
         const dy = p.y - mouse.y;
         const d2 = dx * dx + dy * dy;
-        if (d2 < MOUSE_DIST * MOUSE_DIST) {
+        if (d2 < MOUSE_DIST_SQ) {
           const d = Math.sqrt(d2) || 1;
           const f = (1 - d / MOUSE_DIST) * 0.6;
           p.x += (dx / d) * f;
@@ -66,63 +76,67 @@
       if (p.y > H + 10) p.y = -10;
     }
 
-    // Draw connections
+    // BATCH all connection lines into a single path — 1 stroke() call total
+    ctx.beginPath();
     for (let i = 0; i < particles.length; i++) {
       const a = particles[i];
       for (let j = i + 1; j < particles.length; j++) {
         const b = particles[j];
         const dx = a.x - b.x;
         const dy = a.y - b.y;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < MAX_DIST * MAX_DIST) {
-          const alpha = (1 - Math.sqrt(d2) / MAX_DIST) * 0.18;
-          ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
-          ctx.lineWidth = 0.5;
-          ctx.beginPath();
+        if (dx * dx + dy * dy < MAX_DIST_SQ) {
           ctx.moveTo(a.x, a.y);
           ctx.lineTo(b.x, b.y);
-          ctx.stroke();
         }
       }
+    }
+    ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke(); // single GPU flush for all connection lines
 
-      // Mouse line
-      if (mouse.active) {
+    // BATCH mouse lines — separate path for different color, 1 stroke() total
+    if (mouse.active) {
+      ctx.beginPath();
+      for (let i = 0; i < particles.length; i++) {
+        const a = particles[i];
         const dx = a.x - mouse.x;
         const dy = a.y - mouse.y;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < MOUSE_DIST * MOUSE_DIST) {
-          const alpha = (1 - Math.sqrt(d2) / MOUSE_DIST) * 0.35;
-          ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
-          ctx.lineWidth = 0.6;
-          ctx.beginPath();
+        if (dx * dx + dy * dy < MOUSE_DIST_SQ) {
           ctx.moveTo(a.x, a.y);
           ctx.lineTo(mouse.x, mouse.y);
-          ctx.stroke();
         }
       }
+      ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+      ctx.lineWidth = 0.6;
+      ctx.stroke(); // single GPU flush for all mouse lines
     }
 
     // Draw nodes
     for (const p of particles) {
-      ctx.fillStyle = `rgba(255,255,255,${p.a})`;
+      ctx.globalAlpha = p.a;
+      ctx.fillStyle = '#ffffff';
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.globalAlpha = 1;
 
     requestAnimationFrame(step);
   }
 
-  window.addEventListener('resize', () => { resize(); });
+  // passive: true — never blocks scrolling or input events
+  window.addEventListener('resize', resize, { passive: true });
   window.addEventListener('mousemove', (e) => {
-    mouse.x = e.clientX; mouse.y = e.clientY; mouse.active = true;
-  });
-  window.addEventListener('mouseleave', () => { mouse.active = false; });
+    pendingMouse = e; // store only — processed inside rAF to throttle automatically
+  }, { passive: true });
+  window.addEventListener('mouseleave', () => { mouse.active = false; }, { passive: true });
 
   resize();
   spawn();
   step();
 })();
+
+
 
 /* ============================================================
    FEED CANVAS — animated camera feed placeholder

@@ -41,14 +41,14 @@ const RecordingStage = ({ question, onClose, onComplete }) => {
       reasonText.includes('credito');
 
     if (isInsufficientFunds) {
-      return L('Límite de tasa en la API de Groq. Esperá unos segundos y volvé a intentar.', 'Rate limit on the Groq API. Wait a few seconds and try again.');
+      return L('Límite de tasa en la API de Groq. Espera unos segundos y vuelve a intentar.', 'Rate limit on the Groq API. Wait a few seconds and try again.');
     }
 
     if (reason) {
       return `${L('La evaluación falló durante el procesamiento', 'The evaluation failed during processing')}: ${reason}`;
     }
 
-    return L('La evaluación falló durante el procesamiento. Intentá de nuevo.', 'The evaluation failed during processing. Try again.');
+    return L('La evaluación falló durante el procesamiento. Intenta de nuevo.', 'The evaluation failed during processing. Try again.');
   };
 
   useEffect(() => {
@@ -189,7 +189,7 @@ const RecordingStage = ({ question, onClose, onComplete }) => {
           const elapsedMs = Date.now() - (startedAtRef.current || Date.now());
           if (elapsedMs > 180000) {
             clearInterval(pollRef.current);
-            setError(L('La evaluación está tardando demasiado. Reintentá en unos segundos. Si se repite, revisá los logs del worker de pose.', 'The evaluation is taking too long. Retry in a few seconds. If it persists, check the pose worker logs.'));
+            setError(L('La evaluación está tardando demasiado. Reintenta en unos segundos. Si se repite, revisa los logs del worker de pose.', 'The evaluation is taking too long. Retry in a few seconds. If it persists, check the pose worker logs.'));
             return;
           }
 
@@ -211,7 +211,7 @@ const RecordingStage = ({ question, onClose, onComplete }) => {
       console.error(e);
       const message = String(e?.message || 'Error inesperado');
       if (message.includes('401')) {
-        setError(L('Tu sesión expiró. Iniciá sesión de nuevo y reintentá la evaluación.', 'Your session expired. Sign in again and retry the evaluation.'));
+        setError(L('Tu sesión expiró. Inicia sesión de nuevo y reintenta la evaluación.', 'Your session expired. Sign in again and retry the evaluation.'));
       } else {
         setError(L('Error en el flujo create/upload/complete: ', 'Error in the create/upload/complete flow: ') + message);
       }
