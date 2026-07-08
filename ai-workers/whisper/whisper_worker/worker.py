@@ -53,6 +53,7 @@ class WhisperWorker:
             openai_api_base=settings.openai_api_base,
             groq_api_key=settings.groq_api_key,
             model=settings.whisper_model,
+            groq_model=settings.groq_whisper_model,
             temperature=settings.whisper_temperature,
             default_language=settings.whisper_language,
             include_word_timestamps=settings.whisper_word_timestamps,

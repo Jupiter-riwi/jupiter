@@ -38,6 +38,7 @@ class GroqWhisperClient:
         openai_api_base: str = "",
         groq_api_key: str = "",
         model: str = "whisper-1",
+        groq_model: str = "whisper-large-v3",
         temperature: float = 0.0,
         default_language: str | None = None,
         include_word_timestamps: bool = False,
@@ -66,6 +67,7 @@ class GroqWhisperClient:
             )
 
         self.model = model
+        self.groq_model = groq_model
         self.temperature = temperature
         self.default_language = default_language
         self.include_word_timestamps = include_word_timestamps
@@ -73,12 +75,11 @@ class GroqWhisperClient:
     def transcribe(
         self, audio_path: Path, *, language: str | None, prompt: str | None
     ) -> dict[str, Any]:
-        options = self._build_options(language, prompt)
-
         # Try OpenAI first
         if self.openai_client:
             try:
                 logger.info("Transcribing with OpenAI...")
+                options = self._build_options(self.model, language, prompt)
                 return self._transcribe_with(self.openai_client, audio_path, options)
             except (AuthenticationError, PermissionDeniedError) as exc:
                 logger.warning("OpenAI auth error, falling back to Groq: %s", exc)
@@ -91,6 +92,7 @@ class GroqWhisperClient:
         if self.groq_client:
             try:
                 logger.info("Transcribing with Groq...")
+                options = self._build_options(self.groq_model, language, prompt)
                 return self._transcribe_with(self.groq_client, audio_path, options)
             except AuthenticationError as exc:
                 raise WhisperTranscriptionError(str(exc), retryable=False) from exc
@@ -108,9 +110,11 @@ class GroqWhisperClient:
             "No transcription provider available", retryable=False
         )
 
-    def _build_options(self, language: str | None, prompt: str | None) -> dict[str, Any]:
+    def _build_options(
+        self, model: str, language: str | None, prompt: str | None
+    ) -> dict[str, Any]:
         options: dict[str, Any] = {
-            "model": self.model,
+            "model": model,
             "response_format": "verbose_json",
             "temperature": self.temperature,
         }
