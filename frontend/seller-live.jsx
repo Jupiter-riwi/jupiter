@@ -284,9 +284,15 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore, initia
     ws.onmessage = onWsMessage; ws.onerror = () => setErr(t('live.err.connect'));
     ws.onclose = (ev) => { if (!finishingRef.current && ev.code !== 1000) setErr(x => x || t('live.err.connect')); };
 
+    // Reuse the context unlocked in enterLive() (see unlockPlayback). Only create
+    // one here as a fallback (e.g. desktop, where no gesture-unlock is needed).
     const PCtx = window.AudioContext || window.webkitAudioContext;
-    const playCtx = new PCtx(); playCtxRef.current = playCtx;
-    const pAn = playCtx.createAnalyser(); pAn.fftSize = 512; pAn.connect(playCtx.destination); playAnalyserRef.current = pAn;
+    let playCtx = playCtxRef.current;
+    if (!playCtx) {
+      playCtx = new PCtx(); playCtxRef.current = playCtx;
+      const pAn = playCtx.createAnalyser(); pAn.fftSize = 512; pAn.connect(playCtx.destination); playAnalyserRef.current = pAn;
+    }
+    try { await playCtx.resume(); } catch (_) {}  // iOS: keep output running
 
     // Request camera + mic. The camera feed is recorded for post-session body-language
     // analysis (pose/prosody/whisper); the audio track drives the live conversation.
@@ -423,7 +429,29 @@ window.LiveRoom = function LiveRoom({ onClose, initialMode, initialScore, initia
   useEffect(() => { if (transcriptEndRef.current) transcriptEndRef.current.scrollIntoView({ behavior: 'smooth' }); }, [turns, partial]);
 
   const roleList = ROLE_DEF[mode] || ROLE_DEF.presentacion;
-  const enterLive = () => { setPhase('live'); setTimeout(() => startLive(), 50); };
+
+  // iOS Safari starts every AudioContext *suspended* and only a real user
+  // gesture can unlock audio OUTPUT. startLive() runs after awaits (token check,
+  // getUserMedia) so the gesture is already gone by the time it creates the
+  // context — that's why on iPhone the agent hears you but never speaks. We
+  // create + resume the playback context here, synchronously inside the tap,
+  // and prime it with one silent sample to fully unlock output.
+  const unlockPlayback = useCallback(() => {
+    try {
+      const PCtx = window.AudioContext || window.webkitAudioContext;
+      let ctx = playCtxRef.current;
+      if (!ctx) {
+        ctx = new PCtx(); playCtxRef.current = ctx;
+        const an = ctx.createAnalyser(); an.fftSize = 512; an.connect(ctx.destination);
+        playAnalyserRef.current = an;
+      }
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+      const buf = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource(); src.buffer = buf; src.connect(ctx.destination); src.start(0);
+    } catch (_) {}
+  }, []);
+
+  const enterLive = () => { unlockPlayback(); setPhase('live'); setTimeout(() => startLive(), 50); };
   const leave = () => { endSession(); onClose && onClose(); };
   // Stop listening to the mic immediately (VAD + PTT capture) so no more turns are sent.
   const stopListening = useCallback(() => {
